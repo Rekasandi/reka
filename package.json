@@ -1,0 +1,32 @@
+{
+  "name": "reka-monorepo",
+  "private": true,
+  "packageManager": "pnpm@10.33.2",
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev --filter=@reka/web --filter=@reka/api",
+    "dev:all": "turbo run dev",
+    "dev:web": "turbo run dev --filter=@reka/web",
+    "dev:api": "turbo run dev --filter=@reka/api",
+    "dev:worker": "turbo run dev --filter=@reka/worker",
+    "lint": "turbo run lint",
+    "type-check": "turbo run type-check",
+    "clean": "turbo run clean",
+    "db:generate": "turbo run db:generate",
+    "db:migrate": "turbo run db:migrate",
+    "db:push": "turbo run db:push",
+    "db:seed": "turbo run db:seed"
+  },
+  "devDependencies": {
+    "prettier": "^3.5.3",
+    "turbo": "^2.4.4",
+    "typescript": "^5.8.2"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "dependencies": {
+    "@neon/config": "^1.7.3",
+    "@neon/env": "^1.4.4"
+  }
+}

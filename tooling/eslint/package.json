@@ -1,0 +1,10 @@
+{
+  "name": "@reka/eslint-config",
+  "version": "0.1.0",
+  "private": true,
+  "files": [
+    "base.js",
+    "react.js",
+    "nestjs.js"
+  ]
+}
