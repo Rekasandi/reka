@@ -6,6 +6,7 @@ export interface CreateIssueInput {
   status?: string;
   priority?: string;
   type?: string;
+  parentId?: string | null;
 }
 
 export async function getIssues(status?: string): Promise<Issue[]> {
@@ -48,4 +49,12 @@ export async function deleteIssue(id: string): Promise<void> {
   if (!res.ok) {
     throw new Error('Failed to delete issue');
   }
+}
+
+export async function getSubtasks(issueId: string): Promise<Issue[]> {
+  const res = await fetch(`/api/issues/${issueId}/subtasks`);
+  if (!res.ok) {
+    throw new Error('Failed to fetch subtasks');
+  }
+  return res.json();
 }

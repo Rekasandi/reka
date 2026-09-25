@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getIssues, createIssue, updateIssue, deleteIssue, type CreateIssueInput } from '../api/issues.api';
+import { getIssues, createIssue, updateIssue, deleteIssue, getSubtasks, type CreateIssueInput } from '../api/issues.api';
 import type { Issue } from '@reka/types';
 import { toast } from '@reka/ui';
 
@@ -61,6 +61,39 @@ export function useDeleteIssue() {
     },
     onError: (err) => {
       toast.error('Failed to delete issue', {
+        description: (err as Error).message,
+      });
+    },
+  });
+}
+
+export function useSubtasks(issueId?: string) {
+  return useQuery({
+    queryKey: ['subtasks', issueId],
+    queryFn: () => (issueId ? getSubtasks(issueId) : Promise.resolve([])),
+    enabled: !!issueId,
+  });
+}
+
+export function useCreateSubtask(parentId?: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (title: string) =>
+      createIssue({
+        title,
+        parentId,
+        type: 'task',
+        status: 'todo',
+        priority: 'no_priority',
+      }),
+    onSuccess: (newSubtask) => {
+      queryClient.invalidateQueries({ queryKey: ['subtasks', parentId] });
+      queryClient.invalidateQueries({ queryKey: ISSUES_QUERY_KEY });
+      toast.success(`Sub-task ${newSubtask.identifier} added`);
+    },
+    onError: (err) => {
+      toast.error('Failed to add sub-task', {
         description: (err as Error).message,
       });
     },
