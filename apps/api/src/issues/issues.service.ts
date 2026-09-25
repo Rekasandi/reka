@@ -1,12 +1,15 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { DatabaseService } from '../common/database/database.service';
-import { issues, teams, users, activities } from '@reka/database';
+import { issues, teams, users, activities, githubRepositories, sessions } from '@reka/database';
 import { eq, desc } from 'drizzle-orm';
 import { CreateIssueDto } from './dto/create-issue.dto';
 import { UpdateIssueDto } from './dto/update-issue.dto';
+import { GITHUB_USER_TOKENS } from '../auth/auth.service';
 
 @Injectable()
 export class IssuesService {
+  private readonly logger = new Logger(IssuesService.name);
+
   constructor(private readonly database: DatabaseService) {}
 
   async findAll(status?: string) {
@@ -82,7 +85,7 @@ export class IssuesService {
     const nextNumber = (latest?.number ?? 0) + 1;
     const identifier = `${teamKey}-${nextNumber}`;
 
-    // 4. Insert Issue
+    // 4. Create Issue in REKA Database
     const [created] = await this.database.db
       .insert(issues)
       .values({
@@ -95,12 +98,17 @@ export class IssuesService {
         type: dto.type || 'task',
         teamId,
         projectId: dto.projectId || null,
+        parentId: dto.parentId || null,
+        cycleId: dto.cycleId || null,
         assigneeId: dto.assigneeId || reporterId,
         reporterId,
       })
       .returning();
 
-    // 5. Record activity
+    // 5. Automatic Linear-style GitHub Issue Creation (Sync)
+    void this.syncToGithub(created, reporterId);
+
+    // 6. Record activity
     await this.database.db.insert(activities).values({
       actorId: reporterId,
       issueId: created.id,
@@ -110,6 +118,97 @@ export class IssuesService {
     });
 
     return created;
+  }
+
+  private async syncToGithub(issue: typeof issues.$inferSelect, userId: string) {
+    try {
+      // Find connected repository
+      const [repo] = await this.database.db.select().from(githubRepositories).limit(1);
+      if (!repo) {
+        this.logger.warn('No GitHub repository connected to sync issues to.');
+        return;
+      }
+
+      // 1. Get token from active session or fallback to first available token in memory
+      let token = GITHUB_USER_TOKENS.get(userId);
+      if (!token) {
+        // Try any token stored during login
+        for (const [_, val] of GITHUB_USER_TOKENS.entries()) {
+          if (val) {
+            token = val;
+            break;
+          }
+        }
+      }
+
+      token = token || process.env.GITHUB_TOKEN;
+
+      if (!token) {
+        this.logger.warn('No active GitHub OAuth token available. Re-login via GitHub or set GITHUB_TOKEN in .env to enable auto-sync.');
+        return;
+      }
+
+      const bodyText = `
+**[${issue.identifier}]** ${issue.title}
+
+${issue.description || 'No description provided.'}
+
+---
+*Created automatically from REKA Workspace*
+- **Type**: ${issue.type}
+- **Priority**: ${issue.priority}
+- **Status**: ${issue.status}
+      `.trim();
+
+      const res = await fetch(`https://api.github.com/repos/${repo.fullName}/issues`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: 'application/vnd.github.v3+json',
+          'Content-Type': 'application/json',
+          'User-Agent': 'REKA-Platform-App',
+        },
+        body: JSON.stringify({
+          title: `[${issue.identifier}] ${issue.title}`,
+          body: bodyText,
+        }),
+      });
+
+      if (res.ok) {
+        const ghIssue = (await res.json()) as any;
+        await this.database.db
+          .update(issues)
+          .set({
+            githubIssueNumber: ghIssue.number,
+            githubIssueUrl: ghIssue.html_url,
+          })
+          .where(eq(issues.id, issue.id));
+
+        await this.database.db.insert(activities).values({
+          issueId: issue.id,
+          type: 'github.issue_created',
+          metadata: {
+            githubIssueNumber: ghIssue.number,
+            githubIssueUrl: ghIssue.html_url,
+          },
+        });
+
+        this.logger.log(`✅ Synced issue ${issue.identifier} to GitHub Issue #${ghIssue.number} in ${repo.fullName}`);
+      } else {
+        const errJson = await res.json().catch(() => null);
+        this.logger.error(`GitHub API responded with ${res.status}: ${JSON.stringify(errJson)}`);
+      }
+    } catch (err) {
+      this.logger.error('Failed to sync issue to GitHub Issues:', err);
+    }
+  }
+
+  async findSubtasks(parentId: string) {
+    return this.database.db
+      .select()
+      .from(issues)
+      .where(eq(issues.parentId, parentId))
+      .orderBy(desc(issues.createdAt));
   }
 
   async update(id: string, dto: UpdateIssueDto) {
@@ -144,6 +243,6 @@ export class IssuesService {
   async delete(id: string) {
     await this.findById(id);
     await this.database.db.delete(issues).where(eq(issues.id, id));
-    return { success: true, id };
+    return { success: true };
   }
 }

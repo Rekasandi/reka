@@ -17,6 +17,11 @@ export class IssuesController {
     return this.issuesService.findById(id);
   }
 
+  @Get(':id/subtasks')
+  findSubtasks(@Param('id') id: string) {
+    return this.issuesService.findSubtasks(id);
+  }
+
   @Get('by-identifier/:identifier')
   findByIdentifier(@Param('identifier') identifier: string) {
     return this.issuesService.findByIdentifier(identifier);

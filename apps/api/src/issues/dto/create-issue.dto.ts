@@ -35,4 +35,12 @@ export class CreateIssueDto {
   @IsString()
   @IsOptional()
   assigneeId?: string;
+
+  @IsString()
+  @IsOptional()
+  parentId?: string;
+
+  @IsString()
+  @IsOptional()
+  cycleId?: string;
 }
