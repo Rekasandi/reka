@@ -28,6 +28,8 @@ export const issues = pgTable('issues', {
   parentId: uuid('parent_id'),
   estimate: integer('estimate'),
   dueDate: timestamp('due_date', { withTimezone: true }),
+  githubIssueNumber: integer('github_issue_number'),
+  githubIssueUrl: text('github_issue_url'),
   sortOrder: integer('sort_order').notNull().default(0),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),

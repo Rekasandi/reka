@@ -18,6 +18,8 @@ export interface Issue {
   parentId?: string | null;
   estimate?: number | null;
   dueDate?: Date | null;
+  githubIssueNumber?: number | null;
+  githubIssueUrl?: string | null;
   sortOrder: number;
   createdAt: Date;
   updatedAt: Date;

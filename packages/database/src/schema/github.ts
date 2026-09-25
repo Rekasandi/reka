@@ -62,10 +62,15 @@ export const githubPullRequests = pgTable('github_pull_requests', {
   issueId: uuid('issue_id').references(() => issues.id, { onDelete: 'set null' }),
   prNumber: integer('pr_number').notNull(),
   title: varchar('title', { length: 512 }).notNull(),
-  state: varchar('state', { length: 32 }).notNull().default('open'),
+  state: varchar('state', { length: 32 }).notNull().default('open'), // 'open' | 'closed'
   merged: boolean('merged').notNull().default(false),
   branchName: varchar('branch_name', { length: 255 }).notNull(),
   htmlUrl: text('html_url').notNull(),
+  ciStatus: varchar('ci_status', { length: 32 }).notNull().default('pending'), // 'pending' | 'success' | 'failure'
+  reviewStatus: varchar('review_status', { length: 32 }).notNull().default('none'), // 'none' | 'changes_requested' | 'approved'
+  deployEnv: varchar('deploy_env', { length: 64 }), // 'production' | 'preview'
+  deployUrl: text('deploy_url'),
+  releaseTag: varchar('release_tag', { length: 64 }), // e.g. 'v1.2.0'
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
