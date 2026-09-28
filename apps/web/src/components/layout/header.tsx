@@ -38,15 +38,17 @@ export function Header() {
   const { user, logout } = useAuthStore();
   const navigate = useNavigate();
 
-  const displayName = user?.name || 'Gustam';
-  const displayEmail = user?.email || 'owner@rekasandi.com';
+  const displayName = user?.name || '';
+  const displayEmail = user?.email || '';
   const displayAvatar = user?.avatarUrl || undefined;
-  const displayInitial = (displayName[0] || 'G').toUpperCase();
+  const displayInitial = (displayName[0] || displayEmail[0] || 'U').toUpperCase();
 
   // Extract GitHub username if available
-  const githubUsername = displayEmail.includes('@users.noreply.github.com')
-    ? displayEmail.replace('@users.noreply.github.com', '')
-    : displayName.toLowerCase().replace(/\s+/g, '');
+  const githubUsername =
+    user?.githubUsername ||
+    (displayEmail.includes('@users.noreply.github.com')
+      ? displayEmail.replace('@users.noreply.github.com', '')
+      : (displayEmail ? displayEmail.split('@')[0] : ''));
 
   return (
     <header className="h-11 border-b border-border px-4 flex items-center justify-between bg-card/20 backdrop-blur-xs select-none gap-2">
@@ -60,7 +62,7 @@ export function Header() {
         >
           <Search className="size-3.5" />
           <span className="truncate">Search or jump to...</span>
-          <kbd className="ml-4 flex items-center gap-0.5 rounded border border-border bg-background px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground">
+          <kbd className="ml-4 flex items-center gap-0.5 rounded border border-border bg-background px-1.5 py-0.5 text-xs font-mono text-muted-foreground">
             <Command className="size-2.5" />K
           </kbd>
         </button>
@@ -78,13 +80,13 @@ export function Header() {
             >
               <Avatar className="size-6 border border-border">
                 {displayAvatar && <AvatarImage src={displayAvatar} alt={displayName} />}
-                <AvatarFallback className="bg-primary/15 text-foreground text-[10px] font-medium">
+                <AvatarFallback className="bg-primary/15 text-foreground text-xs font-medium">
                   {displayInitial}
                 </AvatarFallback>
               </Avatar>
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56 p-1.5 rounded-[10px]">
+          <DropdownMenuContent align="end" className="w-56 p-1.5 rounded-lg">
             <DropdownMenuLabel className="p-2 pb-2.5">
               <div className="flex items-center gap-3">
                 <Avatar className="size-8 border border-border shrink-0">
@@ -97,14 +99,14 @@ export function Header() {
                   <p className="text-xs font-semibold leading-tight text-foreground truncate">
                     {displayName}
                   </p>
-                  <p className="text-[11px] leading-tight text-muted-foreground font-mono truncate">
+                  <p className="text-xs leading-tight text-muted-foreground font-mono truncate">
                     {displayEmail}
                   </p>
                 </div>
               </div>
 
               {/* GitHub Connected Profile Badge */}
-              <div className="mt-2.5 flex items-center gap-1.5 px-2 py-1 rounded-[5px] bg-secondary/60 border border-border/60 text-[10px] font-mono text-muted-foreground">
+              <div className="mt-2.5 flex items-center gap-1.5 px-2 py-1 rounded-[5px] bg-secondary/60 border border-border/60 text-xs font-mono text-muted-foreground">
                 <GithubIcon className="size-3 text-muted-foreground shrink-0" />
                 <span className="truncate text-foreground font-medium">github.com/{githubUsername}</span>
               </div>

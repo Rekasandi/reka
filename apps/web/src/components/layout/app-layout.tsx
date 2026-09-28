@@ -10,11 +10,11 @@ export function AppLayout() {
   useKeyboardShortcuts();
 
   return (
-    <SidebarProvider>
+    <SidebarProvider className="min-h-screen overflow-x-hidden">
       <AppSidebar />
-      <SidebarInset>
+      <SidebarInset className="min-w-0 flex-1 overflow-hidden">
         <Header />
-        <div className="flex-1 overflow-y-auto p-6 bg-background">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden p-6 bg-background">
           <Outlet />
         </div>
       </SidebarInset>

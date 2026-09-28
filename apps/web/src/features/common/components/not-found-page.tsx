@@ -28,15 +28,15 @@ export function NotFoundPage() {
         </div>
 
         {/* Minimal Hairline Wire Card */}
-        <div className="w-full rounded-[12px] border border-border/70 bg-card/30 p-4 flex flex-col gap-2 text-left font-mono text-xs text-muted-foreground">
-          <div className="flex items-center justify-between pb-2 border-b border-border/50 text-[11px]">
+        <div className="w-full rounded-lg border border-border/70 bg-card/30 p-4 flex flex-col gap-2 text-left font-mono text-xs text-muted-foreground">
+          <div className="flex items-center justify-between pb-2 border-b border-border/50 text-xs">
             <span className="text-foreground font-medium flex items-center gap-1.5">
               <Compass className="size-3.5 text-muted-foreground" />
               <span>Location Lookup</span>
             </span>
             <span className="text-muted-foreground/60">{window.location.pathname}</span>
           </div>
-          <p className="text-[11px] leading-relaxed pt-1 text-muted-foreground/80">
+          <p className="text-xs leading-relaxed pt-1 text-muted-foreground/80">
             Verify the URL in your browser or jump back to an active workspace surface.
           </p>
         </div>

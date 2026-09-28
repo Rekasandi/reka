@@ -96,7 +96,7 @@ export function LoginPage() {
               <div className="absolute inset-0 flex items-center">
                 <div className="w-full border-t border-border/70" />
               </div>
-              <span className="relative bg-background px-2 text-[10px] font-mono text-muted-foreground uppercase">
+              <span className="relative bg-background px-2 text-xs text-muted-foreground">
                 or
               </span>
             </div>
@@ -150,54 +150,54 @@ export function LoginPage() {
 
         {/* Clean, authentic task preview block */}
         <div className="my-auto w-full max-w-sm mx-auto flex flex-col gap-2.5 relative z-10">
-          <div className="text-[11px] font-mono text-muted-foreground uppercase tracking-wider mb-1">
+          <div className="text-xs text-muted-foreground tracking-wider mb-1">
             Active Sprint
           </div>
 
-          <div className="rounded-[8px] border border-border/80 bg-background/90 p-3 shadow-xs flex items-center justify-between gap-3 text-xs">
+          <div className="rounded-lg border border-border/80 bg-background/90 p-3 shadow-xs flex items-center justify-between gap-3 text-xs">
             <div className="flex items-center gap-2 truncate">
-              <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-secondary font-medium">
+              <span className="font-mono text-xs px-1.5 py-0.5 rounded bg-secondary font-medium">
                 RS-1
               </span>
               <span className="font-medium text-foreground truncate">
                 Design system component audit
               </span>
             </div>
-            <span className="text-[10px] font-mono text-emerald-500 shrink-0">
+            <span className="text-xs font-mono text-emerald-500 shrink-0">
               Done
             </span>
           </div>
 
-          <div className="rounded-[8px] border border-border/80 bg-background/90 p-3 shadow-xs flex items-center justify-between gap-3 text-xs">
+          <div className="rounded-lg border border-border/80 bg-background/90 p-3 shadow-xs flex items-center justify-between gap-3 text-xs">
             <div className="flex items-center gap-2 truncate">
-              <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-secondary font-medium">
+              <span className="font-mono text-xs px-1.5 py-0.5 rounded bg-secondary font-medium">
                 RS-2
               </span>
               <span className="font-medium text-foreground truncate">
                 Authentication & GitHub provider
               </span>
             </div>
-            <span className="text-[10px] font-mono text-amber-500 shrink-0">
+            <span className="text-xs font-mono text-amber-500 shrink-0">
               In Progress
             </span>
           </div>
 
-          <div className="rounded-[8px] border border-border/80 bg-background/90 p-3 shadow-xs flex items-center justify-between gap-3 text-xs">
+          <div className="rounded-lg border border-border/80 bg-background/90 p-3 shadow-xs flex items-center justify-between gap-3 text-xs">
             <div className="flex items-center gap-2 truncate">
-              <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-secondary font-medium">
+              <span className="font-mono text-xs px-1.5 py-0.5 rounded bg-secondary font-medium">
                 RS-3
               </span>
               <span className="font-medium text-foreground truncate">
                 Project roadmap & burndown engine
               </span>
             </div>
-            <span className="text-[10px] font-mono text-muted-foreground shrink-0">
+            <span className="text-xs font-mono text-muted-foreground shrink-0">
               Todo
             </span>
           </div>
         </div>
 
-        <div className="text-[11px] font-mono text-muted-foreground relative z-10">
+        <div className="text-xs font-mono text-muted-foreground relative z-10">
           Fast issue tracking for high-velocity teams.
         </div>
       </div>
