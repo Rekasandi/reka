@@ -148,7 +148,7 @@ export function CreateTeamDialog({ open, onOpenChange }: CreateTeamDialogProps) 
               </div>
             </div>
 
-            <p className="text-[11px] text-muted-foreground font-mono">
+            <p className="text-xs text-muted-foreground font-mono">
               Issues created in this team will use this key prefix (e.g. <span className="font-semibold text-foreground">{form.getFieldValue('key') || 'ENG'}-1</span>).
             </p>
 

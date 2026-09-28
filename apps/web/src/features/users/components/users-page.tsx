@@ -21,6 +21,7 @@ import {
 import { UserPlus, Shield, CheckSquare, Users, Trash2, RefreshCw, Mail } from 'lucide-react';
 import { useUsers, useUpdateUser, useDeleteUser } from '../hooks/use-users';
 import { CreateUserDialog } from './create-user-dialog';
+import { ConfirmDeleteDialog } from '../../../components/common/confirm-delete-dialog';
 import type { User } from '../api/users.api';
 
 function RoleBadge({ role }: { role: User['role'] }) {
@@ -34,7 +35,7 @@ function RoleBadge({ role }: { role: User['role'] }) {
 
   const item = map[role] || { label: role, variant: 'secondary' };
   return (
-    <Badge variant={item.variant} className="capitalize text-[10px] font-mono h-5 px-2 font-normal">
+    <Badge variant={item.variant} className="capitalize text-xs font-mono h-5 px-2 font-normal">
       {(role === 'owner' || role === 'admin') && <Shield className="size-2.5 mr-1" />}
       <span>{item.label}</span>
     </Badge>
@@ -43,6 +44,7 @@ function RoleBadge({ role }: { role: User['role'] }) {
 
 export function UsersPage() {
   const [isCreateOpen, setIsCreateOpen] = React.useState(false);
+  const [deleteTargetUser, setDeleteTargetUser] = React.useState<User | null>(null);
   const [filterRole, setFilterRole] = React.useState('all');
 
   const { data: users = [], isLoading, isError, refetch } = useUsers();
@@ -66,22 +68,19 @@ export function UsersPage() {
   const handleDelete = (u: User, e: React.MouseEvent) => {
     e.stopPropagation();
     if (u.role === 'owner') {
-      alert('The workspace owner cannot be deleted.');
       return;
     }
-    if (confirm(`Remove "${u.name}" from workspace?`)) {
-      deleteMutation.mutate(u.id);
-    }
+    setDeleteTargetUser(u);
   };
 
   return (
-    <div className="flex flex-col gap-6 max-w-6xl mx-auto selection:bg-foreground selection:text-background">
+    <div className="flex flex-col gap-6 max-w-7xl mx-auto selection:bg-foreground selection:text-background pb-10">
       {/* Page Header */}
       <div className="flex items-center justify-between gap-4">
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-2.5">
             <h1 className="text-xl sm:text-2xl font-semibold tracking-[-0.03em] text-foreground">Workspace Users</h1>
-            <span className="font-mono text-[11px] font-medium text-muted-foreground bg-secondary/80 border border-border/60 px-2 py-0.5 rounded-[5px]">
+            <span className="font-mono text-xs font-medium text-muted-foreground bg-secondary/80 border border-border/60 px-2 py-0.5 rounded-[5px]">
               {users.length}
             </span>
           </div>
@@ -112,7 +111,7 @@ export function UsersPage() {
               }`}
             >
               <span>{opt.label}</span>
-              <span className="font-mono text-[10px] text-muted-foreground">
+              <span className="font-mono text-xs text-muted-foreground">
                 {opt.count}
               </span>
             </button>
@@ -124,14 +123,14 @@ export function UsersPage() {
       {isLoading && (
         <div className="flex flex-col gap-2">
           {Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} className="h-14 w-full rounded-[10px]" />
+            <Skeleton key={i} className="h-14 w-full rounded-lg" />
           ))}
         </div>
       )}
 
       {/* Error state */}
       {isError && (
-        <div className="rounded-[10px] border border-destructive/30 bg-destructive/10 p-4 text-xs text-destructive flex items-center justify-between">
+        <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-xs text-destructive flex items-center justify-between">
           <span>Failed to load users from server.</span>
           <Button variant="outline" size="sm" onClick={() => refetch()} className="rounded-[6px]">
             <RefreshCw data-icon="inline-start" className="size-3.5" />
@@ -142,7 +141,7 @@ export function UsersPage() {
 
       {/* Users Table / List View */}
       {!isLoading && !isError && (
-        <div className="rounded-[12px] border border-border/80 divide-y divide-border/60 bg-card/30 overflow-hidden select-none shadow-2xs">
+        <div className="rounded-lg border border-border/80 divide-y divide-border/60 bg-card/30 overflow-hidden select-none shadow-2xs">
           {filteredUsers.map((u) => {
             const initial = (u.name || 'User')[0].toUpperCase();
 
@@ -166,7 +165,7 @@ export function UsersPage() {
                       </span>
                       <RoleBadge role={u.role} />
                     </div>
-                    <span className="font-mono text-[11px] text-muted-foreground truncate">
+                    <span className="font-mono text-xs text-muted-foreground truncate">
                       {u.email}
                     </span>
                   </div>
@@ -234,6 +233,20 @@ export function UsersPage() {
 
       {/* Invite User Dialog */}
       <CreateUserDialog open={isCreateOpen} onOpenChange={setIsCreateOpen} />
+
+      {/* Delete User Confirmation Alert Dialog */}
+      <ConfirmDeleteDialog
+        open={!!deleteTargetUser}
+        onOpenChange={(open) => !open && setDeleteTargetUser(null)}
+        title={`Remove "${deleteTargetUser?.name}" from workspace?`}
+        description="This will revoke access for this user. Assigned issues will be unassigned."
+        onConfirm={() => {
+          if (deleteTargetUser) {
+            deleteMutation.mutate(deleteTargetUser.id);
+            setDeleteTargetUser(null);
+          }
+        }}
+      />
     </div>
   );
 }
