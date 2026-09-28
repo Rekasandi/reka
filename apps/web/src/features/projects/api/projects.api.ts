@@ -1,7 +1,18 @@
+export interface ProjectRepository {
+  id: string;
+  repoId?: number;
+  fullName: string;
+  name: string;
+  owner: string;
+  isPrivate: boolean;
+  defaultBranch: string;
+  createdAt?: string;
+}
+
 export interface Project {
   id: string;
   organizationId: string;
-  teamId?: string | null;
+  teamId: string;
   clientId?: string | null;
   name: string;
   slug: string;
@@ -15,11 +26,13 @@ export interface Project {
   totalIssues?: number;
   completedIssues?: number;
   progress?: number;
+  repositories?: ProjectRepository[];
   createdAt: string;
   updatedAt: string;
 }
 
 export interface CreateProjectInput {
+  teamId: string;
   name: string;
   description?: string;
   status?: string;
@@ -65,4 +78,28 @@ export async function deleteProject(id: string): Promise<void> {
     method: 'DELETE',
   });
   if (!res.ok) throw new Error('Failed to delete project');
+}
+
+export async function getProjectRepositories(projectId: string): Promise<ProjectRepository[]> {
+  const res = await fetch(`/api/projects/${projectId}/repositories`);
+  if (!res.ok) throw new Error('Failed to fetch project repositories');
+  return res.json();
+}
+
+export async function linkProjectRepository(projectId: string, repositoryId: string): Promise<{ success: boolean }> {
+  const res = await fetch(`/api/projects/${projectId}/repositories`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ repositoryId }),
+  });
+  if (!res.ok) throw new Error('Failed to link repository to project');
+  return res.json();
+}
+
+export async function unlinkProjectRepository(projectId: string, repositoryId: string): Promise<{ success: boolean }> {
+  const res = await fetch(`/api/projects/${projectId}/repositories/${repositoryId}`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) throw new Error('Failed to unlink repository from project');
+  return res.json();
 }

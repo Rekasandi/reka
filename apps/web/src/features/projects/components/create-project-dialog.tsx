@@ -23,17 +23,21 @@ import {
   DatePicker,
 } from '@reka/ui';
 import { useCreateProject } from '../hooks/use-projects';
+import { useTeams } from '../../teams/hooks/use-teams';
 
 interface CreateProjectDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  defaultTeamId?: string;
 }
 
-export function CreateProjectDialog({ open, onOpenChange }: CreateProjectDialogProps) {
+export function CreateProjectDialog({ open, onOpenChange, defaultTeamId }: CreateProjectDialogProps) {
   const createMutation = useCreateProject();
+  const { data: teams = [] } = useTeams();
 
   const form = useForm({
     defaultValues: {
+      teamId: defaultTeamId || '',
       name: '',
       description: '',
       status: 'in_progress',
@@ -43,6 +47,7 @@ export function CreateProjectDialog({ open, onOpenChange }: CreateProjectDialogP
     onSubmit: async ({ value }) => {
       createMutation.mutate(
         {
+          teamId: value.teamId,
           name: value.name.trim(),
           description: value.description?.trim() || undefined,
           status: value.status,
@@ -58,6 +63,10 @@ export function CreateProjectDialog({ open, onOpenChange }: CreateProjectDialogP
       );
     },
   });
+
+  React.useEffect(() => {
+    if (!form.state.values.teamId && teams[0]) form.setFieldValue('teamId', defaultTeamId || teams[0].id);
+  }, [defaultTeamId, form, teams]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -126,6 +135,19 @@ export function CreateProjectDialog({ open, onOpenChange }: CreateProjectDialogP
             />
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <form.Field
+                name="teamId"
+                validators={{ onChange: ({ value }) => (!value ? 'Team is required' : undefined) }}
+                children={(field) => (
+                  <Field>
+                    <FieldLabel htmlFor={field.name} className="text-muted-foreground">Team</FieldLabel>
+                    <Select name={field.name} value={field.state.value} onValueChange={field.handleChange}>
+                      <SelectTrigger id={field.name} className="h-8 text-xs w-full"><SelectValue placeholder="Select team" /></SelectTrigger>
+                      <SelectContent><SelectGroup>{teams.map((team) => <SelectItem key={team.id} value={team.id}>{team.name}</SelectItem>)}</SelectGroup></SelectContent>
+                    </Select>
+                  </Field>
+                )}
+              />
               {/* Status Field */}
               <form.Field
                 name="status"

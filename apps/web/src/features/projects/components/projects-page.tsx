@@ -11,7 +11,7 @@ import {
   Skeleton,
 } from '@reka/ui';
 import { Plus, FolderKanban, Calendar, CheckCircle2, AlertTriangle, AlertCircle, Trash2, RefreshCw } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useProjects, useDeleteProject } from '../hooks/use-projects';
 import { CreateProjectDialog } from './create-project-dialog';
 import type { Project } from '../api/projects.api';
@@ -19,7 +19,7 @@ import type { Project } from '../api/projects.api';
 function HealthBadge({ health }: { health: Project['health'] }) {
   if (health === 'on_track') {
     return (
-      <Badge variant="outline" className="border-emerald-500/30 bg-emerald-500/10 text-emerald-500 text-[10px] font-normal gap-1 h-5">
+      <Badge variant="outline" className="border-emerald-500/30 bg-emerald-500/10 text-emerald-500 text-xs font-normal gap-1 h-5">
         <CheckCircle2 className="size-2.5" />
         <span>On Track</span>
       </Badge>
@@ -27,17 +27,29 @@ function HealthBadge({ health }: { health: Project['health'] }) {
   }
   if (health === 'at_risk') {
     return (
-      <Badge variant="outline" className="border-amber-500/30 bg-amber-500/10 text-amber-500 text-[10px] font-normal gap-1 h-5">
+      <Badge variant="outline" className="border-amber-500/30 bg-amber-500/10 text-amber-500 text-xs font-normal gap-1 h-5">
         <AlertTriangle className="size-2.5" />
         <span>At Risk</span>
       </Badge>
     );
   }
   return (
-    <Badge variant="outline" className="border-red-500/30 bg-red-500/10 text-red-500 text-[10px] font-normal gap-1 h-5">
+    <Badge variant="outline" className="border-red-500/30 bg-red-500/10 text-red-500 text-xs font-normal gap-1 h-5">
       <AlertCircle className="size-2.5" />
       <span>Off Track</span>
     </Badge>
+  );
+}
+
+function GithubIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+      <path
+        fillRule="evenodd"
+        clipRule="evenodd"
+        d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"
+      />
+    </svg>
   );
 }
 
@@ -52,52 +64,47 @@ function StatusBadge({ status }: { status: Project['status'] }) {
 
   const item = map[status] || { label: status, variant: 'outline' };
   return (
-    <Badge variant={item.variant} className="capitalize text-[10px] font-mono font-normal h-5 px-2">
+    <Badge variant={item.variant} className="capitalize text-xs font-mono font-normal h-5 px-2">
       {item.label}
     </Badge>
   );
 }
 
 export function ProjectsPage() {
+  const location = useLocation();
   const navigate = useNavigate();
   const [isCreateOpen, setIsCreateOpen] = React.useState(false);
   const [filterStatus, setFilterStatus] = React.useState('all');
 
   const { data: projects = [], isLoading, isError, refetch } = useProjects();
-  const deleteMutation = useDeleteProject();
-
-  const handleDelete = (id: string, name: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (confirm(`Delete project "${name}"?`)) {
-      deleteMutation.mutate(id);
-    }
-  };
+  const teamId = new URLSearchParams(location.search).get('teamId');
+  const scopedProjects = teamId ? projects.filter((project) => project.teamId === teamId) : projects;
 
   const filterOptions = React.useMemo(() => [
-    { id: 'all', label: 'All', count: projects.length },
-    { id: 'in_progress', label: 'Active', count: projects.filter((p) => p.status === 'in_progress').length },
-    { id: 'planned', label: 'Planned', count: projects.filter((p) => p.status === 'planned').length },
-    { id: 'completed', label: 'Completed', count: projects.filter((p) => p.status === 'completed').length },
-  ], [projects]);
+    { id: 'all', label: 'All', count: scopedProjects.length },
+    { id: 'in_progress', label: 'Active', count: scopedProjects.filter((p) => p.status === 'in_progress').length },
+    { id: 'planned', label: 'Planned', count: scopedProjects.filter((p) => p.status === 'planned').length },
+    { id: 'completed', label: 'Completed', count: scopedProjects.filter((p) => p.status === 'completed').length },
+  ], [scopedProjects]);
 
   const filteredProjects = React.useMemo(() => {
-    if (filterStatus === 'all') return projects;
-    return projects.filter((p) => p.status === filterStatus);
-  }, [projects, filterStatus]);
+    if (filterStatus === 'all') return scopedProjects;
+    return scopedProjects.filter((p) => p.status === filterStatus);
+  }, [scopedProjects, filterStatus]);
 
   return (
-    <div className="flex flex-col gap-5 max-w-6xl mx-auto selection:bg-foreground selection:text-background">
+    <div className="flex flex-col gap-6 max-w-7xl mx-auto selection:bg-foreground selection:text-background pb-10">
       {/* Header */}
       <div className="flex items-center justify-between gap-4">
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-2.5">
             <h1 className="text-xl sm:text-2xl font-semibold tracking-[-0.03em] text-foreground">Projects</h1>
-            <span className="font-mono text-[11px] font-medium text-muted-foreground bg-secondary/80 border border-border/60 px-2 py-0.5 rounded-[5px]">
-              {projects.length}
+            <span className="font-mono text-xs font-medium text-muted-foreground bg-secondary/80 border border-border/60 px-2 py-0.5 rounded-[5px]">
+              {scopedProjects.length}
             </span>
           </div>
           <p className="text-xs text-muted-foreground">
-            High-level software delivery streams and cross-functional roadmaps.
+            What the team is building: delivery streams and cross-functional roadmaps.
           </p>
         </div>
 
@@ -123,7 +130,7 @@ export function ProjectsPage() {
               }`}
             >
               <span>{opt.label}</span>
-              <span className="font-mono text-[10px] text-muted-foreground">
+              <span className="font-mono text-xs text-muted-foreground">
                 {opt.count}
               </span>
             </button>
@@ -135,14 +142,14 @@ export function ProjectsPage() {
       {isLoading && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {Array.from({ length: 3 }).map((_, i) => (
-            <Skeleton key={i} className="h-44 w-full rounded-[12px]" />
+            <Skeleton key={i} className="h-44 w-full rounded-lg" />
           ))}
         </div>
       )}
 
       {/* Error State */}
       {isError && (
-        <div className="rounded-[10px] border border-destructive/30 bg-destructive/10 p-4 text-xs text-destructive flex items-center justify-between">
+        <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-xs text-destructive flex items-center justify-between">
           <span>Failed to load projects from server.</span>
           <Button variant="outline" size="sm" onClick={() => refetch()} className="rounded-[6px]">
             <RefreshCw data-icon="inline-start" className="size-3.5" />
@@ -161,15 +168,13 @@ export function ProjectsPage() {
             return (
               <Card
                 key={p.id}
-                onClick={() => navigate(`/projects/${p.id}`)}
-                className="rounded-[12px] border border-border/80 bg-card/40 hover:bg-card/70 hover:border-border transition-all cursor-pointer shadow-2xs flex flex-col justify-between group"
+                onClick={() => navigate(`/projects/${p.id}${location.search}`)}
+                className="rounded-lg border border-border bg-card hover:border-foreground/25 transition-colors cursor-pointer flex flex-col justify-between group shadow-none"
               >
                 <CardHeader className="p-4 pb-2">
                   <div className="flex items-start justify-between gap-2">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <div className="size-6 rounded-[5px] bg-secondary flex items-center justify-center text-muted-foreground shrink-0 border border-border/60">
-                        <FolderKanban className="size-3.5" />
-                      </div>
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <span className="size-2 rounded-full shrink-0 bg-blue-500" />
                       <CardTitle className="text-sm font-semibold truncate group-hover:text-foreground">
                         {p.name}
                       </CardTitle>
@@ -177,14 +182,6 @@ export function ProjectsPage() {
 
                     <div className="flex items-center gap-1.5 shrink-0">
                       <StatusBadge status={p.status} />
-                      <button
-                        type="button"
-                        onClick={(e) => handleDelete(p.id, p.name, e)}
-                        className="text-muted-foreground/30 hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-[4px] hover:bg-destructive/10"
-                        title="Delete project"
-                      >
-                        <Trash2 className="size-3.5" />
-                      </button>
                     </div>
                   </div>
 
@@ -196,7 +193,7 @@ export function ProjectsPage() {
                 <CardContent className="p-4 py-2 flex flex-col gap-2.5">
                   {/* Progress Bar */}
                   <div className="flex flex-col gap-1.5">
-                    <div className="flex justify-between items-center text-[11px] font-mono text-muted-foreground">
+                    <div className="flex justify-between items-center text-xs font-mono text-muted-foreground">
                       <span>{p.completedIssues || 0}/{p.totalIssues || 0} issues</span>
                       <span className="font-semibold text-foreground">{progress}%</span>
                     </div>
@@ -210,9 +207,18 @@ export function ProjectsPage() {
                 </CardContent>
 
                 <CardFooter className="p-4 pt-2.5 border-t border-border/60 flex items-center justify-between text-xs text-muted-foreground">
-                  <div className="flex items-center gap-1.5">
-                    <Calendar className="size-3 text-muted-foreground/70" />
-                    <span className="text-[11px] font-mono">{target ? target : 'No target date'}</span>
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5">
+                      <Calendar className="size-3 text-muted-foreground/70" />
+                      <span className="text-xs font-mono">{target ? target : 'No target date'}</span>
+                    </div>
+
+                    {p.repositories && p.repositories.length > 0 && (
+                      <Badge variant="outline" className="text-xs h-4.5 px-1.5 gap-1 border-border font-mono text-muted-foreground">
+                        <GithubIcon className="size-2.5 text-foreground" />
+                        <span>{p.repositories[0].name}{p.repositories.length > 1 ? ` +${p.repositories.length - 1}` : ''}</span>
+                      </Badge>
+                    )}
                   </div>
                   <HealthBadge health={p.health} />
                 </CardFooter>
@@ -221,7 +227,7 @@ export function ProjectsPage() {
           })}
 
           {filteredProjects.length === 0 && (
-            <div className="col-span-full rounded-[12px] border border-dashed border-border/80 p-14 text-center text-xs text-muted-foreground bg-card/10">
+            <div className="col-span-full rounded-lg border border-dashed border-border/80 p-14 text-center text-xs text-muted-foreground bg-card/10">
               No projects found in this filter. Click &ldquo;New Project&rdquo; to create your first delivery stream.
             </div>
           )}
@@ -229,7 +235,7 @@ export function ProjectsPage() {
       )}
 
       {/* Create Project Modal */}
-      <CreateProjectDialog open={isCreateOpen} onOpenChange={setIsCreateOpen} />
+      <CreateProjectDialog open={isCreateOpen} onOpenChange={setIsCreateOpen} defaultTeamId={teamId || undefined} />
     </div>
   );
 }
