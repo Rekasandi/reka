@@ -4,6 +4,7 @@ export interface AuthUser {
   id: string;
   name: string;
   email: string;
+  githubUsername?: string | null;
   avatarUrl?: string | null;
   role: 'owner' | 'admin' | 'member' | 'guest' | 'client';
 }
