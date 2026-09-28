@@ -6,11 +6,7 @@ import { CalendarIcon, X } from "lucide-react"
 import { cn } from "../lib/utils"
 import { Button } from "./button"
 import { Calendar } from "./calendar"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuTrigger,
-} from "./dropdown-menu"
+import { Popover, PopoverContent, PopoverTrigger } from "./popover"
 
 export interface DatePickerProps {
   date?: Date | null
@@ -32,8 +28,8 @@ export function DatePicker({
   const [open, setOpen] = React.useState(false)
 
   return (
-    <DropdownMenu open={open} onOpenChange={setOpen}>
-      <DropdownMenuTrigger asChild>
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
         <Button
           type="button"
           variant="outline"
@@ -62,8 +58,8 @@ export function DatePicker({
             </span>
           )}
         </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent
+      </PopoverTrigger>
+      <PopoverContent
         align="start"
         className="w-auto p-0 bg-popover border border-border shadow-2xl rounded-[12px]"
       >
@@ -74,9 +70,9 @@ export function DatePicker({
             onDateChange?.(selected)
             setOpen(false)
           }}
-          initialFocus
+          autoFocus
         />
-      </DropdownMenuContent>
-    </DropdownMenu>
+      </PopoverContent>
+    </Popover>
   )
 }
