@@ -6,6 +6,7 @@ import { randomUUID } from 'crypto';
 
 // In-memory or session storage for GitHub OAuth access tokens
 export const GITHUB_USER_TOKENS = new Map<string, string>();
+export const GITHUB_USERNAMES = new Map<string, string>();
 
 @Injectable()
 export class AuthService {
@@ -131,24 +132,77 @@ export class AuthService {
     // Store GitHub token associated with this user session for repository API calls
     GITHUB_USER_TOKENS.set(user.id, githubAccessToken);
     GITHUB_USER_TOKENS.set(sessionToken, githubAccessToken);
+    if (githubUser.login) {
+      GITHUB_USERNAMES.set(user.id, githubUser.login);
+      GITHUB_USERNAMES.set(sessionToken, githubUser.login);
+    }
 
-    return { user, token: sessionToken };
+    return { user: { ...user, githubUsername: githubUser.login }, token: sessionToken };
   }
 
   async getCurrentUser(token?: string) {
+    let user: any = null;
     if (!token) {
       const [defaultUser] = await this.database.db.select().from(users).limit(1);
-      return defaultUser || null;
+      user = defaultUser || null;
+    } else {
+      const sessionList = await this.database.db.select().from(sessions).where(eq(sessions.id, token));
+      if (!sessionList.length || new Date() > new Date(sessionList[0].expiresAt)) {
+        const [defaultUser] = await this.database.db.select().from(users).limit(1);
+        user = defaultUser || null;
+      } else {
+        const [found] = await this.database.db.select().from(users).where(eq(users.id, sessionList[0].userId));
+        user = found || null;
+      }
     }
 
-    const sessionList = await this.database.db.select().from(sessions).where(eq(sessions.id, token));
-    if (!sessionList.length || new Date() > new Date(sessionList[0].expiresAt)) {
-      const [defaultUser] = await this.database.db.select().from(users).limit(1);
-      return defaultUser || null;
+    if (!user) return null;
+
+    // Resolve GitHub username (from session cache, user ID, or active token)
+    let githubUsername = (token ? GITHUB_USERNAMES.get(token) : undefined) || GITHUB_USERNAMES.get(user.id);
+
+    if (!githubUsername) {
+      const ghToken =
+        (token ? GITHUB_USER_TOKENS.get(token) : undefined) ||
+        GITHUB_USER_TOKENS.get(user.id) ||
+        process.env.GITHUB_TOKEN;
+
+      if (ghToken) {
+        try {
+          const res = await fetch('https://api.github.com/user', {
+            headers: {
+              Authorization: `Bearer ${ghToken}`,
+              Accept: 'application/vnd.github.v3+json',
+              'User-Agent': 'REKA-Platform-App',
+            },
+          });
+          if (res.ok) {
+            const data = (await res.json()) as any;
+            if (data?.login) {
+              githubUsername = data.login;
+              GITHUB_USERNAMES.set(user.id, data.login);
+              if (token) GITHUB_USERNAMES.set(token, data.login);
+            }
+          }
+        } catch {
+          // ignore
+        }
+      }
     }
 
-    const [user] = await this.database.db.select().from(users).where(eq(users.id, sessionList[0].userId));
-    return user || null;
+    // Fallback: extract username from noreply email or email prefix
+    if (!githubUsername) {
+      if (user.email?.includes('@users.noreply.github.com')) {
+        githubUsername = user.email.replace('@users.noreply.github.com', '');
+      } else if (user.email) {
+        githubUsername = user.email.split('@')[0];
+      }
+    }
+
+    return {
+      ...user,
+      githubUsername: githubUsername || null,
+    };
   }
 
   async logout(token: string) {

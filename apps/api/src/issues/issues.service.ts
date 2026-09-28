@@ -1,6 +1,7 @@
-import { Injectable, NotFoundException, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { DatabaseService } from '../common/database/database.service';
-import { issues, teams, users, activities, githubRepositories, sessions } from '@reka/database';
+import { NotificationsService } from '../notifications/notifications.service';
+import { issues, teams, projects, cycles, users, activities, githubRepositories, sessions } from '@reka/database';
 import { eq, desc } from 'drizzle-orm';
 import { CreateIssueDto } from './dto/create-issue.dto';
 import { UpdateIssueDto } from './dto/update-issue.dto';
@@ -10,7 +11,10 @@ import { GITHUB_USER_TOKENS } from '../auth/auth.service';
 export class IssuesService {
   private readonly logger = new Logger(IssuesService.name);
 
-  constructor(private readonly database: DatabaseService) {}
+  constructor(
+    private readonly database: DatabaseService,
+    private readonly notificationsService: NotificationsService,
+  ) {}
 
   async findAll(status?: string) {
     if (status) {
@@ -46,25 +50,24 @@ export class IssuesService {
     return result[0];
   }
 
+  private async validateRelations(teamId: string, projectId?: string | null, cycleId?: string | null) {
+    if (projectId) {
+      const [project] = await this.database.db.select().from(projects).where(eq(projects.id, projectId));
+      if (!project || project.teamId !== teamId) throw new BadRequestException('Project must belong to issue team');
+    }
+    if (cycleId) {
+      const [cycle] = await this.database.db.select().from(cycles).where(eq(cycles.id, cycleId));
+      if (!cycle || cycle.teamId !== teamId) throw new BadRequestException('Cycle must belong to issue team');
+    }
+  }
+
   async create(dto: CreateIssueDto) {
-    // 1. Resolve Team
-    let teamId = dto.teamId;
-    let teamKey = 'RS';
-
-    if (teamId) {
-      const teamList = await this.database.db.select().from(teams).where(eq(teams.id, teamId));
-      if (teamList.length) teamKey = teamList[0].key;
-    } else {
-      const teamList = await this.database.db.select().from(teams).limit(1);
-      if (teamList.length) {
-        teamId = teamList[0].id;
-        teamKey = teamList[0].key;
-      }
-    }
-
-    if (!teamId) {
-      throw new NotFoundException('No active team found to assign issue to');
-    }
+    // Team owns every issue; no implicit fallback.
+    const teamId = dto.teamId;
+    const [team] = await this.database.db.select().from(teams).where(eq(teams.id, teamId));
+    if (!team) throw new NotFoundException('Team not found');
+    const teamKey = team.key;
+    await this.validateRelations(teamId, dto.projectId, dto.cycleId);
 
     // 2. Resolve Reporter
     const userList = await this.database.db.select().from(users).limit(1);
@@ -101,6 +104,7 @@ export class IssuesService {
         parentId: dto.parentId || null,
         cycleId: dto.cycleId || null,
         assigneeId: dto.assigneeId || reporterId,
+        estimate: dto.estimate || null,
         reporterId,
       })
       .returning();
@@ -116,6 +120,26 @@ export class IssuesService {
       type: 'issue.created',
       metadata: { identifier, title: created.title },
     });
+
+    // 7. Notify assignee if assigned to someone else
+    if (created.assigneeId && created.assigneeId !== reporterId) {
+      try {
+        await this.notificationsService.create({
+          userId: created.assigneeId,
+          type: 'assignment',
+          title: `Assigned to ${created.identifier}`,
+          body: `You were assigned to ${created.title} (${created.identifier})`,
+          link: `/issues`,
+          metadata: {
+            issueId: created.id,
+            issueIdentifier: created.identifier,
+            priority: created.priority,
+          },
+        });
+      } catch {
+        // Non-fatal
+      }
+    }
 
     return created;
   }
@@ -213,6 +237,7 @@ ${issue.description || 'No description provided.'}
 
   async update(id: string, dto: UpdateIssueDto) {
     const existing = await this.findById(id);
+    await this.validateRelations(existing.teamId, dto.projectId, dto.cycleId);
 
     const [updated] = await this.database.db
       .update(issues)
@@ -235,6 +260,48 @@ ${issue.description || 'No description provided.'}
           identifier: updated.identifier,
         },
       });
+
+      // Notify assignee / reporter if status changed
+      const notifyUserId = updated.assigneeId || updated.reporterId;
+      if (notifyUserId) {
+        try {
+          await this.notificationsService.create({
+            userId: notifyUserId,
+            type: 'status_change',
+            title: `${updated.identifier} moved to ${dto.status.replace('_', ' ')}`,
+            body: `Status of "${updated.title}" changed from ${existing.status} to ${dto.status}.`,
+            link: `/issues`,
+            metadata: {
+              issueId: updated.id,
+              issueIdentifier: updated.identifier,
+              fromStatus: existing.status,
+              toStatus: dto.status,
+            },
+          });
+        } catch {
+          // Non-fatal
+        }
+      }
+    }
+
+    // Notify if assignee changed
+    if (dto.assigneeId && dto.assigneeId !== existing.assigneeId) {
+      try {
+        await this.notificationsService.create({
+          userId: dto.assigneeId,
+          type: 'assignment',
+          title: `Assigned to ${updated.identifier}`,
+          body: `You were assigned to ${updated.title} (${updated.identifier})`,
+          link: `/issues`,
+          metadata: {
+            issueId: updated.id,
+            issueIdentifier: updated.identifier,
+            priority: updated.priority,
+          },
+        });
+      } catch {
+        // Non-fatal
+      }
     }
 
     return updated;

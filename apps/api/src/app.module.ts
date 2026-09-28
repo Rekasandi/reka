@@ -12,7 +12,6 @@ import { ProjectsModule } from './projects/projects.module';
 import { IssuesModule } from './issues/issues.module';
 import { LabelsModule } from './labels/labels.module';
 import { CommentsModule } from './comments/comments.module';
-import { MilestonesModule } from './milestones/milestones.module';
 import { CyclesModule } from './cycles/cycles.module';
 import { ActivitiesModule } from './activities/activities.module';
 import { NotificationsModule } from './notifications/notifications.module';
@@ -38,7 +37,6 @@ import { AutomationsModule } from './automations/automations.module';
     IssuesModule,
     LabelsModule,
     CommentsModule,
-    MilestonesModule,
     CyclesModule,
     ActivitiesModule,
     NotificationsModule,

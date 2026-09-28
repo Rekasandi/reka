@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from '../common/database/database.service';
-import { projects, organizations, teams, users, issues } from '@reka/database';
-import { eq, desc } from 'drizzle-orm';
+import { projects, organizations, teams, users, issues, projectRepositories, githubRepositories } from '@reka/database';
+import { eq, desc, and } from 'drizzle-orm';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
 
@@ -18,8 +18,23 @@ export class ProjectsService {
     // Attach dynamic issue counts for each project
     const allIssues = await this.database.db.select().from(issues);
 
+    // Attach linked repositories for each project
+    const allProjectRepos = await this.database.db
+      .select({
+        projectId: projectRepositories.projectId,
+        id: githubRepositories.id,
+        fullName: githubRepositories.fullName,
+        name: githubRepositories.name,
+        owner: githubRepositories.owner,
+        isPrivate: githubRepositories.isPrivate,
+        defaultBranch: githubRepositories.defaultBranch,
+      })
+      .from(projectRepositories)
+      .innerJoin(githubRepositories, eq(projectRepositories.repositoryId, githubRepositories.id));
+
     return projectList.map((p) => {
       const pIssues = allIssues.filter((i) => i.projectId === p.id);
+      const pRepos = allProjectRepos.filter((r) => r.projectId === p.id);
       const totalIssues = pIssues.length;
       const completedIssues = pIssues.filter((i) => i.status === 'done').length;
       const progress = totalIssues > 0 ? Math.round((completedIssues / totalIssues) * 100) : 0;
@@ -29,6 +44,7 @@ export class ProjectsService {
         totalIssues,
         completedIssues,
         progress,
+        repositories: pRepos,
       };
     });
   }
@@ -41,6 +57,7 @@ export class ProjectsService {
 
     const p = result[0];
     const pIssues = await this.database.db.select().from(issues).where(eq(issues.projectId, p.id));
+    const pRepos = await this.findRepositories(p.id);
     const totalIssues = pIssues.length;
     const completedIssues = pIssues.filter((i) => i.status === 'done').length;
     const progress = totalIssues > 0 ? Math.round((completedIssues / totalIssues) * 100) : 0;
@@ -48,10 +65,73 @@ export class ProjectsService {
     return {
       ...p,
       issues: pIssues,
+      repositories: pRepos,
       totalIssues,
       completedIssues,
       progress,
     };
+  }
+
+  async findRepositories(projectId: string) {
+    return this.database.db
+      .select({
+        id: githubRepositories.id,
+        repoId: githubRepositories.repoId,
+        owner: githubRepositories.owner,
+        name: githubRepositories.name,
+        fullName: githubRepositories.fullName,
+        isPrivate: githubRepositories.isPrivate,
+        defaultBranch: githubRepositories.defaultBranch,
+        createdAt: projectRepositories.createdAt,
+      })
+      .from(projectRepositories)
+      .innerJoin(githubRepositories, eq(projectRepositories.repositoryId, githubRepositories.id))
+      .where(eq(projectRepositories.projectId, projectId));
+  }
+
+  async addRepository(projectId: string, repositoryId: string) {
+    const project = await this.database.db.select().from(projects).where(eq(projects.id, projectId));
+    if (!project.length) {
+      throw new NotFoundException(`Project with ID ${projectId} not found`);
+    }
+
+    const repo = await this.database.db.select().from(githubRepositories).where(eq(githubRepositories.id, repositoryId));
+    if (!repo.length) {
+      throw new NotFoundException(`Repository with ID ${repositoryId} not found`);
+    }
+
+    // Check if already linked
+    const existing = await this.database.db
+      .select()
+      .from(projectRepositories)
+      .where(
+        and(
+          eq(projectRepositories.projectId, projectId),
+          eq(projectRepositories.repositoryId, repositoryId),
+        ),
+      );
+
+    if (existing.length === 0) {
+      await this.database.db.insert(projectRepositories).values({
+        projectId,
+        repositoryId,
+      });
+    }
+
+    return { success: true };
+  }
+
+  async removeRepository(projectId: string, repositoryId: string) {
+    await this.database.db
+      .delete(projectRepositories)
+      .where(
+        and(
+          eq(projectRepositories.projectId, projectId),
+          eq(projectRepositories.repositoryId, repositoryId),
+        ),
+      );
+
+    return { success: true };
   }
 
   async create(dto: CreateProjectDto) {
@@ -68,11 +148,8 @@ export class ProjectsService {
     }
 
     // 3. Resolve Team
-    let teamId = dto.teamId;
-    if (!teamId) {
-      const [team] = await this.database.db.select().from(teams).limit(1);
-      if (team) teamId = team.id;
-    }
+    const [team] = await this.database.db.select().from(teams).where(eq(teams.id, dto.teamId));
+    if (!team) throw new NotFoundException('Team not found');
 
     // 4. Generate Slug
     const slug =
@@ -88,7 +165,7 @@ export class ProjectsService {
       .values({
         organizationId: org.id,
         ownerId: owner.id,
-        teamId: teamId || null,
+        teamId: team.id,
         name: dto.name,
         slug,
         description: dto.description || null,

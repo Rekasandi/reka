@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Res, Query } from '@nestjs/common';
+import { Controller, Get, Post, Delete, Param, Body, Res, Query } from '@nestjs/common';
 import { GithubInstallationsService } from './installations.service';
 import type { Response } from 'express';
 
@@ -9,6 +9,16 @@ export class GithubInstallationsController {
   @Get()
   findAll() {
     return this.service.findAll();
+  }
+
+  @Post()
+  connectOrg(@Body() body: { accountLogin: string; accountType?: string }) {
+    return this.service.connectOrganization(body.accountLogin, body.accountType);
+  }
+
+  @Delete(':id')
+  delete(@Param('id') id: string) {
+    return this.service.delete(id);
   }
 
   @Get('connect')

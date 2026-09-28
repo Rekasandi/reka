@@ -29,8 +29,8 @@ export class CreateProjectDto {
   priority?: string;
 
   @IsString()
-  @IsOptional()
-  teamId?: string;
+  @IsNotEmpty()
+  teamId!: string;
 
   @IsString()
   @IsOptional()

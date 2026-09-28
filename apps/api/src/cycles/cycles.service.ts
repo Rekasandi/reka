@@ -80,12 +80,9 @@ export class CyclesService {
   }
 
   async create(dto: CreateCycleDto) {
-    let teamId = dto.teamId;
-    if (!teamId) {
-      const [team] = await this.database.db.select().from(teams).limit(1);
-      if (!team) throw new NotFoundException('No active team found');
-      teamId = team.id;
-    }
+    const teamId = dto.teamId;
+    const [team] = await this.database.db.select().from(teams).where(eq(teams.id, teamId));
+    if (!team) throw new NotFoundException('Team not found');
 
     const [latest] = await this.database.db
       .select({ number: cycles.number })

@@ -5,6 +5,11 @@ import { ActivitiesService } from './activities.service';
 export class ActivitiesController {
   constructor(private readonly activitiesService: ActivitiesService) {}
 
+  @Get()
+  findAll() {
+    return this.activitiesService.findAll();
+  }
+
   @Get('by-issue/:issueId')
   findByIssueId(@Param('issueId') issueId: string) {
     return this.activitiesService.findByIssueId(issueId);

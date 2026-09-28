@@ -17,6 +17,21 @@ export class ProjectsController {
     return this.projectsService.findById(id);
   }
 
+  @Get(':id/repositories')
+  findRepositories(@Param('id') id: string) {
+    return this.projectsService.findRepositories(id);
+  }
+
+  @Post(':id/repositories')
+  addRepository(@Param('id') id: string, @Body('repositoryId') repositoryId: string) {
+    return this.projectsService.addRepository(id, repositoryId);
+  }
+
+  @Delete(':id/repositories/:repositoryId')
+  removeRepository(@Param('id') id: string, @Param('repositoryId') repositoryId: string) {
+    return this.projectsService.removeRepository(id, repositoryId);
+  }
+
   @Post()
   create(@Body() dto: CreateProjectDto) {
     return this.projectsService.create(dto);

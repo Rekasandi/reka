@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsOptional, IsIn } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsIn, IsNumber } from 'class-validator';
 
 export class CreateIssueDto {
   @IsString()
@@ -11,7 +11,7 @@ export class CreateIssueDto {
 
   @IsString()
   @IsOptional()
-  @IsIn(['backlog', 'todo', 'in_progress', 'in_review', 'done', 'canceled', 'blocked'])
+  @IsIn(['backlog', 'todo', 'in_progress', 'in_review', 'ready_to_deploy', 'done', 'canceled', 'blocked'])
   status?: string;
 
   @IsString()
@@ -25,8 +25,8 @@ export class CreateIssueDto {
   type?: string;
 
   @IsString()
-  @IsOptional()
-  teamId?: string;
+  @IsNotEmpty()
+  teamId!: string;
 
   @IsString()
   @IsOptional()
@@ -43,4 +43,8 @@ export class CreateIssueDto {
   @IsString()
   @IsOptional()
   cycleId?: string;
+
+  @IsNumber()
+  @IsOptional()
+  estimate?: number;
 }

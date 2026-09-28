@@ -18,8 +18,8 @@ export class CreateCycleDto {
   endDate!: string;
 
   @IsString()
-  @IsOptional()
-  teamId?: string;
+  @IsNotEmpty()
+  teamId!: string;
 }
 
 export class UpdateCycleDto {
