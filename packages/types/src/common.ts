@@ -3,6 +3,7 @@ export type IssueStatus =
   | 'todo'
   | 'in_progress'
   | 'in_review'
+  | 'ready_to_deploy'
   | 'done'
   | 'canceled'
   | 'blocked';

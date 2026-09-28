@@ -2,7 +2,6 @@ import { pgTable, text, timestamp, uuid, varchar, integer, primaryKey } from 'dr
 import { teams } from './teams';
 import { projects } from './projects';
 import { cycles } from './cycles';
-import { milestones } from './milestones';
 import { users } from './users';
 import { labels } from './labels';
 
@@ -20,7 +19,6 @@ export const issues = pgTable('issues', {
     .references(() => teams.id, { onDelete: 'cascade' }),
   projectId: uuid('project_id').references(() => projects.id, { onDelete: 'set null' }),
   cycleId: uuid('cycle_id').references(() => cycles.id, { onDelete: 'set null' }),
-  milestoneId: uuid('milestone_id').references(() => milestones.id, { onDelete: 'set null' }),
   assigneeId: uuid('assignee_id').references(() => users.id, { onDelete: 'set null' }),
   reporterId: uuid('reporter_id')
     .notNull()

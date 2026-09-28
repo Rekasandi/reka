@@ -4,6 +4,5 @@ export * from './team';
 export * from './project';
 export * from './issue';
 export * from './cycle';
-export * from './milestone';
 export * from './github';
 export * from './notification';

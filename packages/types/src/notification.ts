@@ -8,5 +8,7 @@ export interface Notification {
   body: string;
   link?: string | null;
   read: boolean;
-  createdAt: Date;
+  metadata?: Record<string, any>;
+  createdAt: Date | string;
 }
+

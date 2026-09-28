@@ -7,7 +7,6 @@ import { projects, projectMembers } from './projects';
 import { issues, issueLabels, issueRelations } from './issues';
 import { labels } from './labels';
 import { comments, attachments } from './comments';
-import { milestones } from './milestones';
 import { cycles } from './cycles';
 import { activities } from './activities';
 import { notifications } from './notifications';
@@ -78,7 +77,6 @@ export const projectsRelations = relations(projects, ({ one, many }) => ({
     references: [users.id],
   }),
   members: many(projectMembers),
-  milestones: many(milestones),
   issues: many(issues),
   repositories: many(projectRepositories),
 }));
@@ -95,10 +93,6 @@ export const issuesRelations = relations(issues, ({ one, many }) => ({
   cycle: one(cycles, {
     fields: [issues.cycleId],
     references: [cycles.id],
-  }),
-  milestone: one(milestones, {
-    fields: [issues.milestoneId],
-    references: [milestones.id],
   }),
   assignee: one(users, {
     fields: [issues.assigneeId],
@@ -128,3 +122,15 @@ export const commentsRelations = relations(comments, ({ one }) => ({
     references: [users.id],
   }),
 }));
+
+export const projectRepositoriesRelations = relations(projectRepositories, ({ one }) => ({
+  project: one(projects, {
+    fields: [projectRepositories.projectId],
+    references: [projects.id],
+  }),
+  repository: one(githubRepositories, {
+    fields: [projectRepositories.repositoryId],
+    references: [githubRepositories.id],
+  }),
+}));
+

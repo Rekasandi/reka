@@ -12,7 +12,6 @@ export interface Issue {
   teamId: string;
   projectId?: string | null;
   cycleId?: string | null;
-  milestoneId?: string | null;
   assigneeId?: string | null;
   reporterId: string;
   parentId?: string | null;

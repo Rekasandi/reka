@@ -1,9 +1,10 @@
 import type { ProjectStatus, ProjectHealth, IssuePriority } from './common';
+import type { GithubRepository } from './github';
 
 export interface Project {
   id: string;
   organizationId: string;
-  teamId?: string | null;
+  teamId: string;
   clientId?: string | null;
   name: string;
   slug: string;
@@ -15,6 +16,7 @@ export interface Project {
   startDate?: Date | null;
   targetDate?: Date | null;
   budget?: number | null;
+  repositories?: GithubRepository[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -25,6 +27,21 @@ export interface Client {
   name: string;
   industry?: string | null;
   notes?: string | null;
-  createdAt: Date;
-  updatedAt: Date;
+  projectCount?: number;
+  contactCount?: number;
+  contacts?: ClientContact[];
+  projects?: Project[];
+  createdAt: Date | string;
+  updatedAt: Date | string;
 }
+
+export interface ClientContact {
+  id: string;
+  clientId: string;
+  name: string;
+  email: string;
+  role?: string | null;
+  phone?: string | null;
+  createdAt: Date | string;
+}
+

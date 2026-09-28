@@ -6,7 +6,6 @@ export * from './projects';
 export * from './issues';
 export * from './labels';
 export * from './comments';
-export * from './milestones';
 export * from './cycles';
 export * from './activities';
 export * from './notifications';

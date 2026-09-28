@@ -3,7 +3,7 @@ import { projectStatusSchema, projectHealthSchema, issuePrioritySchema } from '.
 
 export const createProjectSchema = z.object({
   organizationId: z.string().uuid(),
-  teamId: z.string().uuid().optional().nullable(),
+  teamId: z.string().uuid(),
   clientId: z.string().uuid().optional().nullable(),
   name: z.string().min(1).max(255),
   slug: z.string().min(1).max(100),

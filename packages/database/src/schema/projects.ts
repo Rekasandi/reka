@@ -9,7 +9,9 @@ export const projects = pgTable('projects', {
   organizationId: uuid('organization_id')
     .notNull()
     .references(() => organizations.id, { onDelete: 'cascade' }),
-  teamId: uuid('team_id').references(() => teams.id, { onDelete: 'set null' }),
+  teamId: uuid('team_id')
+    .notNull()
+    .references(() => teams.id, { onDelete: 'cascade' }),
   clientId: uuid('client_id').references(() => clients.id, { onDelete: 'set null' }),
   name: varchar('name', { length: 255 }).notNull(),
   slug: varchar('slug', { length: 100 }).notNull(),

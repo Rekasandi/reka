@@ -10,7 +10,6 @@ export const createIssueSchema = z.object({
   teamId: z.string().uuid(),
   projectId: z.string().uuid().optional().nullable(),
   cycleId: z.string().uuid().optional().nullable(),
-  milestoneId: z.string().uuid().optional().nullable(),
   assigneeId: z.string().uuid().optional().nullable(),
   parentId: z.string().uuid().optional().nullable(),
   estimate: z.number().int().min(0).max(100).optional().nullable(),
