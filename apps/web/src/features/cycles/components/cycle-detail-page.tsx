@@ -9,6 +9,12 @@ import {
   Badge,
   Button,
   Skeleton,
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from '@reka/ui';
 import {
   ArrowLeft,
@@ -22,19 +28,20 @@ import {
   Check,
 } from 'lucide-react';
 import { useCycle, useUpdateCycle, useDeleteCycle } from '../hooks/use-cycles';
-import { useIssues } from '../../issues/hooks/use-issues';
+import { useIssues, useUpdateIssue } from '../../issues/hooks/use-issues';
 import { IssueListView } from '../../issues/components/issue-list-view';
 import { CreateIssueDialog } from '../../issues/components/create-issue-dialog';
 import { IssueDetailSheet } from '../../issues/components/issue-detail-sheet';
 import { CompleteCycleDialog } from './complete-cycle-dialog';
 import { BurndownChart } from './burndown-chart';
+import { ConfirmDeleteDialog } from '../../../components/common/confirm-delete-dialog';
 import type { Issue } from '@reka/types';
 import type { Cycle } from '../api/cycles.api';
 
 function CycleStatusBadge({ status }: { status: Cycle['status'] }) {
   if (status === 'active') {
     return (
-      <Badge className="bg-emerald-500/15 border-emerald-500/30 text-emerald-500 text-[10px] font-normal gap-1 h-5">
+      <Badge className="bg-emerald-500/15 border-emerald-500/30 text-emerald-500 text-xs font-normal gap-1 h-5">
         <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
         <span>Active</span>
       </Badge>
@@ -42,14 +49,14 @@ function CycleStatusBadge({ status }: { status: Cycle['status'] }) {
   }
   if (status === 'completed') {
     return (
-      <Badge variant="outline" className="border-border/60 bg-muted/40 text-muted-foreground text-[10px] font-normal gap-1 h-5">
+      <Badge variant="outline" className="border-border/60 bg-muted/40 text-muted-foreground text-xs font-normal gap-1 h-5">
         <Check className="size-3" />
         <span>Completed</span>
       </Badge>
     );
   }
   return (
-    <Badge variant="secondary" className="text-[10px] font-normal gap-1 h-5">
+    <Badge variant="secondary" className="text-xs font-normal gap-1 h-5">
       <Clock className="size-3 text-muted-foreground" />
       <span>Upcoming</span>
     </Badge>
@@ -76,12 +83,23 @@ export function CycleDetailPage() {
 
   const { data: cycle, isLoading, isError, refetch } = useCycle(id);
   const { data: allIssues = [] } = useIssues();
+  const updateIssueMutation = useUpdateIssue();
   const deleteMutation = useDeleteCycle();
 
   // Filter issues belonging to this cycle
   const cycleIssues = React.useMemo(() => {
     return allIssues.filter((i) => i.cycleId === id);
   }, [allIssues, id]);
+
+  const backlogIssues = React.useMemo(
+    () => allIssues.filter((issue) =>
+      issue.teamId === cycle?.teamId &&
+      !issue.cycleId &&
+      issue.status !== 'done' &&
+      issue.status !== 'canceled',
+    ),
+    [allIssues, cycle?.teamId],
+  );
 
   const filteredIssues = React.useMemo(() => {
     if (issueFilterTab === 'active') {
@@ -95,14 +113,11 @@ export function CycleDetailPage() {
 
   const completedCount = cycleIssues.filter((i) => i.status === 'done').length;
   const progressPercent = cycleIssues.length > 0 ? Math.round((completedCount / cycleIssues.length) * 100) : 0;
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = React.useState(false);
 
   const handleDelete = () => {
     if (!cycle) return;
-    if (confirm(`Delete ${cycle.name || `Cycle ${cycle.number}`}?`)) {
-      deleteMutation.mutate(cycle.id, {
-        onSuccess: () => navigate('/cycles'),
-      });
-    }
+    setIsDeleteDialogOpen(true);
   };
 
   const handleOpenIssueDetail = (issue: Issue) => {
@@ -112,17 +127,17 @@ export function CycleDetailPage() {
 
   if (isLoading) {
     return (
-      <div className="flex flex-col gap-5 max-w-6xl mx-auto">
+      <div className="flex flex-col gap-5 max-w-7xl mx-auto">
         <Skeleton className="h-8 w-40 rounded-[6px]" />
-        <Skeleton className="h-32 w-full rounded-[12px]" />
-        <Skeleton className="h-64 w-full rounded-[12px]" />
+        <Skeleton className="h-32 w-full rounded-lg" />
+        <Skeleton className="h-64 w-full rounded-lg" />
       </div>
     );
   }
 
   if (isError || !cycle) {
     return (
-      <div className="rounded-[10px] border border-destructive/30 bg-destructive/10 p-6 text-xs text-destructive flex items-center justify-between max-w-3xl mx-auto">
+      <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-6 text-xs text-destructive flex items-center justify-between max-w-3xl mx-auto">
         <span>Failed to load cycle details.</span>
         <Button variant="outline" size="sm" onClick={() => refetch()} className="rounded-[6px]">
           <RefreshCw data-icon="inline-start" className="size-3.5" />
@@ -133,7 +148,7 @@ export function CycleDetailPage() {
   }
 
   return (
-    <div className="flex flex-col gap-6 max-w-6xl mx-auto selection:bg-foreground selection:text-background">
+    <div className="flex flex-col gap-6 max-w-7xl mx-auto selection:bg-foreground selection:text-background pb-10">
       {/* Top back navigation */}
       <div className="flex items-center justify-between">
         <Link
@@ -171,10 +186,10 @@ export function CycleDetailPage() {
       </div>
 
       {/* Cycle Header Spotlight */}
-      <div className="rounded-[14px] border border-border/80 bg-card/40 p-6 flex flex-col gap-5 shadow-2xs">
+      <div className="rounded-lg border border-border/80 bg-card/40 p-6 flex flex-col gap-5 shadow-2xs">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="size-9 rounded-[8px] bg-secondary flex items-center justify-center text-foreground shrink-0 border border-border/70">
+            <div className="size-9 rounded-lg bg-secondary flex items-center justify-center text-foreground shrink-0 border border-border/70">
               <Repeat className="size-5 text-muted-foreground" />
             </div>
             <div>
@@ -214,6 +229,8 @@ export function CycleDetailPage() {
         </div>
       </div>
 
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
+        <div className="flex min-w-0 flex-col gap-6">
       {/* Burndown Chart Component */}
       <BurndownChart
         startDate={cycle.startDate}
@@ -227,19 +244,40 @@ export function CycleDetailPage() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <h2 className="text-base font-semibold tracking-[-0.02em] text-foreground">Cycle Issues</h2>
-            <span className="font-mono text-[11px] text-muted-foreground bg-secondary/80 border border-border/60 px-2 py-0.5 rounded-[5px]">
+            <span className="font-mono text-xs text-muted-foreground bg-secondary/80 border border-border/60 px-2 py-0.5 rounded-[5px]">
               {cycleIssues.length}
             </span>
           </div>
 
-          <Button
-            size="sm"
-            onClick={() => setIsCreateIssueOpen(true)}
-            className="rounded-[6px] h-7 px-2.5 text-xs font-medium"
-          >
-            <Plus data-icon="inline-start" className="size-3" />
-            <span>Add Issue to Cycle</span>
-          </Button>
+          <div className="flex items-center gap-2">
+            <Select
+              onValueChange={(issueId) => updateIssueMutation.mutate({
+                id: issueId,
+                data: { cycleId: cycle.id },
+              })}
+            >
+              <SelectTrigger disabled={!backlogIssues.length} className="h-7 w-52 rounded-[6px] text-xs">
+                <SelectValue placeholder={backlogIssues.length ? 'Plan backlog issue…' : 'No backlog issues'} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  {backlogIssues.map((issue) => (
+                    <SelectItem key={issue.id} value={issue.id}>
+                      {issue.identifier} · {issue.title}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+            <Button
+              size="sm"
+              onClick={() => setIsCreateIssueOpen(true)}
+              className="rounded-[6px] h-7 px-2.5 text-xs font-medium"
+            >
+              <Plus data-icon="inline-start" className="size-3" />
+              <span>New Issue</span>
+            </Button>
+          </div>
         </div>
 
         {/* Filter sub-tabs */}
@@ -262,7 +300,7 @@ export function CycleDetailPage() {
                 }`}
               >
                 <span>{tab.label}</span>
-                <span className="font-mono text-[10px] text-muted-foreground">{tab.count}</span>
+                <span className="font-mono text-xs text-muted-foreground">{tab.count}</span>
               </button>
             );
           })}
@@ -273,6 +311,30 @@ export function CycleDetailPage() {
           issues={filteredIssues}
           onSelectIssue={handleOpenIssueDetail}
         />
+      </div>
+        </div>
+
+        <aside className="h-fit rounded-lg border border-border/80 bg-card p-4 lg:sticky lg:top-5">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-foreground">Cycle summary</span>
+            <CycleStatusBadge status={cycle.status} />
+          </div>
+          <div className="mt-4 border-y border-border/60 py-4">
+            <div className="flex items-baseline justify-between">
+              <span className="text-xs text-muted-foreground">Progress</span>
+              <span className="font-mono text-sm font-semibold text-foreground">{progressPercent}%</span>
+            </div>
+            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-secondary"><div className="h-full bg-primary" style={{ width: `${progressPercent}%` }} /></div>
+            <div className="mt-3 grid grid-cols-2 gap-3 text-xs">
+              <div><p className="text-muted-foreground">Completed</p><p className="mt-0.5 font-mono text-foreground">{completedCount}</p></div>
+              <div><p className="text-muted-foreground">Remaining</p><p className="mt-0.5 font-mono text-foreground">{cycleIssues.length - completedCount}</p></div>
+            </div>
+          </div>
+          <div className="mt-4">
+            <p className="text-xs text-muted-foreground">Schedule</p>
+            <p className="mt-1 font-mono text-xs text-foreground">{formatDateRange(cycle.startDate, cycle.endDate)}</p>
+          </div>
+        </aside>
       </div>
 
       {/* Complete Cycle Modal */}
@@ -286,6 +348,8 @@ export function CycleDetailPage() {
       <CreateIssueDialog
         open={isCreateIssueOpen}
         onOpenChange={setIsCreateIssueOpen}
+        defaultCycleId={cycle.id}
+        defaultTeamId={cycle.teamId}
       />
 
       {/* Detail Sheet for issues */}
@@ -293,6 +357,21 @@ export function CycleDetailPage() {
         issue={selectedIssue}
         open={isIssueDetailOpen}
         onOpenChange={setIsIssueDetailOpen}
+      />
+
+      {/* Delete Confirmation Alert Dialog */}
+      <ConfirmDeleteDialog
+        open={isDeleteDialogOpen}
+        onOpenChange={setIsDeleteDialogOpen}
+        title={`Delete ${cycle ? (cycle.name || `Cycle ${cycle.number}`) : 'cycle'}?`}
+        description="This will permanently delete this cycle and unassign all scheduled issues."
+        onConfirm={() => {
+          if (cycle) {
+            deleteMutation.mutate(cycle.id, {
+              onSuccess: () => navigate('/cycles'),
+            });
+          }
+        }}
       />
     </div>
   );

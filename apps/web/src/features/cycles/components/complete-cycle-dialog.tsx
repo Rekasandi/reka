@@ -74,7 +74,7 @@ export function CompleteCycleDialog({ cycle, open, onOpenChange }: CompleteCycle
           </DialogHeader>
 
           <div className="flex flex-col gap-4 py-2">
-            <div className="rounded-[8px] border border-border/80 bg-card/40 p-3 flex justify-between items-center text-xs">
+            <div className="rounded-lg border border-border/80 bg-card/40 p-3 flex justify-between items-center text-xs">
               <span className="text-muted-foreground">Completed issues:</span>
               <span className="font-mono font-semibold text-emerald-500">
                 {cycle.completedIssues || 0} issues ({cycle.progress || 0}%)

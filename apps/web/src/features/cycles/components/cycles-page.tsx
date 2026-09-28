@@ -29,7 +29,7 @@ import type { Cycle } from '../api/cycles.api';
 function CycleStatusBadge({ status }: { status: Cycle['status'] }) {
   if (status === 'active') {
     return (
-      <Badge className="bg-emerald-500/15 border-emerald-500/30 text-emerald-500 text-[10px] font-normal gap-1 h-5">
+      <Badge className="bg-emerald-500/15 border-emerald-500/30 text-emerald-500 text-xs font-normal gap-1 h-5">
         <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
         <span>Active</span>
       </Badge>
@@ -37,14 +37,14 @@ function CycleStatusBadge({ status }: { status: Cycle['status'] }) {
   }
   if (status === 'completed') {
     return (
-      <Badge variant="outline" className="border-border/60 bg-muted/40 text-muted-foreground text-[10px] font-normal gap-1 h-5">
+      <Badge variant="outline" className="border-border/60 bg-muted/40 text-muted-foreground text-xs font-normal gap-1 h-5">
         <Check className="size-3" />
         <span>Completed</span>
       </Badge>
     );
   }
   return (
-    <Badge variant="secondary" className="text-[10px] font-normal gap-1 h-5">
+    <Badge variant="secondary" className="text-xs font-normal gap-1 h-5">
       <Clock className="size-3 text-muted-foreground" />
       <span>Upcoming</span>
     </Badge>
@@ -93,26 +93,19 @@ export function CyclesPage() {
     });
   };
 
-  const handleDelete = (c: Cycle, e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (confirm(`Delete ${c.name || `Cycle ${c.number}`}?`)) {
-      deleteMutation.mutate(c.id);
-    }
-  };
-
   return (
-    <div className="flex flex-col gap-6 max-w-6xl mx-auto selection:bg-foreground selection:text-background">
+    <div className="flex flex-col gap-6 max-w-7xl mx-auto selection:bg-foreground selection:text-background pb-10">
       {/* Page Header */}
       <div className="flex items-center justify-between gap-4">
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-2.5">
             <h1 className="text-xl sm:text-2xl font-semibold tracking-[-0.03em] text-foreground">Cycles</h1>
-            <span className="font-mono text-[11px] font-medium text-muted-foreground bg-secondary/80 border border-border/60 px-2 py-0.5 rounded-[5px]">
+            <span className="font-mono text-xs font-medium text-muted-foreground bg-secondary/80 border border-border/60 px-2 py-0.5 rounded-[5px]">
               {cycles.length}
             </span>
           </div>
           <p className="text-xs text-muted-foreground">
-            Time-boxed engineering sprints to measure team velocity and delivery cadence.
+            Time-boxed plans for backlog issues, delivery cadence, and team velocity.
           </p>
         </div>
 
@@ -126,7 +119,7 @@ export function CyclesPage() {
       {activeCycle && (
         <Card
           onClick={() => navigate(`/cycles/${activeCycle.id}`)}
-          className="rounded-[14px] border border-border/80 bg-card/60 p-5 shadow-2xs flex flex-col gap-4 relative overflow-hidden cursor-pointer hover:border-border transition-colors group"
+          className="rounded-lg border border-border bg-card p-5 flex flex-col gap-4 relative overflow-hidden cursor-pointer hover:border-foreground/25 transition-colors group shadow-none"
         >
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-center gap-3">
@@ -201,7 +194,7 @@ export function CyclesPage() {
               }`}
             >
               <span>{opt.label}</span>
-              <span className="font-mono text-[10px] text-muted-foreground">
+              <span className="font-mono text-xs text-muted-foreground">
                 {opt.count}
               </span>
             </button>
@@ -213,14 +206,14 @@ export function CyclesPage() {
       {isLoading && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {Array.from({ length: 3 }).map((_, i) => (
-            <Skeleton key={i} className="h-40 w-full rounded-[12px]" />
+            <Skeleton key={i} className="h-40 w-full rounded-lg" />
           ))}
         </div>
       )}
 
       {/* Error State */}
       {isError && (
-        <div className="rounded-[10px] border border-destructive/30 bg-destructive/10 p-4 text-xs text-destructive flex items-center justify-between">
+        <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-xs text-destructive flex items-center justify-between">
           <span>Failed to load cycles from server.</span>
           <Button variant="outline" size="sm" onClick={() => refetch()} className="rounded-[6px]">
             <RefreshCw data-icon="inline-start" className="size-3.5" />
@@ -238,14 +231,12 @@ export function CyclesPage() {
               <Card
                 key={c.id}
                 onClick={() => navigate(`/cycles/${c.id}`)}
-                className="rounded-[12px] border border-border/80 bg-card/40 hover:bg-card/70 hover:border-border transition-all shadow-2xs flex flex-col justify-between group cursor-pointer"
+                className="rounded-lg border border-border bg-card hover:border-foreground/25 transition-colors flex flex-col justify-between group cursor-pointer shadow-none"
               >
                 <CardHeader className="p-4 pb-2">
                   <div className="flex items-start justify-between gap-2">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <div className="size-6 rounded-[5px] bg-secondary flex items-center justify-center text-muted-foreground shrink-0 border border-border/60">
-                        <Repeat className="size-3.5" />
-                      </div>
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <span className="size-2 rounded-full shrink-0 bg-purple-500" />
                       <CardTitle className="text-sm font-semibold truncate">
                         {c.name || `Cycle ${c.number}`}
                       </CardTitle>
@@ -253,14 +244,6 @@ export function CyclesPage() {
 
                     <div className="flex items-center gap-1.5 shrink-0">
                       <CycleStatusBadge status={c.status} />
-                      <button
-                        type="button"
-                        onClick={(e) => handleDelete(c, e)}
-                        className="text-muted-foreground/30 hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-[4px] hover:bg-destructive/10"
-                        title="Delete cycle"
-                      >
-                        <Trash2 className="size-3.5" />
-                      </button>
                     </div>
                   </div>
 
@@ -272,7 +255,7 @@ export function CyclesPage() {
                 <CardContent className="p-4 py-2 flex flex-col gap-2">
                   {/* Progress Bar */}
                   <div className="flex flex-col gap-1.5">
-                    <div className="flex justify-between items-center text-[11px] font-mono text-muted-foreground">
+                    <div className="flex justify-between items-center text-xs font-mono text-muted-foreground">
                       <span>{c.completedIssues || 0}/{c.totalIssues || 0} issues</span>
                       <span className="font-semibold text-foreground">{progress}%</span>
                     </div>
@@ -288,14 +271,14 @@ export function CyclesPage() {
                 <CardFooter className="p-4 pt-2.5 border-t border-border/60 flex items-center justify-between text-xs text-muted-foreground">
                   <div className="flex items-center gap-1.5">
                     <Calendar className="size-3 text-muted-foreground/70" />
-                    <span className="text-[11px] font-mono">{formatDateRange(c.startDate, c.endDate)}</span>
+                    <span className="text-xs font-mono">{formatDateRange(c.startDate, c.endDate)}</span>
                   </div>
 
                   {c.isCompleted ? (
                     <button
                       type="button"
                       onClick={(e) => handleToggleComplete(c, e)}
-                      className="text-[11px] text-muted-foreground hover:text-foreground font-medium transition-colors"
+                      className="text-xs text-muted-foreground hover:text-foreground font-medium transition-colors"
                     >
                       Reopen
                     </button>
@@ -306,7 +289,7 @@ export function CyclesPage() {
                         e.stopPropagation();
                         setCompleteCycleTarget(c);
                       }}
-                      className="text-[11px] text-muted-foreground hover:text-foreground font-medium transition-colors"
+                      className="text-xs text-muted-foreground hover:text-foreground font-medium transition-colors"
                     >
                       End Cycle...
                     </button>
@@ -317,7 +300,7 @@ export function CyclesPage() {
           })}
 
           {filteredCycles.length === 0 && (
-            <div className="col-span-full rounded-[12px] border border-dashed border-border/80 p-14 text-center text-xs text-muted-foreground bg-card/10">
+            <div className="col-span-full rounded-lg border border-dashed border-border/80 p-14 text-center text-xs text-muted-foreground bg-card/10">
               No cycles found in this filter. Click &ldquo;New Cycle&rdquo; to start your first sprint.
             </div>
           )}

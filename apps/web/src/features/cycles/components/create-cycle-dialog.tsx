@@ -15,22 +15,32 @@ import {
   FieldError,
   FieldGroup,
   DatePicker,
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
 } from '@reka/ui';
 import { useCreateCycle } from '../hooks/use-cycles';
+import { useTeams } from '../../teams/hooks/use-teams';
 
 interface CreateCycleDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  defaultTeamId?: string;
 }
 
-export function CreateCycleDialog({ open, onOpenChange }: CreateCycleDialogProps) {
+export function CreateCycleDialog({ open, onOpenChange, defaultTeamId }: CreateCycleDialogProps) {
   const createMutation = useCreateCycle();
+  const { data: teams = [] } = useTeams();
 
   const defaultStart = new Date();
   const defaultEnd = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000); // 2 weeks sprint
 
   const form = useForm({
     defaultValues: {
+      teamId: defaultTeamId || '',
       name: '',
       description: '',
       startDate: defaultStart.toISOString(),
@@ -39,6 +49,7 @@ export function CreateCycleDialog({ open, onOpenChange }: CreateCycleDialogProps
     onSubmit: async ({ value }) => {
       createMutation.mutate(
         {
+          teamId: value.teamId,
           name: value.name?.trim() || undefined,
           description: value.description?.trim() || undefined,
           startDate: value.startDate,
@@ -53,6 +64,10 @@ export function CreateCycleDialog({ open, onOpenChange }: CreateCycleDialogProps
       );
     },
   });
+
+  React.useEffect(() => {
+    if (!form.state.values.teamId && teams[0]) form.setFieldValue('teamId', defaultTeamId || teams[0].id);
+  }, [defaultTeamId, form, teams]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -73,6 +88,19 @@ export function CreateCycleDialog({ open, onOpenChange }: CreateCycleDialogProps
           </DialogHeader>
 
           <FieldGroup className="py-1">
+            <form.Field
+              name="teamId"
+              validators={{ onChange: ({ value }) => (!value ? 'Team is required' : undefined) }}
+              children={(field) => (
+                <Field>
+                  <FieldLabel htmlFor={field.name}>Team</FieldLabel>
+                  <Select name={field.name} value={field.state.value} onValueChange={field.handleChange}>
+                    <SelectTrigger id={field.name}><SelectValue placeholder="Select team" /></SelectTrigger>
+                    <SelectContent><SelectGroup>{teams.map((team) => <SelectItem key={team.id} value={team.id}>{team.name}</SelectItem>)}</SelectGroup></SelectContent>
+                  </Select>
+                </Field>
+              )}
+            />
             <form.Field
               name="name"
               children={(field) => (

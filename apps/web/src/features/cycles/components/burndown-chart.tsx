@@ -24,11 +24,11 @@ interface BurndownChartProps {
 const chartConfig = {
   ideal: {
     label: 'Ideal Burndown',
-    color: '#71717a',
+    color: '#8f8f8f',
   },
   actual: {
     label: 'Actual Remaining',
-    color: '#10b981',
+    color: '#50e3c2',
   },
 } satisfies ChartConfig;
 
@@ -85,13 +85,13 @@ export function BurndownChart({
   const actualRemainingNow = Math.max(totalIssues - completedIssues, 0);
 
   return (
-    <div className="rounded-[14px] border border-border/80 bg-card/40 p-5 flex flex-col gap-4 shadow-2xs">
+    <div className="rounded-lg border border-border/80 bg-card/40 p-5 flex flex-col gap-4 shadow-2xs">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
+          <span className="text-xs font-medium text-muted-foreground">
             Sprint Burndown Chart
           </span>
-          <span className="font-mono text-[11px] text-muted-foreground bg-secondary/80 border border-border/60 px-2 py-0.2 rounded-[4px]">
+          <span className="font-mono text-xs text-muted-foreground bg-secondary/80 border border-border/60 px-2 py-0.2 rounded-[4px]">
             {actualRemainingNow} remaining
           </span>
         </div>
@@ -114,8 +114,8 @@ export function BurndownChart({
           <AreaChart accessibilityLayer data={chartData} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
             <defs>
               <linearGradient id="fillActual" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#10b981" stopOpacity={0.25} />
-                <stop offset="95%" stopColor="#10b981" stopOpacity={0.0} />
+                <stop offset="5%" stopColor="#50e3c2" stopOpacity={0.25} />
+                <stop offset="95%" stopColor="#50e3c2" stopOpacity={0.0} />
               </linearGradient>
             </defs>
 
@@ -126,13 +126,13 @@ export function BurndownChart({
               tickLine={false}
               axisLine={false}
               tickMargin={8}
-              tick={{ fontSize: 10, fill: 'currentColor', opacity: 0.6 }}
+              tick={{ fontSize: 12, fill: 'currentColor', opacity: 0.6 }}
             />
             <YAxis
               tickLine={false}
               axisLine={false}
               tickMargin={8}
-              tick={{ fontSize: 10, fill: 'currentColor', opacity: 0.6 }}
+              tick={{ fontSize: 12, fill: 'currentColor', opacity: 0.6 }}
               domain={[0, Math.max(totalIssues, 5)]}
               allowDecimals={false}
             />
@@ -143,7 +143,7 @@ export function BurndownChart({
             <Line
               type="monotone"
               dataKey="ideal"
-              stroke="#71717a"
+              stroke="#8f8f8f"
               strokeWidth={1.5}
               strokeDasharray="4 4"
               dot={false}
@@ -153,17 +153,17 @@ export function BurndownChart({
             <Area
               type="monotone"
               dataKey="actual"
-              stroke="#10b981"
+              stroke="#50e3c2"
               strokeWidth={2}
               fill="url(#fillActual)"
-              dot={{ r: 3, fill: '#10b981', strokeWidth: 0 }}
-              activeDot={{ r: 5, fill: '#10b981', stroke: 'var(--background)', strokeWidth: 2 }}
+              dot={{ r: 3, fill: '#50e3c2', strokeWidth: 0 }}
+              activeDot={{ r: 5, fill: '#50e3c2', stroke: 'var(--background)', strokeWidth: 2 }}
             />
           </AreaChart>
         </ChartContainer>
       </div>
 
-      <div className="flex justify-between items-center text-[10px] font-mono text-muted-foreground pt-2 border-t border-border/50">
+      <div className="flex justify-between items-center text-xs font-mono text-muted-foreground pt-2 border-t border-border/50">
         <span>Start: {new Date(startDate).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}</span>
         <span>Sprint Velocity: {completedIssues} issues delivered</span>
         <span>End: {new Date(endDate).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}</span>

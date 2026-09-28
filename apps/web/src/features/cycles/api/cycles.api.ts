@@ -19,6 +19,7 @@ export interface Cycle {
 }
 
 export interface CreateCycleInput {
+  teamId: string;
   name?: string;
   description?: string;
   startDate: string;
