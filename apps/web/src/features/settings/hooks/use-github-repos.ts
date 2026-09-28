@@ -1,6 +1,82 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from '@reka/ui';
 
+export interface GithubInstallation {
+  id: string;
+  organizationId: string;
+  installationId: number;
+  accountLogin: string;
+  accountType: 'User' | 'Organization';
+  repositoryCount?: number;
+  repositories?: GithubRepository[];
+  createdAt: string;
+}
+
+export const GITHUB_INSTALLATIONS_KEY = ['github-installations'];
+
+export function useGithubInstallations() {
+  return useQuery<GithubInstallation[]>({
+    queryKey: GITHUB_INSTALLATIONS_KEY,
+    queryFn: async () => {
+      const res = await fetch('/api/integrations/github/installations');
+      if (!res.ok) return [];
+      return res.json();
+    },
+  });
+}
+
+export function useConnectGithubOrganization() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input: { accountLogin: string; accountType?: string }) => {
+      const res = await fetch('/api/integrations/github/installations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(input),
+      });
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => null);
+        throw new Error(errorData?.message || 'Failed to connect GitHub organization');
+      }
+      return res.json();
+    },
+    onSuccess: (newInst) => {
+      queryClient.invalidateQueries({ queryKey: GITHUB_INSTALLATIONS_KEY });
+      queryClient.invalidateQueries({ queryKey: GITHUB_REPOS_KEY });
+      toast.success(`GitHub organization "${newInst.accountLogin}" connected`);
+    },
+    onError: (err: any) => {
+      toast.error('Failed to connect organization', {
+        description: err.message,
+      });
+    },
+  });
+}
+
+export function useDeleteGithubInstallation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const res = await fetch(`/api/integrations/github/installations/${id}`, {
+        method: 'DELETE',
+      });
+      if (!res.ok) throw new Error('Failed to disconnect GitHub organization');
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: GITHUB_INSTALLATIONS_KEY });
+      queryClient.invalidateQueries({ queryKey: GITHUB_REPOS_KEY });
+      toast.success('GitHub organization disconnected');
+    },
+    onError: (err: any) => {
+      toast.error('Failed to disconnect organization', {
+        description: err.message,
+      });
+    },
+  });
+}
+
 export interface GithubRepository {
   id: string;
   installationId: string;

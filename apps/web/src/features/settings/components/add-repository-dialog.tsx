@@ -106,7 +106,7 @@ export function AddRepositoryDialog({ open, onOpenChange }: AddRepositoryDialogP
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-full sm:max-w-2xl max-w-2xl p-6 bg-popover rounded-[14px] border border-border shadow-2xl">
+      <DialogContent className="w-full sm:max-w-2xl max-w-2xl p-6 bg-popover rounded-lg border border-border shadow-2xl">
         <form onSubmit={handleSubmit} className="flex flex-col gap-5">
           <DialogHeader className="gap-1 text-left">
             <div className="flex items-center justify-between">
@@ -154,7 +154,7 @@ export function AddRepositoryDialog({ open, onOpenChange }: AddRepositoryDialogP
                       {availableOwners.map(({ owner, count }) => (
                         <SelectItem key={owner} value={owner}>
                           <span className="font-mono text-xs">{owner}</span>
-                          <span className="ml-1.5 text-[10px] text-muted-foreground font-mono">({count})</span>
+                          <span className="ml-1.5 text-xs text-muted-foreground font-mono">({count})</span>
                         </SelectItem>
                       ))}
                     </SelectGroup>
@@ -183,7 +183,7 @@ export function AddRepositoryDialog({ open, onOpenChange }: AddRepositoryDialogP
 
             {/* Step 3: Selectable Repositories List */}
             <div className="flex flex-col gap-1.5">
-              <div className="flex items-center justify-between text-[11px] font-mono text-muted-foreground px-1">
+              <div className="flex items-center justify-between text-xs font-mono text-muted-foreground px-1">
                 <span>
                   {selectedOwner !== 'all' ? `Repositories under ${selectedOwner}` : 'All Repositories'} ({filtered.length})
                 </span>
@@ -194,7 +194,7 @@ export function AddRepositoryDialog({ open, onOpenChange }: AddRepositoryDialogP
                 )}
               </div>
 
-              <div className="rounded-[10px] border border-border divide-y divide-border/60 max-h-64 overflow-y-auto bg-card/40">
+              <div className="rounded-lg border border-border divide-y divide-border/60 max-h-64 overflow-y-auto bg-card/40">
                 {isLoading ? (
                   <div className="p-8 text-center text-xs text-muted-foreground flex items-center justify-center gap-2">
                     <RefreshCw className="size-3.5 animate-spin" />
@@ -234,7 +234,7 @@ export function AddRepositoryDialog({ open, onOpenChange }: AddRepositoryDialogP
                               {repo.fullName}
                             </span>
                             {repo.description && (
-                              <span className="text-[11px] text-muted-foreground truncate leading-tight mt-0.5">
+                              <span className="text-xs text-muted-foreground truncate leading-tight mt-0.5">
                                 {repo.description}
                               </span>
                             )}
@@ -243,7 +243,7 @@ export function AddRepositoryDialog({ open, onOpenChange }: AddRepositoryDialogP
 
                         <div className="flex items-center gap-2 shrink-0">
                           {isConnected ? (
-                            <Badge variant="outline" className="text-[10px] font-mono h-5 px-2 text-muted-foreground border-border/70">
+                            <Badge variant="outline" className="text-xs font-mono h-5 px-2 text-muted-foreground border-border/70">
                               Connected
                             </Badge>
                           ) : isSelected ? (
@@ -256,7 +256,7 @@ export function AddRepositoryDialog({ open, onOpenChange }: AddRepositoryDialogP
                               type="button"
                               variant="ghost"
                               size="xs"
-                              className="h-6 text-[11px] text-muted-foreground hover:text-foreground"
+                              className="h-6 text-xs text-muted-foreground hover:text-foreground"
                             >
                               Select
                             </Button>
@@ -275,7 +275,7 @@ export function AddRepositoryDialog({ open, onOpenChange }: AddRepositoryDialogP
                         You can connect &ldquo;{search}&rdquo; directly with the button below.
                       </span>
                     ) : (
-                      <span className="text-[11px] text-muted-foreground/70">
+                      <span className="text-xs text-muted-foreground/70">
                         Try clearing the search filter or typing &ldquo;owner/repo&rdquo;.
                       </span>
                     )}
