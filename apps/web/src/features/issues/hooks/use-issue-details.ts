@@ -60,6 +60,18 @@ export function useCreateComment(issueId?: string) {
   });
 }
 
+export function useWorkspaceActivities(limit = 15) {
+  return useQuery({
+    queryKey: ['workspace-activities', limit],
+    queryFn: async () => {
+      const res = await fetch(`/api/activities`);
+      if (!res.ok) throw new Error('Failed to fetch activities');
+      return (await res.json()) as ActivityItem[];
+    },
+    refetchInterval: 15000,
+  });
+}
+
 export function useIssueActivities(issueId?: string) {
   return useQuery({
     queryKey: ['activities', issueId],

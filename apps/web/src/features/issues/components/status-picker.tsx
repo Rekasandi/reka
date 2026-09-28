@@ -32,7 +32,7 @@ export const STATUS_CONFIG: Record<
   todo: {
     label: 'Todo',
     number: 2,
-    color: '#e5e5e5',
+    color: '#ebebeb',
     renderIcon: () => (
       <svg className="size-3.5 text-muted-foreground" viewBox="0 0 16 16" fill="none">
         <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.75" />
@@ -42,7 +42,7 @@ export const STATUS_CONFIG: Record<
   in_progress: {
     label: 'In Progress',
     number: 3,
-    color: '#f59e0b',
+    color: '#f5a623',
     renderIcon: () => (
       <svg className="size-3.5 text-amber-500" viewBox="0 0 16 16" fill="none">
         <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.75" />
@@ -53,7 +53,7 @@ export const STATUS_CONFIG: Record<
   in_review: {
     label: 'In Review',
     number: 4,
-    color: '#10b981',
+    color: '#50e3c2',
     renderIcon: () => (
       <svg className="size-3.5 text-emerald-500" viewBox="0 0 16 16" fill="none">
         <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.75" />
@@ -61,10 +61,21 @@ export const STATUS_CONFIG: Record<
       </svg>
     ),
   },
+  ready_to_deploy: {
+    label: 'Ready to Deploy',
+    number: 5,
+    color: '#0070f3',
+    renderIcon: () => (
+      <svg className="size-3.5 text-cyan-500" viewBox="0 0 16 16" fill="none">
+        <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.75" />
+        <path d="M8 4l2.5 3.5H5.5L8 4z M8 8.5v3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    ),
+  },
   done: {
     label: 'Done',
-    number: 5,
-    color: '#6366f1',
+    number: 6,
+    color: '#7928ca',
     renderIcon: () => (
       <svg className="size-3.5 text-indigo-500" viewBox="0 0 16 16" fill="currentColor">
         <circle cx="8" cy="8" r="7" />
@@ -81,8 +92,8 @@ export const STATUS_CONFIG: Record<
   },
   canceled: {
     label: 'Canceled',
-    number: 6,
-    color: '#71717a',
+    number: 7,
+    color: '#8f8f8f',
     renderIcon: () => (
       <svg className="size-3.5 text-zinc-500" viewBox="0 0 16 16" fill="none">
         <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.75" />
@@ -90,12 +101,12 @@ export const STATUS_CONFIG: Record<
       </svg>
     ),
   },
-  duplicate: {
-    label: 'Duplicate',
-    number: 7,
-    color: '#71717a',
+  blocked: {
+    label: 'Blocked',
+    number: 8,
+    color: '#ee0000',
     renderIcon: () => (
-      <svg className="size-3.5 text-zinc-500" viewBox="0 0 16 16" fill="none">
+      <svg className="size-3.5 text-rose-500" viewBox="0 0 16 16" fill="none">
         <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.75" />
         <path d="M4.5 11.5l7-7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
       </svg>
@@ -147,13 +158,13 @@ export function StatusPicker({ status, onStatusChange, className }: StatusPicker
 
       <DropdownMenuContent
         align="start"
-        className="w-56 p-1.5 bg-[#18181b] border border-border text-foreground shadow-2xl rounded-xl"
+        className="w-56 p-1.5 bg-popover border border-border text-foreground shadow-2xl rounded-lg"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header like screenshot */}
+        {/* Header */}
         <div className="flex items-center justify-between px-2.5 py-1.5 text-xs text-muted-foreground border-b border-border/40 mb-1">
-          <span className="font-medium text-[11px] text-muted-foreground/80">Change status...</span>
-          <kbd className="rounded border border-border/60 bg-muted/40 px-1.5 py-0.2 text-[10px] font-mono">
+          <span className="font-medium text-xs text-muted-foreground/80">Change status...</span>
+          <kbd className="rounded border border-border/60 bg-muted/40 px-1.5 py-0.5 text-xs font-mono">
             S
           </kbd>
         </div>
@@ -168,14 +179,14 @@ export function StatusPicker({ status, onStatusChange, className }: StatusPicker
                   onStatusChange(key);
                   setOpen(false);
                 }}
-                className={`flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs cursor-pointer select-none transition-colors ${
+                className={`flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-xs cursor-pointer select-none transition-colors ${
                   isSelected ? 'bg-secondary text-foreground font-medium' : 'text-muted-foreground hover:bg-secondary/60 hover:text-foreground'
                 }`}
               >
                 <div className="shrink-0">{cfg.renderIcon()}</div>
                 <span className="flex-1 truncate">{cfg.label}</span>
                 {isSelected && <Check className="size-3 text-muted-foreground mr-1" />}
-                <span className="font-mono text-[10px] text-muted-foreground/50">{cfg.number}</span>
+                <span className="font-mono text-xs text-muted-foreground/50">{cfg.number}</span>
               </DropdownMenuItem>
             );
           })}

@@ -5,6 +5,8 @@ import { useUpdateIssue, useDeleteIssue } from '../hooks/use-issues';
 import { Trash2 } from 'lucide-react';
 import { StatusPicker, StatusIconOnly } from './status-picker';
 import { PriorityIcon } from './issue-list-view';
+import { AssigneePicker } from './assignee-picker';
+import { ConfirmDeleteDialog } from '../../../components/common/confirm-delete-dialog';
 
 interface IssueKanbanBoardProps {
   issues: Issue[];
@@ -16,28 +18,28 @@ const COLUMNS: { id: string; label: string; status: string }[] = [
   { id: 'todo', label: 'Todo', status: 'todo' },
   { id: 'in_progress', label: 'In Progress', status: 'in_progress' },
   { id: 'in_review', label: 'In Review', status: 'in_review' },
+  { id: 'ready_to_deploy', label: 'Ready to Deploy', status: 'ready_to_deploy' },
   { id: 'done', label: 'Done', status: 'done' },
 ];
 
 export function IssueKanbanBoard({ issues, onSelectIssue }: IssueKanbanBoardProps) {
   const updateMutation = useUpdateIssue();
   const deleteMutation = useDeleteIssue();
+  const [deleteTargetId, setDeleteTargetId] = React.useState<string | null>(null);
 
   const handleDelete = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (confirm('Delete this issue?')) {
-      deleteMutation.mutate(id);
-    }
+    setDeleteTargetId(id);
   };
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-5 gap-3 items-start overflow-x-auto pb-4 select-none">
+    <div className="flex gap-3 items-start overflow-x-auto pb-4 select-none">
       {COLUMNS.map((col) => {
         const colIssues = issues.filter((i) => i.status === col.id);
         return (
           <div
             key={col.id}
-            className="flex flex-col gap-2 rounded-lg border border-border/60 bg-card/20 p-2.5 min-h-[500px]"
+            className="flex flex-col gap-2 rounded-lg border border-border/80 bg-card p-2.5 min-h-[500px] w-64 shrink-0 shadow-none"
           >
             <div className="flex items-center justify-between px-1 py-0.5">
               <div className="flex items-center gap-1.5">
@@ -46,7 +48,7 @@ export function IssueKanbanBoard({ issues, onSelectIssue }: IssueKanbanBoardProp
                   {col.label}
                 </span>
               </div>
-              <Badge variant="outline" className="font-mono text-[10px] h-4.5 px-1.5 flex items-center justify-center">
+              <Badge variant="outline" className="font-mono text-xs h-4.5 px-1.5 flex items-center justify-center">
                 {colIssues.length}
               </Badge>
             </div>
@@ -61,7 +63,7 @@ export function IssueKanbanBoard({ issues, onSelectIssue }: IssueKanbanBoardProp
                   <div className="flex items-center justify-between gap-1">
                     <div className="flex items-center gap-1.5">
                       <PriorityIcon priority={issue.priority} />
-                      <span className="font-mono text-[11px] font-semibold text-muted-foreground group-hover:text-foreground transition-colors">
+                      <span className="font-mono text-xs font-semibold text-muted-foreground group-hover:text-foreground transition-colors">
                         {issue.identifier}
                       </span>
                     </div>
@@ -80,9 +82,19 @@ export function IssueKanbanBoard({ issues, onSelectIssue }: IssueKanbanBoardProp
                   </p>
 
                   <div className="flex items-center justify-between pt-1 border-t border-border/40" onClick={(e) => e.stopPropagation()}>
-                    <Badge variant="secondary" className="capitalize text-[10px] font-mono h-4.5 px-1.5 font-normal">
-                      {issue.type}
-                    </Badge>
+                    <div className="flex items-center gap-1.5">
+                      <Badge variant="secondary" className="capitalize text-xs font-mono h-4.5 px-1.5 font-normal">
+                        {issue.type}
+                      </Badge>
+
+                      <AssigneePicker
+                        size="icon"
+                        assigneeId={issue.assigneeId}
+                        onAssigneeChange={(userId) =>
+                          updateMutation.mutate({ id: issue.id, data: { assigneeId: userId } })
+                        }
+                      />
+                    </div>
 
                     {/* Quick Status Picker Popup */}
                     <StatusPicker
@@ -94,7 +106,7 @@ export function IssueKanbanBoard({ issues, onSelectIssue }: IssueKanbanBoardProp
               ))}
 
               {colIssues.length === 0 && (
-                <div className="py-8 text-center text-[11px] text-muted-foreground/50 border border-dashed border-border/30 rounded-md">
+                <div className="py-8 text-center text-xs text-muted-foreground/50 border border-dashed border-border/30 rounded-md">
                   No issues
                 </div>
               )}
@@ -102,6 +114,19 @@ export function IssueKanbanBoard({ issues, onSelectIssue }: IssueKanbanBoardProp
           </div>
         );
       })}
+
+      <ConfirmDeleteDialog
+        open={!!deleteTargetId}
+        onOpenChange={(open) => !open && setDeleteTargetId(null)}
+        title="Delete this issue?"
+        description="This will permanently delete this issue and all its subtasks."
+        onConfirm={() => {
+          if (deleteTargetId) {
+            deleteMutation.mutate(deleteTargetId);
+            setDeleteTargetId(null);
+          }
+        }}
+      />
     </div>
   );
 }

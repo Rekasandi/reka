@@ -6,6 +6,10 @@ export interface CreateIssueInput {
   status?: string;
   priority?: string;
   type?: string;
+  teamId: string;
+  projectId?: string | null;
+  assigneeId?: string | null;
+  cycleId?: string | null;
   parentId?: string | null;
 }
 
@@ -49,6 +53,22 @@ export async function deleteIssue(id: string): Promise<void> {
   if (!res.ok) {
     throw new Error('Failed to delete issue');
   }
+}
+
+export async function getIssueById(id: string): Promise<Issue> {
+  const res = await fetch(`/api/issues/${id}`);
+  if (!res.ok) {
+    throw new Error('Failed to fetch issue');
+  }
+  return res.json();
+}
+
+export async function getIssueByIdentifier(identifier: string): Promise<Issue> {
+  const res = await fetch(`/api/issues/by-identifier/${identifier}`);
+  if (!res.ok) {
+    throw new Error(`Failed to fetch issue ${identifier}`);
+  }
+  return res.json();
 }
 
 export async function getSubtasks(issueId: string): Promise<Issue[]> {

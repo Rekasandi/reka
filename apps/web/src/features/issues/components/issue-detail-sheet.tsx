@@ -51,9 +51,11 @@ import { useIssueComments, useCreateComment, useIssueActivities } from '../hooks
 import { useIssuePullRequests, useSyncBranch } from '../hooks/use-github-integration';
 import { StatusPicker, STATUS_CONFIG } from './status-picker';
 import { PriorityIcon } from './issue-list-view';
+import { AssigneePicker } from './assignee-picker';
 import { useProjects } from '../../projects/hooks/use-projects';
 import { useCycles } from '../../cycles/hooks/use-cycles';
 import { LinkPullRequestDialog } from './link-pr-dialog';
+import { ConfirmDeleteDialog } from '../../../components/common/confirm-delete-dialog';
 
 interface IssueDetailSheetProps {
   issue: Issue | null;
@@ -101,6 +103,7 @@ export function IssueDetailSheet({ issue, open, onOpenChange }: IssueDetailSheet
   const [newSubtaskTitle, setNewSubtaskTitle] = React.useState('');
   const [isAddingSubtask, setIsAddingSubtask] = React.useState(false);
   const [isLinkPrOpen, setIsLinkPrOpen] = React.useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = React.useState(false);
 
   React.useEffect(() => {
     setTitle(issue.title);
@@ -121,7 +124,7 @@ export function IssueDetailSheet({ issue, open, onOpenChange }: IssueDetailSheet
   const { data: projects = [] } = useProjects();
   const { data: cycles = [] } = useCycles();
   const commentMutation = useCreateComment(issue.id);
-  const createSubtaskMutation = useCreateSubtask(issue.id);
+  const createSubtaskMutation = useCreateSubtask(issue.id, issue.teamId);
   const syncBranchMutation = useSyncBranch(issue.id);
 
   const branchName = React.useMemo(() => {
@@ -190,11 +193,7 @@ export function IssueDetailSheet({ issue, open, onOpenChange }: IssueDetailSheet
   };
 
   const handleDelete = () => {
-    if (confirm(`Delete issue ${issue.identifier}?`)) {
-      deleteMutation.mutate(issue.id, {
-        onSuccess: () => onOpenChange(false),
-      });
-    }
+    setIsDeleteDialogOpen(true);
   };
 
   const handleAddSubtask = (e: React.FormEvent) => {
@@ -218,9 +217,9 @@ export function IssueDetailSheet({ issue, open, onOpenChange }: IssueDetailSheet
   const renderPanel = () => (
     <div className="flex min-h-0 flex-1 flex-col bg-background font-sans selection:bg-foreground selection:text-background">
       {/* Header bar: Hairline border, precise Geist typography, minimal controls */}
-      <div className="border-b border-border/80 bg-background/95 backdrop-blur-xs px-6 py-3.5 pr-14 flex items-center justify-between gap-4">
-        <div className="flex min-w-0 items-center gap-2.5">
-          <span className="h-6 rounded-[6px] border border-border bg-card/60 px-2 font-mono text-[11px] font-semibold text-foreground flex items-center">
+      <div className="border-b border-border/80 bg-background/95 backdrop-blur-xs px-6 py-3 pr-14 flex items-center justify-between gap-4">
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="h-6 rounded-[6px] border border-border bg-card/60 px-2 font-mono text-xs font-semibold text-foreground flex items-center">
             {issue.identifier}
           </span>
 
@@ -228,7 +227,7 @@ export function IssueDetailSheet({ issue, open, onOpenChange }: IssueDetailSheet
           <button
             type="button"
             onClick={handleCopyBranch}
-            className="flex h-6 min-w-0 items-center gap-1.5 rounded-[6px] border border-border/70 bg-card/40 px-2 text-[11px] font-mono text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground active:scale-[0.98]"
+            className="flex h-6 min-w-0 items-center gap-1.5 rounded-[6px] border border-border/70 bg-card/40 px-2 text-xs font-mono text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground active:scale-[0.98]"
             title="Copy Git Branch Name"
           >
             <GitBranch className="size-3 text-muted-foreground" />
@@ -240,7 +239,7 @@ export function IssueDetailSheet({ issue, open, onOpenChange }: IssueDetailSheet
           <button
             type="button"
             onClick={handleCopyCommand}
-            className="hidden sm:flex h-6 items-center gap-1.5 rounded-[6px] border border-border/70 bg-card/40 px-2 text-[11px] font-mono text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground active:scale-[0.98]"
+            className="hidden sm:flex h-6 items-center gap-1.5 rounded-[6px] border border-border/70 bg-card/40 px-2 text-xs font-mono text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground active:scale-[0.98]"
             title="Copy 'git checkout -b' command"
           >
             <Terminal className="size-3 text-muted-foreground" />
@@ -254,7 +253,7 @@ export function IssueDetailSheet({ issue, open, onOpenChange }: IssueDetailSheet
               href={issue.githubIssueUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex h-6 items-center gap-1.5 rounded-[6px] border border-emerald-500/30 bg-emerald-500/10 px-2 text-[11px] font-mono text-emerald-500 transition-colors hover:bg-emerald-500/20"
+              className="flex h-6 items-center gap-1.5 rounded-[6px] border border-emerald-500/30 bg-emerald-500/10 px-2 text-xs font-mono text-emerald-500 transition-colors hover:bg-emerald-500/20"
               title="Open GitHub Issue"
             >
               <span>GH #{issue.githubIssueNumber}</span>
@@ -279,7 +278,7 @@ export function IssueDetailSheet({ issue, open, onOpenChange }: IssueDetailSheet
 
       {/* Main Content Area */}
       <div className="flex-1 overflow-y-auto px-6 py-6 sm:px-8">
-        <div className="mx-auto flex w-full max-w-4xl flex-col gap-7">
+        <div className="mx-auto flex w-full max-w-4xl flex-col gap-6">
           {/* Title: Geist display style with tight negative tracking, borderless default */}
           <div className="flex flex-col gap-1.5">
             <input
@@ -293,57 +292,11 @@ export function IssueDetailSheet({ issue, open, onOpenChange }: IssueDetailSheet
             />
           </div>
 
-          {/* Properties Grid: Level-0 hairline flat card adhering to DESIGN.md */}
-          <div className="rounded-[12px] border border-border/80 bg-card/40 p-3.5 grid grid-cols-2 sm:grid-cols-6 gap-3">
-            {/* Project Select */}
-            <div className="flex flex-col gap-1.5">
-              <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Project</span>
-              <Select
-                value={issue.projectId || 'none'}
-                onValueChange={(val) => updateMutation.mutate({ id: issue.id, data: { projectId: val === 'none' ? null : val } as any })}
-              >
-                <SelectTrigger className="h-8 w-full rounded-[6px] border border-border/60 bg-background/80 px-2 text-xs font-medium hover:border-border">
-                  <SelectValue placeholder="Project" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    <SelectItem value="none">No Project</SelectItem>
-                    {projects.map((p) => (
-                      <SelectItem key={p.id} value={p.id}>
-                        {p.name}
-                      </SelectItem>
-                    ))}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Cycle Select */}
-            <div className="flex flex-col gap-1.5">
-              <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Cycle</span>
-              <Select
-                value={issue.cycleId || 'none'}
-                onValueChange={(val) => updateMutation.mutate({ id: issue.id, data: { cycleId: val === 'none' ? null : val } as any })}
-              >
-                <SelectTrigger className="h-8 w-full rounded-[6px] border border-border/60 bg-background/80 px-2 text-xs font-medium hover:border-border">
-                  <SelectValue placeholder="Cycle" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    <SelectItem value="none">No Cycle</SelectItem>
-                    {cycles.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>
-                        {c.name || `Cycle ${c.number}`}
-                      </SelectItem>
-                    ))}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
-            </div>
-
+          {/* Properties: Clean Linear-style metadata panel adhering to Geist tokens */}
+          <div className="rounded-lg border border-border/70 bg-card/20 p-3 grid grid-cols-2 sm:grid-cols-6 gap-2.5">
             {/* Status Select */}
-            <div className="flex flex-col gap-1.5">
-              <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Status</span>
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-medium text-muted-foreground">Status</span>
               <Select
                 value={issue.status}
                 onValueChange={(val) => updateMutation.mutate({ id: issue.id, data: { status: val as any } })}
@@ -367,8 +320,8 @@ export function IssueDetailSheet({ issue, open, onOpenChange }: IssueDetailSheet
             </div>
 
             {/* Priority */}
-            <div className="flex flex-col gap-1.5">
-              <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Priority</span>
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-medium text-muted-foreground">Priority</span>
               <Select
                 value={issue.priority}
                 onValueChange={(val) => updateMutation.mutate({ id: issue.id, data: { priority: val as any } })}
@@ -391,48 +344,94 @@ export function IssueDetailSheet({ issue, open, onOpenChange }: IssueDetailSheet
               </Select>
             </div>
 
-            {/* Type */}
-            <div className="flex flex-col gap-1.5">
-              <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Type</span>
-              <div className="flex h-8 items-center">
-                <Badge variant="outline" className="h-8 w-full rounded-[6px] border border-border/60 bg-background/80 px-2.5 font-mono text-[11px] font-normal capitalize text-foreground justify-start">
-                  {issue.type}
-                </Badge>
-              </div>
+            {/* Assignee */}
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-medium text-muted-foreground">Assignee</span>
+              <AssigneePicker
+                assigneeId={issue.assigneeId}
+                onAssigneeChange={(userId) =>
+                  updateMutation.mutate({ id: issue.id, data: { assigneeId: userId } })
+                }
+              />
             </div>
 
-            {/* Assignee */}
-            <div className="flex flex-col gap-1.5">
-              <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Assignee</span>
-              <div className="flex h-8 items-center gap-2 rounded-[6px] border border-border/60 bg-background/80 px-2.5">
-                <Avatar className="size-4.5 rounded-full">
-                  <AvatarFallback className="text-[10px] font-medium bg-secondary text-foreground">G</AvatarFallback>
-                </Avatar>
-                <span className="truncate text-xs font-medium text-foreground">Gustam</span>
+            {/* Project Select */}
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-medium text-muted-foreground">Project</span>
+              <Select
+                value={issue.projectId || 'none'}
+                onValueChange={(val) => updateMutation.mutate({ id: issue.id, data: { projectId: val === 'none' ? null : val } as any })}
+              >
+                <SelectTrigger className="h-8 w-full rounded-[6px] border border-border/60 bg-background/80 px-2 text-xs font-medium hover:border-border">
+                  <SelectValue placeholder="Project" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    <SelectItem value="none">No Project</SelectItem>
+                    {projects.map((p) => (
+                      <SelectItem key={p.id} value={p.id}>
+                        {p.name}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Cycle Select */}
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-medium text-muted-foreground">Cycle</span>
+              <Select
+                value={issue.cycleId || 'none'}
+                onValueChange={(val) => updateMutation.mutate({ id: issue.id, data: { cycleId: val === 'none' ? null : val } as any })}
+              >
+                <SelectTrigger className="h-8 w-full rounded-[6px] border border-border/60 bg-background/80 px-2 text-xs font-medium hover:border-border">
+                  <SelectValue placeholder="Cycle" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    <SelectItem value="none">No Cycle</SelectItem>
+                    {cycles.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.name || `Cycle ${c.number}`}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Type */}
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-medium text-muted-foreground">Type</span>
+              <div className="flex h-8 items-center">
+                <Badge variant="outline" className="h-8 w-full rounded-[6px] border border-border/60 bg-background/80 px-2.5 text-xs font-normal capitalize text-foreground justify-start">
+                  {issue.type}
+                </Badge>
               </div>
             </div>
           </div>
 
           {/* Description Section */}
-          <div className="flex flex-col gap-2">
-            <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Description</span>
+          <div className="flex flex-col gap-1.5">
+            <span className="text-xs font-medium text-muted-foreground">Description</span>
             <Textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               onBlur={handleSaveDescription}
               placeholder="Add description, acceptance criteria, or context..."
               rows={5}
-              className="min-h-[140px] resize-y rounded-[8px] border border-border/80 bg-card/30 p-3 text-sm leading-relaxed text-foreground placeholder:text-muted-foreground/60 focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring"
+              className="min-h-[140px] resize-y rounded-lg border border-border/70 bg-card/20 p-3 text-sm leading-relaxed text-foreground placeholder:text-muted-foreground/60 focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring"
             />
           </div>
 
           {/* Sub-tasks Section: Linear style sub-issue tracker */}
-          <div className="rounded-[12px] border border-border/80 bg-card/30 p-4 flex flex-col gap-3">
+          <div className="rounded-lg border border-border/70 bg-card/20 p-4 flex flex-col gap-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Sub-tasks</span>
+                <span className="text-xs font-medium text-foreground">Sub-tasks</span>
                 {subtasks.length > 0 && (
-                  <span className="font-mono text-[11px] text-muted-foreground bg-secondary/80 px-1.5 py-0.5 rounded-[4px] border border-border/50">
+                  <span className="font-mono text-xs text-muted-foreground bg-secondary/80 px-1.5 py-0.5 rounded border border-border/50">
                     {doneSubtasksCount}/{subtasks.length}
                   </span>
                 )}
@@ -444,7 +443,7 @@ export function IssueDetailSheet({ issue, open, onOpenChange }: IssueDetailSheet
                   variant="ghost"
                   size="xs"
                   onClick={() => setIsAddingSubtask(true)}
-                  className="h-6 text-[11px] text-muted-foreground hover:text-foreground gap-1 px-2 rounded-[5px]"
+                  className="h-6 text-xs text-muted-foreground hover:text-foreground gap-1 px-2 rounded-[5px]"
                 >
                   <Plus className="size-3" />
                   <span>Add sub-task</span>
@@ -454,7 +453,7 @@ export function IssueDetailSheet({ issue, open, onOpenChange }: IssueDetailSheet
 
             {/* Sub-tasks List */}
             {subtasks.length > 0 && (
-              <div className="rounded-[8px] border border-border/70 divide-y divide-border/50 bg-background/60 overflow-hidden">
+              <div className="rounded-[6px] border border-border/70 divide-y divide-border/50 bg-background/60 overflow-hidden">
                 {subtasks.map((st) => {
                   const isDone = st.status === 'done';
                   return (
@@ -475,7 +474,7 @@ export function IssueDetailSheet({ issue, open, onOpenChange }: IssueDetailSheet
                             }`}
                           />
                         </button>
-                        <span className="font-mono text-[11px] text-muted-foreground font-semibold shrink-0">
+                        <span className="font-mono text-xs text-muted-foreground font-semibold shrink-0">
                           {st.identifier}
                         </span>
                         <span className={`truncate text-xs ${isDone ? 'line-through text-muted-foreground' : 'text-foreground font-medium'}`}>
@@ -537,21 +536,21 @@ export function IssueDetailSheet({ issue, open, onOpenChange }: IssueDetailSheet
             )}
 
             {subtasks.length === 0 && !isAddingSubtask && (
-              <p className="text-[11px] text-muted-foreground/60 italic py-1">
+              <p className="text-xs text-muted-foreground/60 italic py-1">
                 No sub-tasks yet. Break this issue down into smaller steps.
               </p>
             )}
           </div>
 
           {/* GitHub Integration Section (Linear PR Workflow, CI Checks & Review Status) */}
-          <div className="rounded-[12px] border border-border/80 bg-card/30 p-4 flex flex-col gap-3">
+          <div className="rounded-lg border border-border/70 bg-card/20 p-4 flex flex-col gap-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
+                <span className="text-xs font-medium text-foreground">
                   GitHub Pull Requests & CI
                 </span>
                 {pullRequests.length > 0 && (
-                  <Badge variant="outline" className="font-mono text-[10px] h-4.5 px-1.5 border-border/60">
+                  <Badge variant="outline" className="font-mono text-xs h-5 px-1.5 border-border/60">
                     {pullRequests.length}
                   </Badge>
                 )}
@@ -562,7 +561,7 @@ export function IssueDetailSheet({ issue, open, onOpenChange }: IssueDetailSheet
                 variant="ghost"
                 size="xs"
                 onClick={() => setIsLinkPrOpen(true)}
-                className="h-6 text-[11px] text-muted-foreground hover:text-foreground gap-1.5 px-2 rounded-[5px]"
+                className="h-6 text-xs text-muted-foreground hover:text-foreground gap-1.5 px-2 rounded-[5px]"
               >
                 <GitPullRequest className="size-3" />
                 <span>Link PR</span>
@@ -571,7 +570,7 @@ export function IssueDetailSheet({ issue, open, onOpenChange }: IssueDetailSheet
 
             {/* PR List with CI/CD Checks and Reviewers */}
             {pullRequests.length > 0 ? (
-              <div className="rounded-[8px] border border-border/70 divide-y divide-border/50 bg-background/60 overflow-hidden">
+              <div className="rounded-[6px] border border-border/70 divide-y divide-border/50 bg-background/60 overflow-hidden">
                 {pullRequests.map((pr) => (
                   <div key={pr.id} className="flex flex-col p-3 gap-2.5 hover:bg-secondary/30 transition-colors">
                     <div className="flex items-center justify-between text-xs gap-3">
@@ -584,7 +583,7 @@ export function IssueDetailSheet({ issue, open, onOpenChange }: IssueDetailSheet
                             <span className="font-mono font-semibold text-foreground">#{pr.prNumber}</span>
                             <span className="truncate text-foreground font-medium">{pr.title}</span>
                           </div>
-                          <span className="font-mono text-[10px] text-muted-foreground truncate">
+                          <span className="font-mono text-xs text-muted-foreground truncate">
                             branch: {pr.branchName}
                           </span>
                         </div>
@@ -593,7 +592,7 @@ export function IssueDetailSheet({ issue, open, onOpenChange }: IssueDetailSheet
                       <div className="flex items-center gap-2 shrink-0">
                         <Badge
                           variant="outline"
-                          className={`text-[10px] font-mono h-5 px-1.5 capitalize ${
+                          className={`text-xs font-mono h-5 px-1.5 capitalize ${
                             pr.merged
                               ? 'border-purple-500/30 bg-purple-500/10 text-purple-400'
                               : 'border-emerald-500/30 bg-emerald-500/10 text-emerald-500'
@@ -611,7 +610,7 @@ export function IssueDetailSheet({ issue, open, onOpenChange }: IssueDetailSheet
                     </div>
 
                     {/* CI / CD Checks & Review Badges Strip */}
-                    <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-border/40 text-[11px] font-mono">
+                    <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-border/40 text-xs font-mono">
                       {/* CI Status */}
                       <span className="flex items-center gap-1 text-muted-foreground">
                         {pr.ciStatus === 'success' ? (
@@ -677,9 +676,9 @@ export function IssueDetailSheet({ issue, open, onOpenChange }: IssueDetailSheet
                 ))}
               </div>
             ) : (
-              <div className="flex items-center justify-between p-2.5 rounded-[8px] border border-dashed border-border/60 text-xs text-muted-foreground">
-                <span className="text-[11px]">No pull request linked yet.</span>
-                <span className="font-mono text-[10px] text-muted-foreground/80">
+              <div className="flex items-center justify-between p-2.5 rounded-[6px] border border-dashed border-border/60 text-xs text-muted-foreground">
+                <span>No pull request linked yet.</span>
+                <span className="font-mono text-xs text-muted-foreground/80">
                   Auto-transitions on PR open / merge
                 </span>
               </div>
@@ -687,7 +686,7 @@ export function IssueDetailSheet({ issue, open, onOpenChange }: IssueDetailSheet
           </div>
 
           {/* Discussion & Activity Section: Clean Tabs adhering to shadcn line variant */}
-          <div className="rounded-[12px] border border-border/80 bg-card/20 p-4 sm:p-5 flex flex-col gap-4">
+          <div className="rounded-lg border border-border/70 bg-card/20 p-4 sm:p-5 flex flex-col gap-4">
             <Tabs
               value={activeTab}
               onValueChange={(val) => setActiveTab(val as 'comments' | 'activity')}
@@ -713,10 +712,10 @@ export function IssueDetailSheet({ issue, open, onOpenChange }: IssueDetailSheet
               {/* Comments Tab Content */}
               <TabsContent value="comments" className="mt-0 w-full space-y-4">
                 {/* New Comment Box */}
-                <form onSubmit={handlePostComment} className="rounded-[8px] border border-border/80 bg-background/90 p-3 shadow-2xs focus-within:border-ring transition-colors">
+                <form onSubmit={handlePostComment} className="rounded-lg border border-border/70 bg-background/90 p-3 shadow-2xs focus-within:border-ring transition-colors">
                   <div className="flex items-start gap-2.5">
                     <Avatar className="mt-0.5 size-5 shrink-0 rounded-full">
-                      <AvatarFallback className="text-[10px] font-medium bg-secondary text-foreground">G</AvatarFallback>
+                      <AvatarFallback className="text-xs font-medium bg-secondary text-foreground">G</AvatarFallback>
                     </Avatar>
                     <div className="min-w-0 flex-1">
                       <Textarea
@@ -743,24 +742,24 @@ export function IssueDetailSheet({ issue, open, onOpenChange }: IssueDetailSheet
                 {/* Comments List */}
                 <div className="space-y-2.5">
                   {comments.map((comment) => (
-                    <article key={comment.id} className="rounded-[8px] border border-border/70 bg-background/60 p-3.5 transition-colors hover:border-border">
+                    <article key={comment.id} className="rounded-lg border border-border/70 bg-background/60 p-3.5 transition-colors hover:border-border">
                       <div className="mb-2 flex items-center justify-between gap-2 text-xs text-muted-foreground">
                         <div className="flex items-center gap-2">
-                          <Avatar className="size-4.5 rounded-full">
-                            <AvatarFallback className="text-[9px] bg-secondary text-foreground font-medium">
+                          <Avatar className="size-5 rounded-full">
+                            <AvatarFallback className="text-xs bg-secondary text-foreground font-medium">
                               {(comment.authorName || 'G')[0]}
                             </AvatarFallback>
                           </Avatar>
                           <span className="font-semibold text-foreground text-xs">{comment.authorName || 'Gustam'}</span>
                         </div>
-                        <span className="font-mono text-[11px] text-muted-foreground/70">{formatDateTime(comment.createdAt)}</span>
+                        <span className="font-mono text-xs text-muted-foreground/70">{formatDateTime(comment.createdAt)}</span>
                       </div>
-                      <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground/90 pl-6.5">{comment.body}</p>
+                      <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground/90 pl-7">{comment.body}</p>
                     </article>
                   ))}
 
                   {comments.length === 0 && (
-                    <div className="rounded-[8px] border border-dashed border-border/60 bg-background/40 py-8 text-center text-xs text-muted-foreground">
+                    <div className="rounded-lg border border-dashed border-border/60 bg-background/40 py-8 text-center text-xs text-muted-foreground">
                       No comments yet. Leave a note or update.
                     </div>
                   )}
@@ -771,20 +770,20 @@ export function IssueDetailSheet({ issue, open, onOpenChange }: IssueDetailSheet
               <TabsContent value="activity" className="mt-0 w-full">
                 <div className="space-y-2">
                   {activities.map((item) => (
-                    <div key={item.id} className="flex items-start gap-2.5 rounded-[8px] border border-border/60 bg-background/40 p-3 text-xs">
+                    <div key={item.id} className="flex items-start gap-2.5 rounded-lg border border-border/60 bg-background/40 p-3 text-xs">
                       <div className="mt-1 size-1.5 shrink-0 rounded-full bg-foreground/60" />
                       <div className="min-w-0 flex-1">
                         <p className="leading-relaxed text-foreground">
                           <span className="font-semibold">{item.actorName || 'System'}</span>{' '}
                           <span className="text-muted-foreground">{formatActivity(item.type)}</span>
                         </p>
-                        <p className="mt-1 font-mono text-[10px] text-muted-foreground/60">{formatDateTime(item.createdAt)}</p>
+                        <p className="mt-1 font-mono text-xs text-muted-foreground/60">{formatDateTime(item.createdAt)}</p>
                       </div>
                     </div>
                   ))}
 
                   {activities.length === 0 && (
-                    <div className="rounded-[8px] border border-dashed border-border/60 bg-background/40 py-8 text-center text-xs text-muted-foreground">
+                    <div className="rounded-lg border border-dashed border-border/60 bg-background/40 py-8 text-center text-xs text-muted-foreground">
                       No activity recorded yet.
                     </div>
                   )}
@@ -824,6 +823,19 @@ export function IssueDetailSheet({ issue, open, onOpenChange }: IssueDetailSheet
         branchName={branchName}
         open={isLinkPrOpen}
         onOpenChange={setIsLinkPrOpen}
+      />
+
+      {/* Delete Confirmation Alert Dialog */}
+      <ConfirmDeleteDialog
+        open={isDeleteDialogOpen}
+        onOpenChange={setIsDeleteDialogOpen}
+        title={`Delete issue ${issue.identifier}?`}
+        description={`This will permanently delete "${issue.title}" and remove all subtasks and activity records.`}
+        onConfirm={() => {
+          deleteMutation.mutate(issue.id, {
+            onSuccess: () => onOpenChange(false),
+          });
+        }}
       />
     </Sheet>
   );

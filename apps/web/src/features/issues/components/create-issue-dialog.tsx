@@ -28,6 +28,7 @@ import { PriorityIcon } from './issue-list-view';
 
 import { useCycles } from '../../cycles/hooks/use-cycles';
 import { useTeams } from '../../teams/hooks/use-teams';
+import { useUsers } from '../../users/hooks/use-users';
 
 interface CreateIssueDialogProps {
   open: boolean;
@@ -35,6 +36,7 @@ interface CreateIssueDialogProps {
   defaultProjectId?: string;
   defaultCycleId?: string;
   defaultTeamId?: string;
+  defaultStatus?: string;
 }
 
 const PRIORITY_OPTIONS = [
@@ -45,22 +47,24 @@ const PRIORITY_OPTIONS = [
   { value: 'no_priority', label: 'None' },
 ] as const;
 
-export function CreateIssueDialog({ open, onOpenChange, defaultProjectId, defaultCycleId, defaultTeamId }: CreateIssueDialogProps) {
+export function CreateIssueDialog({ open, onOpenChange, defaultProjectId, defaultCycleId, defaultTeamId, defaultStatus }: CreateIssueDialogProps) {
   const { data: projects = [] } = useProjects();
   const { data: cycles = [] } = useCycles();
   const { data: teams = [] } = useTeams();
+  const { data: users = [] } = useUsers();
   const createMutation = useCreateIssue();
 
   const form = useForm({
     defaultValues: {
       title: '',
       description: '',
-      status: 'todo',
+      status: defaultStatus || 'todo',
       priority: 'medium',
       type: 'task',
+      assigneeId: 'none',
       projectId: defaultProjectId || 'none',
       cycleId: defaultCycleId || 'none',
-      teamId: defaultTeamId || 'none',
+      teamId: defaultTeamId || '',
     },
     onSubmit: async ({ value }) => {
       createMutation.mutate(
@@ -70,9 +74,10 @@ export function CreateIssueDialog({ open, onOpenChange, defaultProjectId, defaul
           status: value.status,
           priority: value.priority,
           type: value.type,
+          assigneeId: value.assigneeId === 'none' ? undefined : value.assigneeId,
           projectId: value.projectId === 'none' ? undefined : value.projectId,
           cycleId: value.cycleId === 'none' ? undefined : value.cycleId,
-          teamId: value.teamId === 'none' ? undefined : value.teamId,
+          teamId: value.teamId,
         },
         {
           onSuccess: () => {
@@ -85,6 +90,9 @@ export function CreateIssueDialog({ open, onOpenChange, defaultProjectId, defaul
   });
 
   React.useEffect(() => {
+    if (defaultStatus) {
+      form.setFieldValue('status', defaultStatus);
+    }
     if (defaultProjectId) {
       form.setFieldValue('projectId', defaultProjectId);
     }
@@ -93,8 +101,10 @@ export function CreateIssueDialog({ open, onOpenChange, defaultProjectId, defaul
     }
     if (defaultTeamId) {
       form.setFieldValue('teamId', defaultTeamId);
+    } else if (!form.state.values.teamId && teams[0]) {
+      form.setFieldValue('teamId', teams[0].id);
     }
-  }, [defaultProjectId, defaultCycleId, defaultTeamId, form]);
+  }, [defaultProjectId, defaultCycleId, defaultTeamId, form, teams]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -110,7 +120,7 @@ export function CreateIssueDialog({ open, onOpenChange, defaultProjectId, defaul
           <DialogHeader>
             <DialogTitle>New Issue</DialogTitle>
             <DialogDescription>
-              Create a new work item with TanStack Form state and validation.
+              Start in the team backlog, then optionally link this issue to a project or cycle.
             </DialogDescription>
           </DialogHeader>
 
@@ -167,6 +177,7 @@ export function CreateIssueDialog({ open, onOpenChange, defaultProjectId, defaul
               {/* Team Select */}
               <form.Field
                 name="teamId"
+                validators={{ onChange: ({ value }) => (!value ? 'Team is required' : undefined) }}
                 children={(field) => (
                   <Field>
                     <FieldLabel htmlFor={field.name} className="text-muted-foreground">Team</FieldLabel>
@@ -180,7 +191,6 @@ export function CreateIssueDialog({ open, onOpenChange, defaultProjectId, defaul
                       </SelectTrigger>
                       <SelectContent>
                         <SelectGroup>
-                          <SelectItem value="none">Default Team (Auto)</SelectItem>
                           {teams.map((t) => (
                             <SelectItem key={t.id} value={t.id}>
                               {t.name} ({t.key})
@@ -334,6 +344,34 @@ export function CreateIssueDialog({ open, onOpenChange, defaultProjectId, defaul
                           <SelectItem value="bug">Bug</SelectItem>
                           <SelectItem value="improvement">Improvement</SelectItem>
                           <SelectItem value="chore">Chore</SelectItem>
+                        </SelectGroup>
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                )}
+              />
+              {/* Assignee Select */}
+              <form.Field
+                name="assigneeId"
+                children={(field) => (
+                  <Field>
+                    <FieldLabel htmlFor={field.name} className="text-muted-foreground">Assignee</FieldLabel>
+                    <Select
+                      name={field.name}
+                      value={field.state.value}
+                      onValueChange={field.handleChange}
+                    >
+                      <SelectTrigger id={field.name} className="h-8 text-xs w-full">
+                        <SelectValue placeholder="Assignee" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectGroup>
+                          <SelectItem value="none">Unassigned</SelectItem>
+                          {users.map((u) => (
+                            <SelectItem key={u.id} value={u.id}>
+                              {u.name} ({u.role})
+                            </SelectItem>
+                          ))}
                         </SelectGroup>
                       </SelectContent>
                     </Select>

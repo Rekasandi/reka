@@ -75,7 +75,7 @@ export function useSubtasks(issueId?: string) {
   });
 }
 
-export function useCreateSubtask(parentId?: string) {
+export function useCreateSubtask(parentId?: string, teamId?: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -83,6 +83,7 @@ export function useCreateSubtask(parentId?: string) {
       createIssue({
         title,
         parentId,
+        teamId: teamId!,
         type: 'task',
         status: 'todo',
         priority: 'no_priority',

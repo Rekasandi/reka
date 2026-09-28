@@ -13,8 +13,10 @@ import {
 import { useUpdateIssue, useDeleteIssue } from '../hooks/use-issues';
 import {
   Trash2,
+  SignalHigh,
   SignalMedium,
   SignalLow,
+  Minus,
   Check,
   ChevronRight,
   CornerDownRight,
@@ -23,8 +25,11 @@ import {
   Layers,
   ArrowRight,
   X,
+  AlertCircle,
 } from 'lucide-react';
 import { StatusPicker, STATUS_CONFIG } from './status-picker';
+import { AssigneePicker } from './assignee-picker';
+import { ConfirmDeleteDialog } from '../../../components/common/confirm-delete-dialog';
 
 interface IssueListViewProps {
   issues: Issue[];
@@ -36,33 +41,37 @@ interface IssueListViewProps {
 export function PriorityIcon({ priority }: { priority: string }) {
   if (priority === 'urgent') {
     return (
-      <div className="size-4 rounded-[4px] bg-red-500/15 text-red-500 flex items-center justify-center font-bold text-[10px] shrink-0 border border-red-500/20" title="Urgent">
-        !
-      </div>
+      <span title="Urgent" className="size-4 shrink-0 flex items-center justify-center text-rose-600 dark:text-rose-400">
+        <AlertCircle className="size-3.5" />
+      </span>
     );
   }
   if (priority === 'high') {
     return (
-      <div className="size-4 rounded-[4px] bg-amber-500/15 text-amber-500 flex items-center justify-center font-bold text-[10px] shrink-0 border border-amber-500/20" title="High Priority">
-        !
-      </div>
+      <span title="High Priority" className="size-4 shrink-0 flex items-center justify-center text-amber-500">
+        <SignalHigh className="size-3.5" />
+      </span>
     );
   }
   if (priority === 'medium') {
     return (
-      <span title="Medium Priority" className="size-4 shrink-0 flex items-center justify-center">
-        <SignalMedium className="size-3.5 text-muted-foreground/80" />
+      <span title="Medium Priority" className="size-4 shrink-0 flex items-center justify-center text-blue-500">
+        <SignalMedium className="size-3.5" />
       </span>
     );
   }
   if (priority === 'low') {
     return (
-      <span title="Low Priority" className="size-4 shrink-0 flex items-center justify-center">
-        <SignalLow className="size-3.5 text-muted-foreground/50" />
+      <span title="Low Priority" className="size-4 shrink-0 flex items-center justify-center text-muted-foreground/60">
+        <SignalLow className="size-3.5" />
       </span>
     );
   }
-  return <div className="size-3.5 rounded-full border border-border/70 shrink-0" title="No Priority" />;
+  return (
+    <span title="No Priority" className="size-4 shrink-0 flex items-center justify-center text-muted-foreground/30">
+      <Minus className="size-3" />
+    </span>
+  );
 }
 
 const PRIORITY_CONFIG = [
@@ -98,12 +107,12 @@ export function PriorityPicker({
 
       <DropdownMenuContent
         align="start"
-        className="w-44 p-1 bg-popover border border-border text-foreground shadow-xl rounded-[10px]"
+        className="w-44 p-1 bg-popover border border-border text-foreground shadow-xl rounded-lg"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="px-2 py-1 text-[10px] font-mono uppercase tracking-wider text-muted-foreground border-b border-border/50 mb-1 flex items-center justify-between">
+        <div className="px-2 py-1 text-xs font-medium text-muted-foreground border-b border-border/50 mb-1 flex items-center justify-between">
           <span>Priority</span>
-          <kbd className="font-mono text-[9px] bg-muted px-1 rounded border border-border">P</kbd>
+          <kbd className="font-mono text-xs bg-muted px-1 rounded border border-border">P</kbd>
         </div>
 
         <DropdownMenuGroup>
@@ -144,6 +153,8 @@ export function IssueListView({
   const deleteMutation = useDeleteIssue();
   const [expandedIssues, setExpandedIssues] = React.useState<Record<string, boolean>>({});
   const [selectedIds, setSelectedIds] = React.useState<Set<string>>(new Set());
+  const [deleteTargetId, setDeleteTargetId] = React.useState<string | null>(null);
+  const [isBatchDeleteOpen, setIsBatchDeleteOpen] = React.useState(false);
 
   const toggleExpand = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -152,9 +163,7 @@ export function IssueListView({
 
   const handleDelete = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (confirm('Delete this issue?')) {
-      deleteMutation.mutate(id);
-    }
+    setDeleteTargetId(id);
   };
 
   const handleToggleSelect = (id: string, e: React.MouseEvent) => {
@@ -201,25 +210,20 @@ export function IssueListView({
   };
 
   const handleBatchDelete = () => {
-    if (confirm(`Delete ${selectedIds.size} selected issues?`)) {
-      for (const id of selectedIds) {
-        deleteMutation.mutate(id);
-      }
-      setSelectedIds(new Set());
-    }
+    setIsBatchDeleteOpen(true);
   };
 
   if (issues.length === 0) {
     return (
-      <div className="rounded-[12px] border border-dashed border-border/80 p-14 text-center text-xs text-muted-foreground bg-card/10">
-        No issues found. Press <kbd className="rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-[10px] text-foreground">C</kbd> anywhere to create.
+      <div className="rounded-lg border border-dashed border-border/80 p-14 text-center text-xs text-muted-foreground bg-card/10">
+        No issues found. Press <kbd className="rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-xs text-foreground">C</kbd> anywhere to create.
       </div>
     );
   }
 
   return (
     <div className="relative">
-      <div className="rounded-[12px] border border-border/80 divide-y divide-border/60 bg-card/30 overflow-hidden select-none shadow-2xs">
+      <div className="flex flex-col gap-px select-none">
         {rootIssues.map((issue, idx) => {
           const subtasks = subtasksByParent[issue.id] || [];
           const hasSubtasks = subtasks.length > 0;
@@ -236,9 +240,9 @@ export function IssueListView({
                   onFocusIndex?.(idx);
                   onSelectIssue?.(issue);
                 }}
-                className={`flex items-center justify-between px-3.5 py-2.5 transition-colors text-xs gap-3 cursor-pointer group relative ${
+                className={`flex items-center justify-between rounded-[6px] px-3.5 py-2.5 transition-colors text-xs gap-3 cursor-pointer group relative ${
                   isFocused
-                    ? 'bg-secondary/70 ring-1 ring-inset ring-primary/40'
+                    ? 'bg-secondary/70'
                     : isChecked
                     ? 'bg-secondary/40'
                     : 'hover:bg-secondary/30'
@@ -277,7 +281,7 @@ export function IssueListView({
                     onPriorityChange={(newPriority) => updateMutation.mutate({ id: issue.id, data: { priority: newPriority as any } })}
                   />
 
-                  <span className="font-mono text-[11px] text-muted-foreground font-semibold shrink-0 group-hover:text-foreground/80 transition-colors">
+                  <span className="font-mono text-xs text-muted-foreground font-semibold shrink-0 group-hover:text-foreground/80 transition-colors">
                     {issue.identifier}
                   </span>
 
@@ -294,7 +298,7 @@ export function IssueListView({
 
                   {/* GitHub Issue Linked Badge */}
                   {issue.githubIssueNumber && (
-                    <span className="font-mono text-[10px] text-emerald-500 bg-emerald-500/10 border border-emerald-500/30 px-1.5 py-0.2 rounded shrink-0">
+                    <span className="font-mono text-xs text-emerald-500 bg-emerald-500/10 border border-emerald-500/30 px-1.5 py-0.2 rounded shrink-0">
                       GH #{issue.githubIssueNumber}
                     </span>
                   )}
@@ -303,7 +307,7 @@ export function IssueListView({
                   {hasSubtasks && (
                     <span
                       onClick={(e) => toggleExpand(issue.id, e)}
-                      className="ml-1 text-[10px] font-mono text-muted-foreground/80 bg-secondary/60 hover:bg-secondary border border-border/50 px-1.5 py-0.2 rounded-[4px] shrink-0"
+                      className="ml-1 text-xs font-mono text-muted-foreground/80 bg-secondary/60 hover:bg-secondary border border-border/50 px-1.5 py-0.2 rounded-[4px] shrink-0"
                       title={`${doneSubtasksCount} of ${subtasks.length} sub-tasks completed`}
                     >
                       {doneSubtasksCount}/{subtasks.length}
@@ -311,9 +315,17 @@ export function IssueListView({
                   )}
                 </div>
 
-                {/* Right section: Type, Delete action */}
+                {/* Right section: Assignee, Type, Delete action */}
                 <div className="flex items-center gap-2.5 shrink-0" onClick={(e) => e.stopPropagation()}>
-                  <Badge variant="outline" className="capitalize text-[10px] font-mono h-5 px-2 font-normal rounded-[5px] border-border/70 bg-background/50 text-muted-foreground">
+                  <AssigneePicker
+                    size="icon"
+                    assigneeId={issue.assigneeId}
+                    onAssigneeChange={(userId) =>
+                      updateMutation.mutate({ id: issue.id, data: { assigneeId: userId } })
+                    }
+                  />
+
+                  <Badge variant="outline" className="capitalize text-xs font-mono h-5 px-2 font-normal rounded-[5px] border-border/70 bg-background/50 text-muted-foreground">
                     {issue.type}
                   </Badge>
 
@@ -330,7 +342,7 @@ export function IssueListView({
 
               {/* Sub-tasks Nested Sub-list */}
               {hasSubtasks && isExpanded && (
-                <div className="bg-secondary/15 divide-y divide-border/30 border-t border-border/40">
+                <div className="ml-3.5 border-l border-border/50 bg-secondary/15 divide-y divide-border/30">
                   {subtasks.map((st) => {
                     const isDone = st.status === 'done';
                     return (
@@ -366,7 +378,7 @@ export function IssueListView({
                             onPriorityChange={(newPriority) => updateMutation.mutate({ id: st.id, data: { priority: newPriority as any } })}
                           />
 
-                          <span className="font-mono text-[10px] text-muted-foreground/70 font-semibold shrink-0">
+                          <span className="font-mono text-xs text-muted-foreground/70 font-semibold shrink-0">
                             {st.identifier}
                           </span>
 
@@ -403,9 +415,9 @@ export function IssueListView({
 
       {/* Linear Batch Actions Floating Bar */}
       {selectedIds.size > 0 && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 bg-popover/95 backdrop-blur-md border border-border px-4 py-2 rounded-[10px] shadow-2xl text-xs select-none animate-in fade-in-0 slide-in-from-bottom-4">
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 bg-popover/95 backdrop-blur-md border border-border px-4 py-2 rounded-lg shadow-2xl text-xs select-none animate-in fade-in-0 slide-in-from-bottom-4">
           <div className="flex items-center gap-2 font-mono font-medium text-foreground">
-            <span className="size-5 rounded-[4px] bg-primary text-primary-foreground flex items-center justify-center text-[11px]">
+            <span className="size-5 rounded-[4px] bg-primary text-primary-foreground flex items-center justify-center text-xs">
               {selectedIds.size}
             </span>
             <span>selected</span>
@@ -467,6 +479,33 @@ export function IssueListView({
           </button>
         </div>
       )}
+
+      <ConfirmDeleteDialog
+        open={!!deleteTargetId}
+        onOpenChange={(open) => !open && setDeleteTargetId(null)}
+        title="Delete this issue?"
+        description="This will permanently delete this issue and all its subtasks."
+        onConfirm={() => {
+          if (deleteTargetId) {
+            deleteMutation.mutate(deleteTargetId);
+            setDeleteTargetId(null);
+          }
+        }}
+      />
+
+      <ConfirmDeleteDialog
+        open={isBatchDeleteOpen}
+        onOpenChange={setIsBatchDeleteOpen}
+        title={`Delete ${selectedIds.size} selected issues?`}
+        description="This will permanently remove the selected issues from your workspace."
+        onConfirm={() => {
+          for (const id of selectedIds) {
+            deleteMutation.mutate(id);
+          }
+          setSelectedIds(new Set());
+          setIsBatchDeleteOpen(false);
+        }}
+      />
     </div>
   );
 }
