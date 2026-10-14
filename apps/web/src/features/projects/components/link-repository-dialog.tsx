@@ -115,7 +115,7 @@ export function LinkRepositoryDialog({
                       onOpenChange(false);
                       setIsConnectNewOpen(true);
                     }}
-                    className="h-7 text-xs rounded-[6px] gap-1.5"
+                    className="gap-1.5"
                   >
                     <Plus className="size-3" />
                     <span>Connect from GitHub</span>
@@ -158,7 +158,7 @@ export function LinkRepositoryDialog({
 
                       <div>
                         {isLinked ? (
-                          <Badge variant="secondary" className="text-xs h-6 px-2 gap-1 text-emerald-500 bg-emerald-500/10 border border-emerald-500/20">
+                          <Badge variant="success" className="gap-1">
                             <Check className="size-2.5" />
                             <span>Linked</span>
                           </Badge>
@@ -168,7 +168,7 @@ export function LinkRepositoryDialog({
                             size="sm"
                             disabled={linkMutation.isPending}
                             onClick={() => handleLink(repo.id)}
-                            className="h-7 text-xs rounded-[6px] px-3 font-medium"
+                            className="px-3 font-medium"
                           >
                             Link
                           </Button>
@@ -204,9 +204,7 @@ export function LinkRepositoryDialog({
             <Button
               type="button"
               variant="outline"
-              size="sm"
               onClick={() => onOpenChange(false)}
-              className="rounded-[6px] h-8 text-xs"
             >
               Close
             </Button>

@@ -42,6 +42,7 @@ export function CreateProjectDialog({ open, onOpenChange, defaultTeamId }: Creat
       description: '',
       status: 'in_progress',
       health: 'on_track',
+      startDate: '',
       targetDate: '',
     },
     onSubmit: async ({ value }) => {
@@ -52,6 +53,7 @@ export function CreateProjectDialog({ open, onOpenChange, defaultTeamId }: Creat
           description: value.description?.trim() || undefined,
           status: value.status,
           health: value.health,
+          startDate: value.startDate || undefined,
           targetDate: value.targetDate || undefined,
         },
         {
@@ -142,7 +144,7 @@ export function CreateProjectDialog({ open, onOpenChange, defaultTeamId }: Creat
                   <Field>
                     <FieldLabel htmlFor={field.name} className="text-muted-foreground">Team</FieldLabel>
                     <Select name={field.name} value={field.state.value} onValueChange={field.handleChange}>
-                      <SelectTrigger id={field.name} className="h-8 text-xs w-full"><SelectValue placeholder="Select team" /></SelectTrigger>
+                      <SelectTrigger id={field.name} size="compact" className="w-full"><SelectValue placeholder="Select team" /></SelectTrigger>
                       <SelectContent><SelectGroup>{teams.map((team) => <SelectItem key={team.id} value={team.id}>{team.name}</SelectItem>)}</SelectGroup></SelectContent>
                     </Select>
                   </Field>
@@ -159,7 +161,7 @@ export function CreateProjectDialog({ open, onOpenChange, defaultTeamId }: Creat
                       value={field.state.value}
                       onValueChange={field.handleChange}
                     >
-                      <SelectTrigger id={field.name} className="h-8 text-xs w-full">
+                      <SelectTrigger id={field.name} size="compact" className="w-full">
                         <SelectValue placeholder="Status" />
                       </SelectTrigger>
                       <SelectContent>
@@ -187,7 +189,7 @@ export function CreateProjectDialog({ open, onOpenChange, defaultTeamId }: Creat
                       value={field.state.value}
                       onValueChange={field.handleChange}
                     >
-                      <SelectTrigger id={field.name} className="h-8 text-xs w-full">
+                      <SelectTrigger id={field.name} size="compact" className="w-full">
                         <SelectValue placeholder="Health" />
                       </SelectTrigger>
                       <SelectContent>
@@ -202,6 +204,19 @@ export function CreateProjectDialog({ open, onOpenChange, defaultTeamId }: Creat
                 )}
               />
 
+              <form.Field
+                name="startDate"
+                children={(field) => (
+                  <Field>
+                    <FieldLabel htmlFor={field.name} className="text-muted-foreground">Start Date</FieldLabel>
+                    <DatePicker
+                      date={field.state.value ? new Date(field.state.value) : undefined}
+                      onDateChange={(selected) => field.handleChange(selected ? selected.toISOString() : '')}
+                      placeholder="Select start date"
+                    />
+                  </Field>
+                )}
+              />
               {/* Target Date Field with DatePicker button */}
               <form.Field
                 name="targetDate"
