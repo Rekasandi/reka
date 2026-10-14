@@ -1,257 +1,135 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { DatabaseService } from '../common/database/database.service';
-import { users, sessions } from '@reka/database';
-import { eq } from 'drizzle-orm';
-import { randomUUID } from 'crypto';
+import { users, sessions, oauthLoginAttempts } from '@reka/database';
+import { and, eq, gt, isNull, lt, or } from 'drizzle-orm';
+import { randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
+import { isEmail } from 'class-validator';
+import { requireWorkspace, membershipScope } from '../common/access/workspace-access';
+import { WorkspaceService, secretHash, type VerifiedGithubIdentity } from '../workspace/workspace.service';
 
-// In-memory or session storage for GitHub OAuth access tokens
+// Existing integration consumers keep their own-user/session cache contract.
 export const GITHUB_USER_TOKENS = new Map<string, string>();
 export const GITHUB_USERNAMES = new Map<string, string>();
+const record = (value: unknown): Record<string, unknown> => value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
+
+export function verifiedGithubIdentity(profile: unknown, emails: unknown): VerifiedGithubIdentity {
+  const p = record(profile);
+  const id = typeof p.id === 'number' && Number.isSafeInteger(p.id) && p.id > 0 ? String(p.id) : '';
+  const login = typeof p.login === 'string' && /^[a-z\d-]{1,39}$/i.test(p.login) ? p.login : '';
+  const verifiedEmails = Array.isArray(emails) ? [...new Set(emails.map(record)
+    .filter(email => email.verified === true && typeof email.email === 'string' && isEmail(email.email))
+    .map(email => String(email.email).trim().toLowerCase()))] : [];
+  if (!id || !login || !verifiedEmails.length) throw new UnauthorizedException('A verified GitHub email is required');
+  const name = typeof p.name === 'string' && p.name.trim() ? p.name.trim().slice(0, 255) : login;
+  let avatarUrl: string | null = null;
+  if (typeof p.avatar_url === 'string') {
+    try { if (new URL(p.avatar_url).protocol === 'https:') avatarUrl = p.avatar_url; } catch { /* no unsafe avatar fallback */ }
+  }
+  return { id, login, name, avatarUrl, verifiedEmails };
+}
 
 @Injectable()
 export class AuthService {
-  constructor(private readonly database: DatabaseService) {}
+  constructor(private readonly database: DatabaseService, private readonly workspace: WorkspaceService) {}
 
-  getGithubAuthUrl(): string {
+  async getGithubAuthUrl(inviteToken?: string) {
     const clientId = process.env.GITHUB_CLIENT_ID;
-    if (!clientId) {
-      throw new UnauthorizedException('GITHUB_CLIENT_ID is not configured in .env');
+    if (!clientId) throw new UnauthorizedException('GITHUB_CLIENT_ID is not configured');
+    let invitationHash: string | null = null;
+    if (inviteToken !== undefined) {
+      if (typeof inviteToken !== 'string' || !/^[a-f\d]{64}$/i.test(inviteToken)) throw new UnauthorizedException('Invalid invitation link');
+      invitationHash = secretHash(inviteToken);
+      await this.workspace.requirePendingInvitation(invitationHash);
     }
-    const redirectUri = encodeURIComponent(
-      process.env.GITHUB_CALLBACK_URL || 'http://localhost:3000/api/auth/github/callback',
-    );
-    // Request repo scope so we can read and interact with user's real repositories
-    const scope = encodeURIComponent('read:user user:email repo');
-
-    return `https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&scope=${scope}`;
+    const state = randomBytes(32).toString('hex');
+    await this.database.db.delete(oauthLoginAttempts).where(lt(oauthLoginAttempts.expiresAt, new Date()));
+    await this.database.db.insert(oauthLoginAttempts).values({
+      stateHash: secretHash(state), invitationHash, expiresAt: new Date(Date.now() + 10 * 60000),
+    });
+    const url = new URL('https://github.com/login/oauth/authorize');
+    url.searchParams.set('client_id', clientId);
+    url.searchParams.set('redirect_uri', process.env.GITHUB_CALLBACK_URL || 'http://localhost:3000/api/auth/github/callback');
+    url.searchParams.set('scope', 'read:user user:email repo');
+    url.searchParams.set('state', state);
+    return { url: url.toString(), state };
   }
 
-  async handleGithubCallback(code: string) {
+  async handleGithubCallback(code: string, state: string, browserState?: string) {
+    if (typeof code !== 'string' || !code || code.length > 1024 || typeof state !== 'string' ||
+      !/^[a-f\d]{64}$/i.test(state) || typeof browserState !== 'string' || browserState.length !== state.length ||
+      !/^[a-f\d]{64}$/i.test(browserState) || !timingSafeEqual(Buffer.from(state), Buffer.from(browserState))) {
+      throw new UnauthorizedException('GitHub sign-in state is invalid; start again');
+    }
+    // Atomically consume the nonce before contacting GitHub; cookie replay,
+    // concurrent callbacks and expired attempts cannot produce another session.
+    const [attempt] = await this.database.db.delete(oauthLoginAttempts)
+      .where(and(eq(oauthLoginAttempts.stateHash, secretHash(state)), gt(oauthLoginAttempts.expiresAt, new Date())))
+      .returning();
+    if (!attempt) throw new UnauthorizedException('GitHub sign-in expired or already used; start again');
     const clientId = process.env.GITHUB_CLIENT_ID;
     const clientSecret = process.env.GITHUB_CLIENT_SECRET;
-
-    if (!clientId || !clientSecret) {
-      throw new UnauthorizedException('GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET must be configured in .env');
-    }
-
-    // 1. Exchange code for access token with real GitHub API
-    const tokenRes = await fetch('https://github.com/login/oauth/access_token', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-      },
-      body: JSON.stringify({
-        client_id: clientId,
-        client_secret: clientSecret,
-        code,
-      }),
+    if (!clientId || !clientSecret) throw new UnauthorizedException('GitHub sign-in is not configured');
+    const tokenResponse = await fetch('https://github.com/login/oauth/access_token', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      signal: AbortSignal.timeout(15000),
+      body: JSON.stringify({ client_id: clientId, client_secret: clientSecret, code,
+        redirect_uri: process.env.GITHUB_CALLBACK_URL || 'http://localhost:3000/api/auth/github/callback' }),
     });
-
-    const tokenData = (await tokenRes.json()) as any;
-    if (tokenData.error || !tokenData.access_token) {
-      throw new UnauthorizedException(tokenData.error_description || 'Failed to exchange GitHub authorization code');
+    const tokenData = record(await tokenResponse.json());
+    if (!tokenResponse.ok || typeof tokenData.access_token !== 'string' || !tokenData.access_token) {
+      throw new UnauthorizedException('GitHub authorization failed; start again');
     }
-
-    const githubAccessToken = tokenData.access_token;
-
-    // 2. Fetch real GitHub User profile
-    const userRes = await fetch('https://api.github.com/user', {
-      headers: {
-        Authorization: `Bearer ${githubAccessToken}`,
-        Accept: 'application/vnd.github.v3+json',
-      },
-    });
-
-    if (!userRes.ok) {
-      throw new UnauthorizedException('Failed to fetch user profile from GitHub API');
-    }
-
-    const githubUser = (await userRes.json()) as any;
-
-    // 3. Resolve primary verified email from GitHub
-    let email = githubUser.email;
-    if (!email) {
-      const emailsRes = await fetch('https://api.github.com/user/emails', {
-        headers: {
-          Authorization: `Bearer ${githubAccessToken}`,
-          Accept: 'application/vnd.github.v3+json',
-        },
-      });
-      if (emailsRes.ok) {
-        const emails = (await emailsRes.json()) as any[];
-        const primary = emails.find((e: any) => e.primary && e.verified);
-        email = primary?.email || emails[0]?.email;
-      }
-      if (!email) {
-        email = `${githubUser.login}@users.noreply.github.com`;
-      }
-    }
-
-    const name = githubUser.name || githubUser.login;
-    const avatarUrl = githubUser.avatar_url || null;
-
-    // 4. Find or Create User in database
-    const existing = await this.database.db.select().from(users).where(eq(users.email, email.toLowerCase()));
-    let user = existing[0];
-
-    if (!user) {
-      const [created] = await this.database.db
-        .insert(users)
-        .values({
-          email: email.toLowerCase(),
-          name,
-          avatarUrl,
-          role: 'member',
-        })
-        .returning();
-      user = created;
+    const githubToken = tokenData.access_token;
+    const headers = { Authorization: `Bearer ${githubToken}`, Accept: 'application/vnd.github+json', 'User-Agent': 'REKA' };
+    const [profileResponse, emailsResponse] = await Promise.all([
+      fetch('https://api.github.com/user', { headers, signal: AbortSignal.timeout(15000) }),
+      fetch('https://api.github.com/user/emails', { headers, signal: AbortSignal.timeout(15000) }),
+    ]);
+    if (!profileResponse.ok || !emailsResponse.ok) throw new UnauthorizedException('Cannot verify the GitHub account and email');
+    const identity = verifiedGithubIdentity(await profileResponse.json(), await emailsResponse.json());
+    let signedIn;
+    if (attempt.invitationHash) {
+      signedIn = await this.workspace.acceptGithubInvitation(attempt.invitationHash, identity);
     } else {
-      await this.database.db
-        .update(users)
-        .set({
-          name,
-          avatarUrl: avatarUrl || user.avatarUrl,
-          updatedAt: new Date(),
-        })
-        .where(eq(users.id, user.id));
-      user.name = name;
-      user.avatarUrl = avatarUrl || user.avatarUrl;
+      const existing = await this.workspace.findGithubAccount(identity);
+      if (!existing) throw new UnauthorizedException('A workspace invitation is required');
+      const actor = await requireWorkspace(this.database.db, existing.id);
+      const [user] = await this.database.db.update(users).set({
+        githubId: identity.id, githubUsername: identity.login, name: identity.name,
+        avatarUrl: identity.avatarUrl ?? existing.avatarUrl, updatedAt: new Date(),
+      }).where(and(eq(users.id, existing.id), or(isNull(users.githubId), eq(users.githubId, identity.id)), membershipScope(this.database.db, actor))).returning();
+      if (!user) throw new UnauthorizedException('GitHub identity or workspace access changed');
+      const token = randomUUID();
+      // A guard rechecks membership on every request, including immediately after sign-in.
+      await this.database.db.insert(sessions).values({ id: token, userId: user.id, expiresAt: new Date(Date.now() + 7 * 86400000) });
+      signedIn = { user: { ...user, role: actor.role }, token };
     }
-
-    // 5. Create Session in database
-    const sessionToken = randomUUID();
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
-
-    await this.database.db.insert(sessions).values({
-      id: sessionToken,
-      userId: user.id,
-      expiresAt,
-    });
-
-    // Store GitHub token associated with this user session for repository API calls
-    GITHUB_USER_TOKENS.set(user.id, githubAccessToken);
-    GITHUB_USER_TOKENS.set(sessionToken, githubAccessToken);
-    if (githubUser.login) {
-      GITHUB_USERNAMES.set(user.id, githubUser.login);
-      GITHUB_USERNAMES.set(sessionToken, githubUser.login);
-    }
-
-    return { user: { ...user, githubUsername: githubUser.login }, token: sessionToken };
+    GITHUB_USER_TOKENS.set(signedIn.user.id, githubToken);
+    GITHUB_USER_TOKENS.set(signedIn.token, githubToken);
+    GITHUB_USERNAMES.set(signedIn.user.id, identity.login);
+    GITHUB_USERNAMES.set(signedIn.token, identity.login);
+    return signedIn;
   }
 
   async getCurrentUser(token?: string) {
-    let user: any = null;
-    if (!token) {
-      const [defaultUser] = await this.database.db.select().from(users).limit(1);
-      user = defaultUser || null;
-    } else {
-      const sessionList = await this.database.db.select().from(sessions).where(eq(sessions.id, token));
-      if (!sessionList.length || new Date() > new Date(sessionList[0].expiresAt)) {
-        const [defaultUser] = await this.database.db.select().from(users).limit(1);
-        user = defaultUser || null;
-      } else {
-        const [found] = await this.database.db.select().from(users).where(eq(users.id, sessionList[0].userId));
-        user = found || null;
-      }
-    }
-
+    if (!token) return null;
+    const [session] = await this.database.db.select().from(sessions).where(eq(sessions.id, token));
+    if (!session || Date.now() >= session.expiresAt.getTime()) return null;
+    const actor = await requireWorkspace(this.database.db, session.userId);
+    const [user] = await this.database.db.select().from(users).where(eq(users.id, session.userId));
     if (!user) return null;
-
-    // Resolve GitHub username (from session cache, user ID, or active token)
-    let githubUsername = (token ? GITHUB_USERNAMES.get(token) : undefined) || GITHUB_USERNAMES.get(user.id);
-
-    if (!githubUsername) {
-      const ghToken =
-        (token ? GITHUB_USER_TOKENS.get(token) : undefined) ||
-        GITHUB_USER_TOKENS.get(user.id) ||
-        process.env.GITHUB_TOKEN;
-
-      if (ghToken) {
-        try {
-          const res = await fetch('https://api.github.com/user', {
-            headers: {
-              Authorization: `Bearer ${ghToken}`,
-              Accept: 'application/vnd.github.v3+json',
-              'User-Agent': 'REKA-Platform-App',
-            },
-          });
-          if (res.ok) {
-            const data = (await res.json()) as any;
-            if (data?.login) {
-              githubUsername = data.login;
-              GITHUB_USERNAMES.set(user.id, data.login);
-              if (token) GITHUB_USERNAMES.set(token, data.login);
-            }
-          }
-        } catch {
-          // ignore
-        }
-      }
-    }
-
-    // Fallback: extract username from noreply email or email prefix
-    if (!githubUsername) {
-      if (user.email?.includes('@users.noreply.github.com')) {
-        githubUsername = user.email.replace('@users.noreply.github.com', '');
-      } else if (user.email) {
-        githubUsername = user.email.split('@')[0];
-      }
-    }
-
-    return {
-      ...user,
-      githubUsername: githubUsername || null,
-    };
+    return { ...user, role: actor.role, githubUsername: user.githubUsername || GITHUB_USERNAMES.get(token) || null };
   }
 
   async logout(token: string) {
+    const [session] = await this.database.db.select().from(sessions).where(eq(sessions.id, token));
+    if (session && GITHUB_USER_TOKENS.get(session.userId) === GITHUB_USER_TOKENS.get(token)) {
+      GITHUB_USER_TOKENS.delete(session.userId);
+      GITHUB_USERNAMES.delete(session.userId);
+    }
     GITHUB_USER_TOKENS.delete(token);
+    GITHUB_USERNAMES.delete(token);
     await this.database.db.delete(sessions).where(eq(sessions.id, token));
     return { success: true };
-  }
-
-  async loginOrCreateDemoUser(email: string) {
-    const existing = await this.database.db.select().from(users).where(eq(users.email, email.toLowerCase()));
-    let user = existing[0];
-
-    if (!user) {
-      const [created] = await this.database.db
-        .insert(users)
-        .values({
-          email: email.toLowerCase(),
-          name: email.split('@')[0],
-          role: 'owner',
-        })
-        .returning();
-      user = created;
-    }
-
-    const sessionToken = randomUUID();
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-
-    await this.database.db.insert(sessions).values({
-      id: sessionToken,
-      userId: user.id,
-      expiresAt,
-    });
-
-    return { user, token: sessionToken };
-  }
-
-  async generateRegistrationOptions(email: string) {
-    return {
-      challenge: 'mock-challenge-phase-0',
-      rp: { name: 'REKA', id: 'localhost' },
-      user: { id: 'mock-id', name: email, displayName: email },
-      pubKeyCredParams: [{ alg: -7, type: 'public-key' }],
-    };
-  }
-
-  async generateAuthenticationOptions() {
-    return {
-      challenge: 'mock-challenge-phase-0',
-      rpId: 'localhost',
-    };
   }
 }

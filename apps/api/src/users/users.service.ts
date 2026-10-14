@@ -1,95 +1,76 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
 import { DatabaseService } from '../common/database/database.service';
-import { users, issues, teamMembers } from '@reka/database';
-import { eq, desc } from 'drizzle-orm';
+import { issues, teamMembers } from '@reka/database';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 import { CreateUserDto, UpdateUserDto } from './dto/user.dto';
+import { WorkspaceService } from '../workspace/workspace.service';
+import { requireAdmin, requireResourceId, requireWorkspace, membershipScope, issueScope, visibleTeamIds } from '../common/access/workspace-access';
 
 @Injectable()
 export class UsersService {
-  constructor(private readonly database: DatabaseService) {}
+  constructor(private readonly database: DatabaseService, private readonly workspace: WorkspaceService) {}
 
-  async findAll() {
-    const userList = await this.database.db.select().from(users).orderBy(desc(users.createdAt));
-    const allIssues = await this.database.db.select().from(issues);
-    const allTeamMembers = await this.database.db.select().from(teamMembers);
-
-    return userList.map((u) => {
-      const assignedIssues = allIssues.filter((i) => i.assigneeId === u.id);
-      const teams = allTeamMembers.filter((tm) => tm.userId === u.id);
-
-      return {
-        ...u,
-        assignedIssuesCount: assignedIssues.length,
-        teamsCount: teams.length,
-      };
-    });
+  async findAll(actorId: string, includeInactive = false) {
+    const db = this.database.db;
+    const actor = await requireWorkspace(db, actorId);
+    if (includeInactive) requireAdmin(actor);
+    const members = (await this.workspace.findMembers(actorId)).filter(member => includeInactive || member.isActive);
+    const [assigned, memberships] = await Promise.all([
+      db.select({ assigneeId: issues.assigneeId }).from(issues).where(issueScope(db, actor)),
+      db.select({ userId: teamMembers.userId }).from(teamMembers).where(inArray(teamMembers.teamId, visibleTeamIds(db, actor))),
+    ]);
+    const issueCounts = new Map<string, number>(), teamCounts = new Map<string, number>();
+    for (const row of assigned) if (row.assigneeId) issueCounts.set(row.assigneeId, (issueCounts.get(row.assigneeId) ?? 0) + 1);
+    for (const row of memberships) teamCounts.set(row.userId, (teamCounts.get(row.userId) ?? 0) + 1);
+    return members.map(member => ({ ...member, assignedIssuesCount: issueCounts.get(member.id) ?? 0, teamsCount: teamCounts.get(member.id) ?? 0 }));
   }
 
-  async findById(id: string) {
-    const result = await this.database.db.select().from(users).where(eq(users.id, id));
-    if (!result.length) {
-      throw new NotFoundException(`User with ID ${id} not found`);
-    }
-
-    const u = result[0];
-    const assignedIssues = await this.database.db.select().from(issues).where(eq(issues.assigneeId, u.id));
-    const userTeams = await this.database.db.select().from(teamMembers).where(eq(teamMembers.userId, u.id));
-
-    return {
-      ...u,
-      assignedIssues,
-      assignedIssuesCount: assignedIssues.length,
-      teamsCount: userTeams.length,
-    };
+  async findById(actorId: string, id: string) {
+    requireResourceId(id);
+    const actor = await requireWorkspace(this.database.db, actorId);
+    const members = await this.findAll(actorId, actor.role === 'owner' || actor.role === 'admin');
+    const user = members.find(member => member.id === id);
+    if (!user) throw new NotFoundException('Workspace user not found');
+    const assignedIssues = await this.database.db.select().from(issues).where(and(eq(issues.assigneeId, id), issueScope(this.database.db, actor)));
+    return { ...user, assignedIssues };
   }
 
-  async create(dto: CreateUserDto) {
-    const existing = await this.database.db.select().from(users).where(eq(users.email, dto.email.toLowerCase()));
-    if (existing.length) {
-      throw new ConflictException(`User with email "${dto.email}" already exists`);
-    }
-
-    const [created] = await this.database.db
-      .insert(users)
-      .values({
-        email: dto.email.toLowerCase().trim(),
-        name: dto.name.trim(),
-        avatarUrl: dto.avatarUrl?.trim() || null,
-        role: dto.role || 'member',
-      })
-      .returning();
-
-    return created;
-  }
-
-  async update(id: string, dto: UpdateUserDto) {
-    await this.findById(id);
-
-    if (dto.email) {
-      const existing = await this.database.db.select().from(users).where(eq(users.email, dto.email.toLowerCase()));
-      if (existing.length && existing[0].id !== id) {
-        throw new ConflictException(`Email "${dto.email}" is already used by another user`);
+  async create(actorId: string, dto: CreateUserDto) {
+    const actor = await requireWorkspace(this.database.db, actorId);
+    requireAdmin(actor);
+    if (!dto.name?.trim()) throw new BadRequestException('Name cannot be empty');
+    if (dto.role === 'owner') throw new BadRequestException('Assign ownership after the user has joined through an invitation');
+    const id = randomUUID(), email = dto.email.trim().toLowerCase(), role = dto.role ?? 'member';
+    try {
+      // Preserve manual profile creation, but never turn it into an invitation
+      // bypass. Profile + pending inactive membership are one atomic statement.
+      await this.database.db.execute(sql`
+        WITH profile AS (
+          INSERT INTO users (id, email, name, avatar_url, role)
+          SELECT ${id}::uuid, ${email}, ${dto.name.trim()}, ${dto.avatarUrl?.trim() || null}, ${role}
+          WHERE ${membershipScope(this.database.db, actor)} RETURNING id
+        ) INSERT INTO organization_members (organization_id, user_id, role, is_active, admission)
+          SELECT ${actor.organizationId}::uuid, id, ${role}, false, 'pending' FROM profile
+      `);
+    } catch (error) {
+      const failure = error as { constraint?: string; cause?: { constraint?: string } };
+      if (failure.constraint === 'users_email_unique' || failure.cause?.constraint === 'users_email_unique') {
+        throw new ConflictException('This email already belongs to an account');
       }
+      throw error;
     }
-
-    const [updated] = await this.database.db
-      .update(users)
-      .set({
-        ...dto,
-        email: dto.email ? dto.email.toLowerCase().trim() : undefined,
-        name: dto.name ? dto.name.trim() : undefined,
-        avatarUrl: dto.avatarUrl !== undefined ? dto.avatarUrl?.trim() || null : undefined,
-        updatedAt: new Date(),
-      })
-      .where(eq(users.id, id))
-      .returning();
-
-    return updated;
+    return this.findById(actorId, id);
   }
 
-  async delete(id: string) {
-    await this.findById(id);
-    await this.database.db.delete(users).where(eq(users.id, id));
+  async update(actorId: string, id: string, dto: UpdateUserDto) {
+    return this.workspace.updateMember(actorId, id, { role: dto.role }, dto);
+  }
+
+  async delete(actorId: string, id: string) {
+    // Removal is deactivation, preserving authored issues/history, invitations
+    // and identity binding. Existing user routes stay usable without data loss.
+    await this.workspace.updateMember(actorId, id, { isActive: false });
     return { success: true };
   }
 }

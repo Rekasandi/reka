@@ -1,9 +1,12 @@
 import { Module } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
 import { DatabaseModule } from './common/database/database.module';
 import { RedisModule } from './common/redis/redis.module';
 import { HealthModule } from './health/health.module';
 import { AuthModule } from './auth/auth.module';
+import { WorkspaceModule } from './workspace/workspace.module';
+import { AuthGuard } from './auth/auth.guard';
 import { UsersModule } from './users/users.module';
 import { OrganizationsModule } from './organizations/organizations.module';
 import { TeamsModule } from './teams/teams.module';
@@ -18,6 +21,8 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { SearchModule } from './search/search.module';
 import { GithubModule } from './github/github.module';
 import { AutomationsModule } from './automations/automations.module';
+import { IssueSubscriptionsModule } from './issue-subscriptions/issue-subscriptions.module';
+import { AttachmentsModule } from './attachments/attachments.module';
 
 @Module({
   imports: [
@@ -29,6 +34,7 @@ import { AutomationsModule } from './automations/automations.module';
     RedisModule,
     HealthModule,
     AuthModule,
+    WorkspaceModule,
     UsersModule,
     OrganizationsModule,
     TeamsModule,
@@ -43,6 +49,9 @@ import { AutomationsModule } from './automations/automations.module';
     SearchModule,
     GithubModule,
     AutomationsModule,
+    IssueSubscriptionsModule,
+    AttachmentsModule,
   ],
+  providers: [{ provide: APP_GUARD, useClass: AuthGuard }],
 })
 export class AppModule {}

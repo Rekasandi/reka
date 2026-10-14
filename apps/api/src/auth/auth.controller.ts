@@ -1,5 +1,6 @@
-import { Controller, Post, Body, Get, Query, Res, Req } from '@nestjs/common';
+import { Controller, Get, Post, Query, Res, Req, HttpException, ForbiddenException, NotImplementedException } from '@nestjs/common';
 import { AuthService } from './auth.service';
+import { authCookieOptions, oauthCookieName, sessionCookieName, sessionToken } from './session-cookie';
 import type { Response, Request } from 'express';
 
 @Controller('auth')
@@ -7,59 +8,47 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Get('github')
-  githubLogin(@Res() res: Response) {
-    const url = this.authService.getGithubAuthUrl();
+  async githubLogin(@Query('invite') invite: string | undefined, @Res() res: Response) {
+    const { url, state } = await this.authService.getGithubAuthUrl(invite);
+    res.cookie(oauthCookieName(), state, authCookieOptions(10 * 60000));
     return res.redirect(url);
   }
 
   @Get('github/callback')
-  async githubCallback(@Query('code') code: string, @Res() res: Response) {
+  async githubCallback(@Query('code') code: string, @Query('state') state: string, @Req() req: Request, @Res() res: Response) {
     const webUrl = process.env.WEB_URL || 'http://localhost:5173';
+    const browserState = req.cookies?.[oauthCookieName()];
+    res.clearCookie(oauthCookieName(), authCookieOptions());
     try {
-      const { user, token } = await this.authService.handleGithubCallback(code);
-      // Set session cookie
-      res.cookie('reka_session', token, {
-        httpOnly: false,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        maxAge: 7 * 24 * 60 * 60 * 1000,
-      });
-
-      // Redirect explicitly to Vite frontend URL (port 5173), not backend NestJS (port 3000)
+      const { user, token } = await this.authService.handleGithubCallback(code, state, browserState);
+      res.cookie(sessionCookieName(), token, authCookieOptions(7 * 86400000));
       return res.redirect(`${webUrl}/dashboard?auth=success&userId=${user.id}`);
-    } catch (err: any) {
-      return res.redirect(`${webUrl}/login?error=${encodeURIComponent(err.message || 'GitHub auth failed')}`);
+    } catch (error) {
+      // Do not put provider payloads/SQL parameters/codes/secrets in redirect URLs.
+      const message = error instanceof HttpException ? error.message : 'GitHub sign-in failed; start again';
+      return res.redirect(`${webUrl}/login?error=${encodeURIComponent(message)}`);
     }
   }
 
+  // Keep legacy routes explicit, without preserving passwordless impersonation
+  // or returning the former fabricated WebAuthn challenges.
+  @Post('demo-login')
+  demoLogin() { throw new ForbiddenException('Demo sign-in is disabled. Use verified GitHub sign-in and workspace invitations.'); }
+
+  @Post('passkey/register-options')
+  getRegistrationOptions() { throw new NotImplementedException('Passkey registration is not supported. Use GitHub sign-in.'); }
+
+  @Get('passkey/login-options')
+  getLoginOptions() { throw new NotImplementedException('Passkey sign-in is not supported. Use GitHub sign-in.'); }
+
   @Get('me')
-  async getMe(@Req() req: Request) {
-    const token = req.cookies?.reka_session || (req.headers.authorization?.replace('Bearer ', ''));
-    return this.authService.getCurrentUser(token);
-  }
+  getMe(@Req() req: Request) { return this.authService.getCurrentUser(sessionToken(req)); }
 
   @Post('logout')
   async logout(@Req() req: Request, @Res() res: Response) {
-    const token = req.cookies?.reka_session;
-    if (token) {
-      await this.authService.logout(token);
-    }
-    res.clearCookie('reka_session');
+    const token = sessionToken(req);
+    if (token) await this.authService.logout(token);
+    res.clearCookie(sessionCookieName(), authCookieOptions());
     return res.json({ success: true });
-  }
-
-  @Post('demo-login')
-  async demoLogin(@Body('email') email?: string) {
-    return this.authService.loginOrCreateDemoUser(email || 'owner@rekasandi.com');
-  }
-
-  @Post('passkey/register-options')
-  getRegistrationOptions(@Body('email') email: string) {
-    return this.authService.generateRegistrationOptions(email);
-  }
-
-  @Get('passkey/login-options')
-  getLoginOptions() {
-    return this.authService.generateAuthenticationOptions();
   }
 }

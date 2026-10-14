@@ -1,59 +1,21 @@
-import { IsString, IsNotEmpty, IsOptional, IsEmail } from 'class-validator';
-
-export class CreateClientDto {
-  @IsString()
-  @IsNotEmpty()
-  name!: string;
-
-  @IsString()
-  @IsOptional()
-  industry?: string;
-
-  @IsString()
-  @IsOptional()
-  notes?: string;
-
-  @IsString()
-  @IsOptional()
-  organizationId?: string;
-
-  @IsOptional()
-  contact?: {
-    name: string;
-    email: string;
-    role?: string;
-    phone?: string;
-  };
-}
-
-export class UpdateClientDto {
-  @IsString()
-  @IsOptional()
-  name?: string;
-
-  @IsString()
-  @IsOptional()
-  industry?: string;
-
-  @IsString()
-  @IsOptional()
-  notes?: string;
-}
+import { IsString, IsNotEmpty, IsOptional, IsEmail, MaxLength, IsUUID, ValidateNested, IsObject } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export class CreateClientContactDto {
-  @IsString()
-  @IsNotEmpty()
-  name!: string;
-
-  @IsEmail()
-  @IsNotEmpty()
-  email!: string;
-
-  @IsString()
-  @IsOptional()
-  role?: string;
-
-  @IsString()
-  @IsOptional()
-  phone?: string;
+  @IsString() @IsNotEmpty() @MaxLength(255) name!: string;
+  @IsEmail() @MaxLength(255) email!: string;
+  @IsString() @IsOptional() @MaxLength(100) role?: string;
+  @IsString() @IsOptional() @MaxLength(50) phone?: string;
+}
+export class CreateClientDto {
+  @IsString() @IsNotEmpty() @MaxLength(255) name!: string;
+  @IsString() @IsOptional() @MaxLength(100) industry?: string;
+  @IsString() @IsOptional() notes?: string;
+  @IsUUID() @IsOptional() organizationId?: string;
+  @IsOptional() @IsObject() @ValidateNested() @Type(() => CreateClientContactDto) contact?: CreateClientContactDto;
+}
+export class UpdateClientDto {
+  @IsString() @IsOptional() @MaxLength(255) name?: string;
+  @IsString() @IsOptional() @MaxLength(100) industry?: string;
+  @IsString() @IsOptional() notes?: string;
 }

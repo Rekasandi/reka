@@ -28,14 +28,18 @@ export class AllExceptionsFilter implements ExceptionFilter {
         : 'Internal server error';
 
     this.logger.error(
-      `HTTP ${status} on ${request.method} ${request.url}`,
-      exception instanceof Error ? exception.stack : undefined,
+      `HTTP ${status} on ${request.method} ${request.path} (${exception instanceof Error ? exception.name : 'Error'})`,
+      // SQL stacks can include session tokens; query URLs can include OAuth
+      // codes/invitation secrets. Keep operational logs free of those values.
     );
 
     response.status(status).json({
       statusCode: status,
       timestamp: new Date().toISOString(),
-      path: request.url,
+      path: request.path,
+      // Preserve the legacy error envelope while exposing the conventional
+      // message field consumed by existing browser mutation helpers.
+      message: typeof message === 'string' ? message : (message as { message?: unknown }).message ?? 'Request failed',
       error: typeof message === 'string' ? { message } : message,
     });
   }

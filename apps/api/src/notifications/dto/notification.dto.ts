@@ -2,10 +2,6 @@ import { IsString, IsNotEmpty, IsOptional, IsBoolean } from 'class-validator';
 
 export class CreateNotificationDto {
   @IsString()
-  @IsOptional()
-  userId?: string;
-
-  @IsString()
   @IsNotEmpty()
   type!: string;
 
@@ -26,7 +22,15 @@ export class CreateNotificationDto {
 }
 
 export class UpdateNotificationDto {
-  @IsBoolean()
-  @IsOptional()
-  read?: boolean;
+  @IsBoolean() @IsOptional() read?: boolean;
+}
+
+export class UpdateNotificationPreferencesDto {
+  @IsBoolean() comments!: boolean;
+  @IsBoolean() mentions!: boolean;
+  @IsBoolean() assignments!: boolean;
+  @IsBoolean() issueUpdates!: boolean;
+  @IsBoolean() projectUpdates!: boolean;
+  @IsBoolean() github!: boolean;
+  @IsBoolean() teamInvites!: boolean;
 }

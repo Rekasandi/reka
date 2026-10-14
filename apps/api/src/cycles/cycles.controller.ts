@@ -1,43 +1,64 @@
-import { Controller, Get, Post, Patch, Delete, Param, Body } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Put, Delete, Param, Body, Req } from '@nestjs/common';
+import type { Request } from 'express';
 import { CyclesService } from './cycles.service';
-import { CreateCycleDto, UpdateCycleDto, CompleteCycleDto } from './dto/cycle.dto';
+import { CreateCycleDto, UpdateCycleDto, CompleteCycleDto, TeamCycleSettingsDto } from './dto/cycle.dto';
 
 @Controller('cycles')
 export class CyclesController {
   constructor(private readonly cyclesService: CyclesService) {}
 
   @Get()
-  findAll() {
-    return this.cyclesService.findAll();
+  findAll(@Req() req: Request & { userId: string }) {
+    return this.cyclesService.findAll(req.userId);
+  }
+
+  @Get('settings/:teamId')
+  getTeamSettings(@Req() req: Request & { userId: string }, @Param('teamId') teamId: string) {
+    return this.cyclesService.getTeamSettings(teamId, req.userId);
+  }
+
+  @Put('settings/:teamId')
+  saveTeamSettings(@Req() req: Request & { userId: string }, @Param('teamId') teamId: string, @Body() dto: TeamCycleSettingsDto) {
+    return this.cyclesService.saveTeamSettings(teamId, dto, req.userId);
+  }
+
+  @Get(':id/history')
+  history(@Req() req: Request & { userId: string }, @Param('id') id: string) {
+    return this.cyclesService.history(id, req.userId);
   }
 
   @Get(':id')
-  findById(@Param('id') id: string) {
-    return this.cyclesService.findById(id);
+  findById(@Req() req: Request & { userId: string }, @Param('id') id: string) {
+    return this.cyclesService.findById(id, req.userId);
   }
 
   @Get('by-team/:teamId')
-  findByTeamId(@Param('teamId') teamId: string) {
-    return this.cyclesService.findByTeamId(teamId);
+  findByTeamId(@Req() req: Request & { userId: string }, @Param('teamId') teamId: string) {
+    return this.cyclesService.findByTeamId(teamId, req.userId);
   }
 
   @Post()
-  create(@Body() dto: CreateCycleDto) {
-    return this.cyclesService.create(dto);
+  create(@Req() req: Request & { userId: string }, @Body() dto: CreateCycleDto) {
+    return this.cyclesService.create(dto, req.userId);
   }
 
   @Post(':id/complete')
-  completeCycle(@Param('id') id: string, @Body() dto: CompleteCycleDto) {
-    return this.cyclesService.completeCycle(id, dto);
+  completeCycle(@Req() req: Request & { userId: string }, @Param('id') id: string, @Body() dto: CompleteCycleDto) {
+    return this.cyclesService.completeCycle(id, dto, req.userId);
+  }
+
+  @Post(':id/reopen')
+  reopenCycle(@Req() req: Request & { userId: string }, @Param('id') id: string) {
+    return this.cyclesService.reopenCycle(id, req.userId);
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() dto: UpdateCycleDto) {
-    return this.cyclesService.update(id, dto);
+  update(@Req() req: Request & { userId: string }, @Param('id') id: string, @Body() dto: UpdateCycleDto) {
+    return this.cyclesService.update(id, dto, req.userId);
   }
 
   @Delete(':id')
-  delete(@Param('id') id: string) {
-    return this.cyclesService.delete(id);
+  delete(@Req() req: Request & { userId: string }, @Param('id') id: string) {
+    return this.cyclesService.delete(id, req.userId);
   }
 }

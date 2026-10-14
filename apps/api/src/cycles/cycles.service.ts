@@ -1,192 +1,179 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { sql, eq, desc, and, inArray, isNull } from 'drizzle-orm';
+import { cycles, cycleSnapshots, issues, teamCycleSettings } from '@reka/database';
 import { DatabaseService } from '../common/database/database.service';
-import { cycles, teams, issues } from '@reka/database';
-import { eq, desc, and, ne } from 'drizzle-orm';
-import { CreateCycleDto, UpdateCycleDto, CompleteCycleDto } from './dto/cycle.dto';
+import { loadIssueStatusCategories, getIssueStatusCategory } from '../issues/issue-status';
+import { requireWorkspace, requireTeam, requireTeamManager, requireCycle, cycleScope, issueScope } from '../common/access/workspace-access';
+import { CreateCycleDto, UpdateCycleDto, CompleteCycleDto, TeamCycleSettingsDto } from './dto/cycle.dto';
+
+const ACTIVITY_CATEGORIES = new Set(['unstarted', 'started']);
+const INCLUDED_CATEGORIES = new Set(['unstarted', 'started', 'completed']);
 
 @Injectable()
 export class CyclesService {
   constructor(private readonly database: DatabaseService) {}
 
-  async findAll() {
-    const cycleList = await this.database.db
-      .select()
-      .from(cycles)
-      .orderBy(desc(cycles.number));
-
-    const allIssues = await this.database.db.select().from(issues);
+  private metrics(cycle: typeof cycles.$inferSelect, cycleIssues: typeof issues.$inferSelect[], categories: Map<string, string>) {
+    const included = cycleIssues.filter(issue => INCLUDED_CATEGORIES.has(getIssueStatusCategory(issue, categories)));
+    const completed = included.filter(issue => getIssueStatusCategory(issue, categories) === 'completed');
+    const remaining = included.filter(issue => ACTIVITY_CATEGORIES.has(getIssueStatusCategory(issue, categories)));
+    const plannedEstimate = included.reduce((sum, issue) => sum + (issue.estimate ?? 0), 0);
+    const completedEstimate = completed.reduce((sum, issue) => sum + (issue.estimate ?? 0), 0);
+    const remainingEstimate = remaining.reduce((sum, issue) => sum + (issue.estimate ?? 0), 0);
+    const missingEstimateCount = included.filter(issue => issue.estimate === null).length;
     const now = new Date();
-
-    return cycleList.map((c) => {
-      const cIssues = allIssues.filter((i) => i.cycleId === c.id);
-      const totalIssues = cIssues.length;
-      const completedIssues = cIssues.filter((i) => i.status === 'done').length;
-      const progress = totalIssues > 0 ? Math.round((completedIssues / totalIssues) * 100) : 0;
-
-      let status: 'active' | 'upcoming' | 'completed' = 'upcoming';
-      if (c.isCompleted || now > new Date(c.endDate)) {
-        status = 'completed';
-      } else if (now >= new Date(c.startDate) && now <= new Date(c.endDate)) {
-        status = 'active';
-      }
-
-      return {
-        ...c,
-        status,
-        totalIssues,
-        completedIssues,
-        progress,
-        issues: cIssues,
-      };
-    });
-  }
-
-  async findById(id: string) {
-    const result = await this.database.db.select().from(cycles).where(eq(cycles.id, id));
-    if (!result.length) {
-      throw new NotFoundException(`Cycle with ID ${id} not found`);
-    }
-
-    const c = result[0];
-    const cIssues = await this.database.db.select().from(issues).where(eq(issues.cycleId, c.id));
-    const totalIssues = cIssues.length;
-    const completedIssues = cIssues.filter((i) => i.status === 'done').length;
-    const progress = totalIssues > 0 ? Math.round((completedIssues / totalIssues) * 100) : 0;
-    const now = new Date();
-
-    let status: 'active' | 'upcoming' | 'completed' = 'upcoming';
-    if (c.isCompleted || now > new Date(c.endDate)) {
-      status = 'completed';
-    } else if (now >= new Date(c.startDate) && now <= new Date(c.endDate)) {
-      status = 'active';
-    }
-
+    const status = cycle.isCompleted || now > new Date(cycle.endDate) ? 'completed'
+      : now >= new Date(cycle.startDate) ? 'active' : 'upcoming';
     return {
-      ...c,
-      status,
-      totalIssues,
-      completedIssues,
-      progress,
-      issues: cIssues,
+      ...cycle, status, issues: cycleIssues,
+      totalIssues: included.length, completedIssues: completed.length, remainingIssues: remaining.length,
+      progress: included.length ? Math.round(completed.length / included.length * 100) : 0,
+      plannedEstimate, completedEstimate, remainingEstimate, missingEstimateCount,
+      remainingCapacity: cycle.capacity === null ? null : cycle.capacity - plannedEstimate,
     };
   }
 
-  async findByTeamId(teamId: string) {
-    return this.database.db
-      .select()
-      .from(cycles)
-      .where(eq(cycles.teamId, teamId))
-      .orderBy(desc(cycles.number));
+  async findAll(actorId: string) {
+    const actor = await requireWorkspace(this.database.db, actorId);
+    const [cycleList, allIssues] = await Promise.all([
+      this.database.db.select().from(cycles).where(cycleScope(this.database.db, actor)).orderBy(desc(cycles.number)).limit(500),
+      this.database.db.select().from(issues).where(and(issueScope(this.database.db, actor), isNull(issues.archivedAt))),
+    ]);
+    const categories = await loadIssueStatusCategories(this.database.db, [...new Set(allIssues.map(issue => issue.teamId))]);
+    return cycleList.map(cycle => this.metrics(cycle, allIssues.filter(issue => issue.cycleId === cycle.id), categories));
   }
 
-  async create(dto: CreateCycleDto) {
-    const teamId = dto.teamId;
-    const [team] = await this.database.db.select().from(teams).where(eq(teams.id, teamId));
-    if (!team) throw new NotFoundException('Team not found');
-
-    const [latest] = await this.database.db
-      .select({ number: cycles.number })
-      .from(cycles)
-      .where(eq(cycles.teamId, teamId))
-      .orderBy(desc(cycles.number))
-      .limit(1);
-
-    const nextNumber = (latest?.number ?? 0) + 1;
-    const name = dto.name?.trim() || `Cycle ${nextNumber}`;
-
-    const [created] = await this.database.db
-      .insert(cycles)
-      .values({
-        teamId,
-        number: nextNumber,
-        name,
-        description: dto.description || null,
-        startDate: new Date(dto.startDate),
-        endDate: new Date(dto.endDate),
-        isCompleted: false,
-      })
-      .returning();
-
-    return created;
+  async findById(id: string, actorId: string) {
+    const actor = await requireWorkspace(this.database.db, actorId);
+    const cycle = await requireCycle(this.database.db, actor, id);
+    const cycleIssues = await this.database.db.select().from(issues).where(and(
+      eq(issues.cycleId, cycle.id), issueScope(this.database.db, actor), isNull(issues.archivedAt),
+    ));
+    const categories = await loadIssueStatusCategories(this.database.db, [...new Set(cycleIssues.map(issue => issue.teamId))]);
+    return this.metrics(cycle, cycleIssues, categories);
   }
 
-  async update(id: string, dto: UpdateCycleDto) {
-    await this.findById(id);
+  async findByTeamId(teamId: string, actorId: string) {
+    await requireTeam(this.database.db, await requireWorkspace(this.database.db, actorId), teamId);
+    return this.database.db.select().from(cycles).where(eq(cycles.teamId, teamId)).orderBy(desc(cycles.number)).limit(500);
+  }
 
-    const [updated] = await this.database.db
-      .update(cycles)
-      .set({
-        ...dto,
-        startDate: dto.startDate ? new Date(dto.startDate) : undefined,
-        endDate: dto.endDate ? new Date(dto.endDate) : undefined,
+  private validateCycleDates(startDate: Date, endDate: Date) {
+    if (!Number.isFinite(startDate.getTime()) || !Number.isFinite(endDate.getTime()) || startDate >= endDate) {
+      throw new BadRequestException('Cycle end date must be after its start date');
+    }
+  }
+
+  private rethrowCycleConflict(error: unknown): never {
+    const databaseError = error as { code?: string; constraint?: string };
+    if (databaseError?.code === '23P01' || databaseError?.constraint === 'cycles_no_open_overlap') {
+      throw new BadRequestException('Cycle dates overlap another open cycle in this team');
+    }
+    throw error;
+  }
+
+  async create(dto: CreateCycleDto, actorId: string) {
+    const actor = await requireWorkspace(this.database.db, actorId);
+    await requireTeamManager(this.database.db, actor, dto.teamId);
+    const startDate = new Date(dto.startDate); const endDate = new Date(dto.endDate);
+    this.validateCycleDates(startDate, endDate);
+    const [latest] = await this.database.db.select({ number: cycles.number }).from(cycles)
+      .where(eq(cycles.teamId, dto.teamId)).orderBy(desc(cycles.number)).limit(1);
+    const number = (latest?.number ?? 0) + 1;
+    try {
+      const [created] = await this.database.db.insert(cycles).values({
+        teamId: dto.teamId, number, name: dto.name?.trim() || `Cycle ${number}`, description: dto.description?.trim() || null,
+        startDate, endDate, capacity: dto.capacity ?? null, isCompleted: false,
+      }).returning();
+      return created;
+    } catch (error) { this.rethrowCycleConflict(error); }
+  }
+
+  async update(id: string, dto: UpdateCycleDto, actorId: string) {
+    const actor = await requireWorkspace(this.database.db, actorId);
+    const cycle = await requireCycle(this.database.db, actor, id);
+    await requireTeamManager(this.database.db, actor, cycle.teamId);
+    const startDate = dto.startDate ? new Date(dto.startDate) : new Date(cycle.startDate);
+    const endDate = dto.endDate ? new Date(dto.endDate) : new Date(cycle.endDate);
+    this.validateCycleDates(startDate, endDate);
+    try {
+      const [updated] = await this.database.db.update(cycles).set({
+        name: dto.name === undefined ? undefined : dto.name.trim(),
+        description: dto.description === undefined ? undefined : dto.description.trim() || null,
+        capacity: dto.capacity === undefined ? undefined : dto.capacity,
+        startDate: dto.startDate ? startDate : undefined,
+        endDate: dto.endDate ? endDate : undefined,
         updatedAt: new Date(),
-      })
-      .where(eq(cycles.id, id))
-      .returning();
-
-    return updated;
+      }).where(eq(cycles.id, id)).returning();
+      return updated;
+    } catch (error) { this.rethrowCycleConflict(error); }
   }
 
-  async completeCycle(id: string, dto: CompleteCycleDto) {
-    const cycle = await this.findById(id);
-
-    // 1. Mark cycle as completed
-    await this.database.db
-      .update(cycles)
-      .set({
-        isCompleted: true,
-        updatedAt: new Date(),
-      })
-      .where(eq(cycles.id, id));
-
-    // 2. Rollover incomplete issues
-    const incompleteIssues = await this.database.db
-      .select()
-      .from(issues)
-      .where(and(eq(issues.cycleId, id), ne(issues.status, 'done'), ne(issues.status, 'canceled')));
-
-    if (incompleteIssues.length > 0) {
-      if (dto.incompleteIssuesAction === 'backlog') {
-        for (const item of incompleteIssues) {
-          await this.database.db
-            .update(issues)
-            .set({ cycleId: null, status: 'backlog', updatedAt: new Date() })
-            .where(eq(issues.id, item.id));
-        }
-      } else if (dto.incompleteIssuesAction === 'next_cycle') {
-        let targetCycleId = dto.nextCycleId;
-        if (!targetCycleId) {
-          // Find next upcoming cycle
-          const upcoming = await this.database.db
-            .select()
-            .from(cycles)
-            .where(and(eq(cycles.teamId, cycle.teamId), eq(cycles.isCompleted, false), ne(cycles.id, id)))
-            .orderBy(cycles.number)
-            .limit(1);
-
-          if (upcoming.length) {
-            targetCycleId = upcoming[0].id;
-          }
-        }
-
-        for (const item of incompleteIssues) {
-          await this.database.db
-            .update(issues)
-            .set({ cycleId: targetCycleId || null, updatedAt: new Date() })
-            .where(eq(issues.id, item.id));
-        }
+  async completeCycle(id: string, dto: CompleteCycleDto, actorId: string) {
+    const actor = await requireWorkspace(this.database.db, actorId);
+    const cycle = await requireCycle(this.database.db, actor, id);
+    await requireTeamManager(this.database.db, actor, cycle.teamId);
+    if (dto.nextCycleId) {
+      const target = await requireCycle(this.database.db, actor, dto.nextCycleId);
+      if (target.teamId !== cycle.teamId || target.id === cycle.id || target.isCompleted || new Date(target.startDate) < new Date(cycle.endDate)) {
+        throw new BadRequestException('Rollover target must be an open, non-overlapping cycle in the same team');
       }
     }
-
-    return {
-      success: true,
-      rolledOverCount: incompleteIssues.length,
-      action: dto.incompleteIssuesAction,
-    };
+    const result = await this.database.db.execute(sql`SELECT * FROM complete_reka_cycle(${id}::uuid, ${dto.incompleteIssuesAction}, ${dto.nextCycleId ?? null}::uuid)`);
+    const row = result.rows[0] as { success: boolean; rolled_over_count: number; target_cycle_id: string | null; already_completed: boolean } | undefined;
+    if (!row) throw new BadRequestException('Cycle could not be completed');
+    return { success: row.success, rolledOverCount: row.rolled_over_count, targetCycleId: row.target_cycle_id, alreadyCompleted: row.already_completed, action: dto.incompleteIssuesAction };
   }
 
-  async delete(id: string) {
-    await this.findById(id);
+  async reopenCycle(id: string, actorId: string) {
+    const actor = await requireWorkspace(this.database.db, actorId);
+    const cycle = await requireCycle(this.database.db, actor, id);
+    await requireTeamManager(this.database.db, actor, cycle.teamId);
+    if (!cycle.isCompleted) return { success: true, alreadyOpen: true };
+    try {
+      await this.database.db.update(cycles).set({ isCompleted: false, updatedAt: new Date() }).where(eq(cycles.id, id));
+    } catch (error) { this.rethrowCycleConflict(error); }
+    return { success: true, alreadyOpen: false };
+  }
+
+  async history(id: string, actorId: string) {
+    const actor = await requireWorkspace(this.database.db, actorId);
+    await requireCycle(this.database.db, actor, id);
+    const snapshots = await this.database.db.select().from(cycleSnapshots).where(eq(cycleSnapshots.cycleId, id)).orderBy(cycleSnapshots.snapshotAt).limit(500);
+    return { snapshots, hasHistory: snapshots.length > 0, historyStartsAt: snapshots[0]?.snapshotAt ?? null };
+  }
+
+  async getTeamSettings(teamId: string, actorId: string) {
+    const actor = await requireWorkspace(this.database.db, actorId);
+    await requireTeam(this.database.db, actor, teamId);
+    const [settings] = await this.database.db.select().from(teamCycleSettings).where(eq(teamCycleSettings.teamId, teamId));
+    return settings ?? null;
+  }
+
+  async saveTeamSettings(teamId: string, dto: TeamCycleSettingsDto, actorId: string) {
+    const actor = await requireWorkspace(this.database.db, actorId);
+    await requireTeamManager(this.database.db, actor, teamId);
+    try { new Intl.DateTimeFormat('en-US', { timeZone: dto.timezone }); }
+    catch { throw new BadRequestException('Timezone must be a valid IANA timezone'); }
+    const parsedStart = new Date(`${dto.nextStartDate}T00:00:00Z`);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dto.nextStartDate) || Number.isNaN(parsedStart.getTime()) || parsedStart.toISOString().slice(0, 10) !== dto.nextStartDate) {
+      throw new BadRequestException('Next cycle start must be a valid calendar date');
+    }
+    const [settings] = await this.database.db.insert(teamCycleSettings).values({
+      teamId, timezone: dto.timezone, durationDays: dto.durationDays, cooldownDays: dto.cooldownDays,
+      nextStartDate: dto.nextStartDate, autoCreate: dto.autoCreate, updatedBy: actorId,
+    }).onConflictDoUpdate({
+      target: teamCycleSettings.teamId,
+      set: { timezone: dto.timezone, durationDays: dto.durationDays, cooldownDays: dto.cooldownDays,
+        nextStartDate: dto.nextStartDate, autoCreate: dto.autoCreate, updatedBy: actorId, updatedAt: new Date() },
+    }).returning();
+    return settings;
+  }
+
+  async delete(id: string, actorId: string) {
+    const actor = await requireWorkspace(this.database.db, actorId);
+    const cycle = await requireCycle(this.database.db, actor, id);
+    await requireTeamManager(this.database.db, actor, cycle.teamId);
     await this.database.db.delete(cycles).where(eq(cycles.id, id));
     return { success: true };
   }

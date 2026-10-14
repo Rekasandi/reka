@@ -1,4 +1,5 @@
-import { IsString, IsNotEmpty, IsOptional, IsIn } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsIn, IsDateString } from 'class-validator';
+import { ENTITY_ICON_NAMES } from '@reka/types';
 
 export class CreateProjectDto {
   @IsString()
@@ -8,6 +9,11 @@ export class CreateProjectDto {
   @IsString()
   @IsOptional()
   slug?: string;
+
+  @IsString()
+  @IsOptional()
+  @IsIn(ENTITY_ICON_NAMES)
+  icon?: string;
 
   @IsString()
   @IsOptional()
@@ -32,7 +38,11 @@ export class CreateProjectDto {
   @IsNotEmpty()
   teamId!: string;
 
-  @IsString()
+  @IsDateString({ strict: true })
   @IsOptional()
-  targetDate?: string;
+  startDate?: string | null;
+
+  @IsDateString({ strict: true })
+  @IsOptional()
+  targetDate?: string | null;
 }

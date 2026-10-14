@@ -1,8 +1,10 @@
-import { IsString, IsNotEmpty, IsOptional, IsIn, IsNumber } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsIn, IsInt, IsUUID, IsArray, ArrayUnique, ArrayMaxSize, MaxLength, Max, Min, IsDateString, Matches } from 'class-validator';
 
 export class CreateIssueDto {
   @IsString()
   @IsNotEmpty()
+  @MaxLength(255)
+  @Matches(/\S/)
   title!: string;
 
   @IsString()
@@ -10,8 +12,8 @@ export class CreateIssueDto {
   description?: string;
 
   @IsString()
+  @Matches(/^[a-z][a-z0-9_]{0,31}$/)
   @IsOptional()
-  @IsIn(['backlog', 'todo', 'in_progress', 'in_review', 'ready_to_deploy', 'done', 'canceled', 'blocked'])
   status?: string;
 
   @IsString()
@@ -24,27 +26,43 @@ export class CreateIssueDto {
   @IsIn(['task', 'bug', 'feature', 'improvement', 'chore'])
   type?: string;
 
-  @IsString()
-  @IsNotEmpty()
+  @IsUUID()
   teamId!: string;
 
-  @IsString()
+  @IsUUID()
   @IsOptional()
-  projectId?: string;
+  projectId?: string | null;
 
-  @IsString()
+  @IsUUID()
   @IsOptional()
-  assigneeId?: string;
+  assigneeId?: string | null;
 
-  @IsString()
+  @IsUUID()
   @IsOptional()
-  parentId?: string;
+  parentId?: string | null;
 
-  @IsString()
+  @IsUUID()
   @IsOptional()
-  cycleId?: string;
+  cycleId?: string | null;
 
-  @IsNumber()
+  @IsUUID()
   @IsOptional()
-  estimate?: number;
+  milestoneId?: string | null;
+
+  @IsInt()
+  @Min(0)
+  @Max(100)
+  @IsOptional()
+  estimate?: number | null;
+
+  @IsDateString({ strict: true })
+  @IsOptional()
+  dueDate?: string | null;
+
+  @IsArray()
+  @ArrayMaxSize(50)
+  @ArrayUnique()
+  @IsUUID(undefined, { each: true })
+  @IsOptional()
+  labelIds?: string[];
 }

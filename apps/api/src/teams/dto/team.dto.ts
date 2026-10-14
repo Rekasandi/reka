@@ -1,8 +1,10 @@
-import { IsString, IsNotEmpty, IsOptional, MaxLength, IsIn } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, MaxLength, IsIn, IsBoolean, IsUUID } from 'class-validator';
+import { ENTITY_ICON_NAMES } from '@reka/types';
 
 export class CreateTeamDto {
   @IsString()
   @IsNotEmpty()
+  @MaxLength(255)
   name!: string;
 
   @IsString()
@@ -13,11 +15,16 @@ export class CreateTeamDto {
   @IsString()
   @IsOptional()
   description?: string;
+
+  @IsBoolean()
+  @IsOptional()
+  isPrivate?: boolean;
 }
 
 export class UpdateTeamDto {
   @IsString()
   @IsOptional()
+  @MaxLength(255)
   name?: string;
 
   @IsString()
@@ -28,15 +35,28 @@ export class UpdateTeamDto {
   @IsString()
   @IsOptional()
   description?: string;
+
+  @IsBoolean()
+  @IsOptional()
+  isPrivate?: boolean;
+
+  @IsString()
+  @IsOptional()
+  @IsIn(ENTITY_ICON_NAMES)
+  icon?: string;
 }
 
 export class AddTeamMemberDto {
-  @IsString()
-  @IsNotEmpty()
+  @IsUUID()
   userId!: string;
 
   @IsString()
   @IsOptional()
   @IsIn(['lead', 'member', 'viewer'])
   role?: string;
+}
+
+export class UpdateTeamMemberDto {
+  @IsIn(['lead', 'member', 'viewer'])
+  role!: 'lead' | 'member' | 'viewer';
 }

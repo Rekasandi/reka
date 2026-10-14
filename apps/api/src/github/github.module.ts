@@ -7,8 +7,10 @@ import { GithubRepositoriesController } from './repositories/repositories.contro
 import { GithubRepositoriesService } from './repositories/repositories.service';
 import { GithubPullRequestsController } from './pull-requests/pull-requests.controller';
 import { GithubPullRequestsService } from './pull-requests/pull-requests.service';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
+  imports: [NotificationsModule],
   controllers: [
     GithubWebhooksController,
     GithubInstallationsController,

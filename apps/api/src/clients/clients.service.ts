@@ -1,261 +1,114 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
 import { DatabaseService } from '../common/database/database.service';
-import { clients, clientContacts, projects, organizations } from '@reka/database';
-import { eq, desc } from 'drizzle-orm';
+import { clients, clientContacts, projects } from '@reka/database';
+import { and, eq, desc, inArray, sql } from 'drizzle-orm';
 import { CreateClientDto, UpdateClientDto, CreateClientContactDto } from './dto/client.dto';
+import { clientScope, projectScope, requireResourceId, requireWorkspace, requireWrite, membershipScope } from '../common/access/workspace-access';
 
 @Injectable()
 export class ClientsService {
   constructor(private readonly database: DatabaseService) {}
 
-  private async getResolvedOrgId(orgId?: string): Promise<string> {
-    if (orgId) return orgId;
-    const [org] = await this.database.db.select().from(organizations).limit(1);
-    if (org) return org.id;
-
-    // Create a fallback default organization if none exists
-    const [created] = await this.database.db
-      .insert(organizations)
-      .values({
-        name: 'Rekasandi',
-        slug: 'rekasandi',
-      })
-      .returning();
-    return created.id;
-  }
-
-  async findAll() {
-    let clientList = await this.database.db
-      .select()
-      .from(clients)
-      .orderBy(desc(clients.createdAt));
-
-    // If empty, auto-seed demo clients
-    if (clientList.length === 0) {
-      await this.seedDemo();
-      clientList = await this.database.db
-        .select()
-        .from(clients)
-        .orderBy(desc(clients.createdAt));
-    }
-
-    // Enrich clients with contacts and projects
-    const allContacts = await this.database.db.select().from(clientContacts);
-    const allProjects = await this.database.db.select().from(projects);
-
-    return clientList.map((c) => {
-      const cContacts = allContacts.filter((ct) => ct.clientId === c.id);
-      const cProjects = allProjects.filter((p) => p.clientId === c.id);
-      return {
-        ...c,
-        contacts: cContacts,
-        projects: cProjects,
-        contactCount: cContacts.length,
-        projectCount: cProjects.length,
-      };
+  async findAll(actorId: string) {
+    const db = this.database.db, actor = await requireWorkspace(db, actorId);
+    const clientList = await db.select().from(clients).where(and(clientScope(actor), membershipScope(db, actor))).orderBy(desc(clients.createdAt));
+    const ids = clientList.map(client => client.id);
+    if (!ids.length) return [];
+    const [contacts, linkedProjects] = await Promise.all([
+      db.select().from(clientContacts).where(inArray(clientContacts.clientId, ids)),
+      db.select().from(projects).where(and(inArray(projects.clientId, ids), projectScope(db, actor))),
+    ]);
+    return clientList.map(client => {
+      const cContacts = contacts.filter(contact => contact.clientId === client.id);
+      const cProjects = linkedProjects.filter(project => project.clientId === client.id);
+      return { ...client, contacts: cContacts, projects: cProjects, contactCount: cContacts.length, projectCount: cProjects.length };
     });
   }
 
-  async findById(id: string) {
-    const [client] = await this.database.db.select().from(clients).where(eq(clients.id, id));
-    if (!client) {
-      throw new NotFoundException(`Client with ID "${id}" not found`);
-    }
-
-    const cContacts = await this.database.db
-      .select()
-      .from(clientContacts)
-      .where(eq(clientContacts.clientId, id));
-
-    const cProjects = await this.database.db
-      .select()
-      .from(projects)
-      .where(eq(projects.clientId, id));
-
-    return {
-      ...client,
-      contacts: cContacts,
-      projects: cProjects,
-      contactCount: cContacts.length,
-      projectCount: cProjects.length,
-    };
+  async findById(actorId: string, id: string) {
+    requireResourceId(id);
+    const db = this.database.db, actor = await requireWorkspace(db, actorId);
+    const [client] = await db.select().from(clients).where(and(eq(clients.id, id), clientScope(actor), membershipScope(db, actor)));
+    if (!client) throw new NotFoundException('Client not found');
+    const [contacts, linkedProjects] = await Promise.all([
+      db.select().from(clientContacts).where(eq(clientContacts.clientId, id)),
+      db.select().from(projects).where(and(eq(projects.clientId, id), projectScope(db, actor))),
+    ]);
+    return { ...client, contacts, projects: linkedProjects, contactCount: contacts.length, projectCount: linkedProjects.length };
   }
 
-  async create(dto: CreateClientDto) {
-    const orgId = await this.getResolvedOrgId(dto.organizationId);
-
-    const [client] = await this.database.db
-      .insert(clients)
-      .values({
-        organizationId: orgId,
-        name: dto.name.trim(),
-        industry: dto.industry?.trim() || null,
-        notes: dto.notes?.trim() || null,
-      })
-      .returning();
-
-    let createdContact = null;
-    if (dto.contact?.name && dto.contact?.email) {
-      const [contact] = await this.database.db
-        .insert(clientContacts)
-        .values({
-          clientId: client.id,
-          name: dto.contact.name.trim(),
-          email: dto.contact.email.trim(),
-          role: dto.contact.role?.trim() || null,
-          phone: dto.contact.phone?.trim() || null,
-        })
-        .returning();
-      createdContact = contact;
-    }
-
-    return {
-      ...client,
-      contacts: createdContact ? [createdContact] : [],
-      projects: [],
-      contactCount: createdContact ? 1 : 0,
-      projectCount: 0,
-    };
+  async create(actorId: string, dto: CreateClientDto) {
+    const db = this.database.db, actor = await requireWorkspace(db, actorId);
+    requireWrite(actor);
+    if (dto.organizationId && dto.organizationId !== actor.organizationId) throw new BadRequestException('Client must belong to the company workspace');
+    if (!dto.name?.trim()) throw new BadRequestException('Client name cannot be empty');
+    if (dto.contact && !dto.contact.name?.trim()) throw new BadRequestException('Contact name cannot be empty');
+    const id = randomUUID();
+    // Client and optional validated contact persist together or not at all.
+    await db.execute(sql`
+      WITH created AS (
+        INSERT INTO clients (id, organization_id, name, industry, notes)
+        SELECT ${id}::uuid, ${actor.organizationId}::uuid, ${dto.name.trim()}, ${dto.industry?.trim() || null}, ${dto.notes?.trim() || null}
+        WHERE ${membershipScope(db, actor)} RETURNING id
+      ) ${dto.contact ? sql`
+        INSERT INTO client_contacts (client_id, name, email, role, phone)
+        SELECT id, ${dto.contact.name.trim()}, ${dto.contact.email.trim().toLowerCase()}, ${dto.contact.role?.trim() || null}, ${dto.contact.phone?.trim() || null} FROM created
+      ` : sql`SELECT id FROM created`}
+    `);
+    return this.findById(actorId, id);
   }
 
-  async update(id: string, dto: UpdateClientDto) {
-    await this.findById(id);
-
-    const [updated] = await this.database.db
-      .update(clients)
-      .set({
-        ...(dto.name !== undefined && { name: dto.name.trim() }),
-        ...(dto.industry !== undefined && { industry: dto.industry.trim() }),
-        ...(dto.notes !== undefined && { notes: dto.notes.trim() }),
-        updatedAt: new Date(),
-      })
-      .where(eq(clients.id, id))
-      .returning();
-
-    return this.findById(updated.id);
+  async update(actorId: string, id: string, dto: UpdateClientDto) {
+    await this.findById(actorId, id);
+    const db = this.database.db, actor = await requireWorkspace(db, actorId);
+    requireWrite(actor);
+    if (dto.name !== undefined && !dto.name?.trim()) throw new BadRequestException('Client name cannot be empty');
+    const [updated] = await db.update(clients).set({ name: dto.name?.trim(),
+      industry: dto.industry !== undefined ? dto.industry?.trim() || null : undefined,
+      notes: dto.notes !== undefined ? dto.notes?.trim() || null : undefined, updatedAt: new Date(),
+    }).where(and(eq(clients.id, id), clientScope(actor), membershipScope(db, actor))).returning();
+    if (!updated) throw new NotFoundException('Client not found');
+    return this.findById(actorId, id);
   }
 
-  async delete(id: string) {
-    await this.findById(id);
-    await this.database.db.delete(clients).where(eq(clients.id, id));
+  async delete(actorId: string, id: string) {
+    await this.findById(actorId, id);
+    const db = this.database.db, actor = await requireWorkspace(db, actorId);
+    requireWrite(actor);
+    await db.delete(clients).where(and(eq(clients.id, id), clientScope(actor), membershipScope(db, actor)));
     return { success: true };
   }
 
-  async findContacts(clientId: string) {
-    await this.findById(clientId);
-    return this.database.db
-      .select()
-      .from(clientContacts)
-      .where(eq(clientContacts.clientId, clientId));
+  async findContacts(actorId: string, clientId: string) {
+    return (await this.findById(actorId, clientId)).contacts;
   }
 
-  async addContact(clientId: string, dto: CreateClientContactDto) {
-    await this.findById(clientId);
-
-    const [contact] = await this.database.db
-      .insert(clientContacts)
-      .values({
-        clientId,
-        name: dto.name.trim(),
-        email: dto.email.trim(),
-        role: dto.role?.trim() || null,
-        phone: dto.phone?.trim() || null,
-      })
-      .returning();
-
+  async addContact(actorId: string, clientId: string, dto: CreateClientContactDto) {
+    await this.findById(actorId, clientId);
+    const db = this.database.db, actor = await requireWorkspace(db, actorId);
+    requireWrite(actor);
+    if (!dto.name?.trim()) throw new BadRequestException('Contact name cannot be empty');
+    const result = await db.execute(sql`
+      INSERT INTO client_contacts (client_id, name, email, role, phone)
+      SELECT c.id, ${dto.name.trim()}, ${dto.email.trim().toLowerCase()}, ${dto.role?.trim() || null}, ${dto.phone?.trim() || null}
+      FROM clients c WHERE c.id = ${clientId}::uuid AND c.organization_id = ${actor.organizationId}::uuid AND ${membershipScope(db, actor)}
+      RETURNING id
+    `);
+    const row = result.rows[0] as { id: string } | undefined;
+    if (!row) throw new NotFoundException('Client not found');
+    const [contact] = await db.select().from(clientContacts).where(eq(clientContacts.id, row.id));
     return contact;
   }
 
-  async deleteContact(contactId: string) {
-    await this.database.db.delete(clientContacts).where(eq(clientContacts.id, contactId));
+  async deleteContact(actorId: string, contactId: string) {
+    requireResourceId(contactId);
+    const db = this.database.db, actor = await requireWorkspace(db, actorId);
+    requireWrite(actor);
+    const [deleted] = await db.delete(clientContacts).where(and(eq(clientContacts.id, contactId),
+      inArray(clientContacts.clientId, db.select({ id: clients.id }).from(clients).where(and(clientScope(actor), membershipScope(db, actor)))),
+    )).returning({ id: clientContacts.id });
+    if (!deleted) throw new NotFoundException('Contact not found');
     return { success: true };
-  }
-
-  async seedDemo() {
-    const orgId = await this.getResolvedOrgId();
-
-    const sampleClients = [
-      {
-        name: 'Rekasandi Internal',
-        industry: 'Developer Platform',
-        notes: 'Core platform engineering squad and internal dogfooding development streams.',
-        contact: {
-          name: 'Gustam Sandi',
-          email: 'gustam@rekasandi.com',
-          role: 'Lead Architect',
-          phone: '+62 811-2345-6789',
-        },
-      },
-      {
-        name: 'PT Finansia Digital Indonesia',
-        industry: 'Fintech & Payments',
-        notes: 'Next-generation payment gateway and multi-currency settlement dashboard integration.',
-        contact: {
-          name: 'Budi Hartono',
-          email: 'budi.h@finansia-digital.co.id',
-          role: 'Head of Engineering',
-          phone: '+62 812-9876-5432',
-        },
-      },
-      {
-        name: 'Nusantara Logistics Global',
-        industry: 'Supply Chain & Logistics',
-        notes: 'Real-time telemetry shipment tracking and automated driver dispatch service.',
-        contact: {
-          name: 'Siti Rahmawati',
-          email: 'siti.rahma@nusantaralogistics.id',
-          role: 'VP Product Delivery',
-          phone: '+62 813-4567-8901',
-        },
-      },
-      {
-        name: 'Bukit Vista Hospitality',
-        industry: 'Travel & Hospitality',
-        notes: 'Villa booking engine, channel manager sync, and guest concierge mobile application.',
-        contact: {
-          name: 'Markus Lindholm',
-          email: 'markus@bukitvista.com',
-          role: 'Chief Technology Officer',
-          phone: '+62 821-3456-7890',
-        },
-      },
-    ];
-
-    for (const item of sampleClients) {
-      const [c] = await this.database.db
-        .insert(clients)
-        .values({
-          organizationId: orgId,
-          name: item.name,
-          industry: item.industry,
-          notes: item.notes,
-        })
-        .returning();
-
-      if (item.contact) {
-        await this.database.db.insert(clientContacts).values({
-          clientId: c.id,
-          name: item.contact.name,
-          email: item.contact.email,
-          role: item.contact.role,
-          phone: item.contact.phone,
-        });
-      }
-
-      // Link any existing unlinked projects to the first client
-      if (item.name === 'Rekasandi Internal') {
-        const existingProjects = await this.database.db.select().from(projects).limit(2);
-        for (const proj of existingProjects) {
-          if (!proj.clientId) {
-            await this.database.db
-              .update(projects)
-              .set({ clientId: c.id })
-              .where(eq(projects.id, proj.id));
-          }
-        }
-      }
-    }
-
-    return { success: true, count: sampleClients.length };
   }
 }

@@ -1,4 +1,5 @@
-import { Controller, Post, Headers, Body } from '@nestjs/common';
+import { Controller, Post, Headers, Body, Req } from '@nestjs/common';
+import type { Request } from 'express';
 import { GithubWebhooksService } from './webhooks.service';
 
 @Controller('integrations/github/webhook')
@@ -11,7 +12,8 @@ export class GithubWebhooksController {
     @Headers('x-github-event') event: string,
     @Headers('x-hub-signature-256') signature: string,
     @Body() payload: any,
+    @Req() req: Request & { rawBody?: Buffer },
   ) {
-    return this.webhooksService.handleWebhook(deliveryId, event, signature, payload);
+    return this.webhooksService.handleWebhook(deliveryId, event, signature, payload, req.rawBody);
   }
 }
