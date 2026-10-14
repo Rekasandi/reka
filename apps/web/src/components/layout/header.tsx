@@ -18,6 +18,7 @@ import {
 import { useUiStore } from '../../stores/ui.store';
 import { useAuthStore } from '../../stores/auth.store';
 import { ThemeToggle } from '../theme/theme-toggle';
+import { HeaderBreadcrumb } from './header-breadcrumb';
 
 function GithubIcon({ className }: { className?: string }) {
   return (
@@ -43,32 +44,31 @@ export function Header() {
   const displayAvatar = user?.avatarUrl || undefined;
   const displayInitial = (displayName[0] || displayEmail[0] || 'U').toUpperCase();
 
-  // Extract GitHub username if available
-  const githubUsername =
-    user?.githubUsername ||
-    (displayEmail.includes('@users.noreply.github.com')
-      ? displayEmail.replace('@users.noreply.github.com', '')
-      : (displayEmail ? displayEmail.split('@')[0] : ''));
+  // Never imply a GitHub identity from an unrelated email address.
+  const githubUsername = user?.githubUsername || '';
 
   return (
-    <header className="h-11 border-b border-border px-4 flex items-center justify-between bg-card/20 backdrop-blur-xs select-none gap-2">
-      <div className="flex items-center gap-2">
+    <header className="flex h-12 shrink-0 items-center justify-between gap-2 border-b border-border bg-background px-3 select-none sm:px-4">
+      <div className="flex min-w-0 flex-1 items-center gap-2">
         <SidebarTrigger className="-ml-1" />
         <Separator orientation="vertical" className="h-4" />
+        <HeaderBreadcrumb />
+        <Separator orientation="vertical" className="h-4 shrink-0" />
         <button
           type="button"
           onClick={() => setCommandPaletteOpen(true)}
-          className="flex items-center gap-2 text-xs text-muted-foreground bg-secondary/40 border border-border rounded-[6px] px-2.5 py-1 hover:text-foreground hover:bg-secondary/70 transition-colors"
+          aria-label="Search or jump to..."
+          className="flex size-8 shrink-0 items-center justify-center gap-2 rounded-[6px] border border-border bg-secondary/40 text-xs text-muted-foreground transition-colors hover:bg-secondary/70 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:h-8 sm:w-auto sm:px-2.5"
         >
           <Search className="size-3.5" />
-          <span className="truncate">Search or jump to...</span>
-          <kbd className="ml-4 flex items-center gap-0.5 rounded border border-border bg-background px-1.5 py-0.5 text-xs font-mono text-muted-foreground">
+          <span className="hidden sm:inline truncate">Search or jump to...</span>
+          <kbd className="ml-4 hidden md:flex items-center gap-0.5 rounded border border-border bg-background px-1.5 py-0.5 text-xs text-muted-foreground">
             <Command className="size-2.5" />K
           </kbd>
         </button>
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex shrink-0 items-center gap-2">
         <ThemeToggle />
 
         {/* User Profile Dropdown Menu */}
@@ -76,7 +76,8 @@ export function Header() {
           <DropdownMenuTrigger asChild>
             <button
               type="button"
-              className="flex items-center gap-2 rounded-full p-0.5 transition-colors hover:bg-secondary/60 focus:outline-none focus:ring-1 focus:ring-ring"
+              aria-label="Open profile menu"
+              className="flex size-8 items-center justify-center rounded-full transition-colors hover:bg-secondary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <Avatar className="size-6 border border-border">
                 {displayAvatar && <AvatarImage src={displayAvatar} alt={displayName} />}
@@ -106,20 +107,20 @@ export function Header() {
               </div>
 
               {/* GitHub Connected Profile Badge */}
-              <div className="mt-2.5 flex items-center gap-1.5 px-2 py-1 rounded-[5px] bg-secondary/60 border border-border/60 text-xs font-mono text-muted-foreground">
+              {githubUsername && <div className="mt-2.5 flex items-center gap-1.5 px-2 py-1 rounded-[5px] bg-secondary/60 border border-border/60 text-xs font-mono text-muted-foreground">
                 <GithubIcon className="size-3 text-muted-foreground shrink-0" />
                 <span className="truncate text-foreground font-medium">github.com/{githubUsername}</span>
-              </div>
+              </div>}
             </DropdownMenuLabel>
 
             <DropdownMenuSeparator />
 
             <DropdownMenuGroup>
-              <DropdownMenuItem onClick={() => navigate('/settings')}>
+              <DropdownMenuItem onClick={() => navigate('/settings#profile')}>
                 <User className="size-3.5" />
                 <span>Profile Settings</span>
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => navigate('/settings')}>
+              <DropdownMenuItem onClick={() => navigate('/settings#appearance')}>
                 <Settings className="size-3.5" />
                 <span>Preferences</span>
               </DropdownMenuItem>
