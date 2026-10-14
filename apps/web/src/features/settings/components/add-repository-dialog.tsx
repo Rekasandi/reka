@@ -145,7 +145,7 @@ export function AddRepositoryDialog({ open, onOpenChange }: AddRepositoryDialogP
                   <span>Organization</span>
                 </FieldLabel>
                 <Select value={selectedOwner} onValueChange={setSelectedOwner}>
-                  <SelectTrigger className="h-8 text-xs w-full bg-background rounded-[6px] border-border/80 font-mono">
+                  <SelectTrigger size="compact" className="w-full bg-background border-border/80 font-mono">
                     <SelectValue placeholder="Select Organization" />
                   </SelectTrigger>
                   <SelectContent>
@@ -256,7 +256,7 @@ export function AddRepositoryDialog({ open, onOpenChange }: AddRepositoryDialogP
                               type="button"
                               variant="ghost"
                               size="xs"
-                              className="h-6 text-xs text-muted-foreground hover:text-foreground"
+                              className="text-muted-foreground hover:text-foreground"
                             >
                               Select
                             </Button>
@@ -289,17 +289,14 @@ export function AddRepositoryDialog({ open, onOpenChange }: AddRepositoryDialogP
             <Button
               type="button"
               variant="outline"
-              size="sm"
               onClick={() => onOpenChange(false)}
-              className="h-8 rounded-[6px] px-3 text-xs"
             >
               Cancel
             </Button>
             <Button
               type="submit"
-              size="sm"
               disabled={(!selectedRepo && !search.includes('/')) || addRepoMutation.isPending}
-              className="h-8 rounded-[6px] px-3.5 text-xs font-medium"
+              className="font-medium"
             >
               {addRepoMutation.isPending ? 'Connecting...' : 'Connect Repository'}
             </Button>

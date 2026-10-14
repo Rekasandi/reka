@@ -252,12 +252,12 @@ export function AddMemberDialog({
             <Field>
               <FieldLabel>Team Role</FieldLabel>
               <Select value={role} onValueChange={setRole}>
-                <SelectTrigger className="h-8 text-xs w-full">
+                <SelectTrigger size="compact" className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectGroup>
-                    <SelectItem value="lead">Team Lead</SelectItem>
+                    <SelectItem value="lead" disabled={!['owner', 'admin', 'member'].includes(selectedUser?.role ?? '')}>Team Lead</SelectItem>
                     <SelectItem value="member">Member</SelectItem>
                     <SelectItem value="viewer">Viewer</SelectItem>
                   </SelectGroup>

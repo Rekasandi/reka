@@ -65,9 +65,9 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
           className="flex flex-col gap-4"
         >
           <DialogHeader>
-            <DialogTitle>Invite New User</DialogTitle>
+            <DialogTitle>Add user record</DialogTitle>
             <DialogDescription>
-              Add a teammate or collaborator to your organization workspace.
+              Save an inactive profile. This does not grant access or send an invitation.
             </DialogDescription>
           </DialogHeader>
 
@@ -139,7 +139,7 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
                     value={field.state.value}
                     onValueChange={field.handleChange}
                   >
-                    <SelectTrigger id={field.name} className="h-8 text-xs w-full">
+                    <SelectTrigger id={field.name} size="compact" className="w-full">
                       <SelectValue placeholder="Role" />
                     </SelectTrigger>
                     <SelectContent>
@@ -173,7 +173,7 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
                   size="sm"
                   disabled={!canSubmit || createMutation.isPending || isSubmitting}
                 >
-                  {createMutation.isPending || isSubmitting ? 'Inviting...' : 'Invite User'}
+                  {createMutation.isPending || isSubmitting ? 'Saving…' : 'Add record'}
                 </Button>
               )}
             />

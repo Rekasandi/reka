@@ -40,6 +40,7 @@ import {
   useDeleteClientContact,
 } from '../hooks/use-clients';
 import { ConfirmDeleteDialog } from '../../../components/common/confirm-delete-dialog';
+import { projectDescriptionText } from '../../projects/lib/project-description';
 
 interface ClientDetailSheetProps {
   client: Client | null;
@@ -131,7 +132,7 @@ export function ClientDetailSheet({ client, open, onOpenChange }: ClientDetailSh
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full sm:max-w-xl overflow-y-auto p-0 flex flex-col bg-card">
+      <SheetContent className="data-[side=right]:w-full data-[side=right]:sm:max-w-3xl overflow-y-auto p-0 flex flex-col bg-card">
         {/* Header */}
         <div className="p-6 pb-4 border-b border-border/70 flex items-start justify-between gap-4 bg-muted/20">
           <div className="flex items-start gap-3 min-w-0">
@@ -213,14 +214,12 @@ export function ClientDetailSheet({ client, open, onOpenChange }: ClientDetailSh
                   <Button
                     size="sm"
                     variant="outline"
-                    className="h-7 text-xs"
                     onClick={() => setIsEditing(false)}
                   >
                     Cancel
                   </Button>
                   <Button
                     size="sm"
-                    className="h-7 text-xs gap-1"
                     onClick={handleSaveDetails}
                     disabled={updateMutation.isPending}
                   >
@@ -253,7 +252,7 @@ export function ClientDetailSheet({ client, open, onOpenChange }: ClientDetailSh
                   {client.projects?.length || 0}
                 </span>
               </div>
-              <Button size="sm" variant="outline" asChild className="h-7 text-xs gap-1">
+              <Button size="sm" variant="outline" asChild>
                 <Link to="/projects">
                   <span>View All Projects</span>
                   <ExternalLink className="size-3" />
@@ -285,7 +284,7 @@ export function ClientDetailSheet({ client, open, onOpenChange }: ClientDetailSh
                         </Link>
                       </div>
                       <p className="text-xs text-muted-foreground truncate mt-0.5">
-                        {proj.description || 'No description provided.'}
+                        {projectDescriptionText(proj.description) || 'No description provided.'}
                       </p>
                     </div>
 
@@ -293,7 +292,7 @@ export function ClientDetailSheet({ client, open, onOpenChange }: ClientDetailSh
                       <Badge variant="outline" className="text-xs font-mono capitalize">
                         {proj.status.replace('_', ' ')}
                       </Badge>
-                      <Button variant="ghost" size="sm" asChild className="h-7 w-7 p-0">
+                      <Button variant="ghost" size="icon-sm" asChild>
                         <Link to={`/projects/${proj.id}`}>
                           <ExternalLink className="size-3 text-muted-foreground" />
                         </Link>
@@ -318,7 +317,6 @@ export function ClientDetailSheet({ client, open, onOpenChange }: ClientDetailSh
               <Button
                 size="sm"
                 variant="outline"
-                className="h-7 text-xs gap-1"
                 onClick={() => setIsAddingContact(!isAddingContact)}
               >
                 <Plus className="size-3" />
@@ -383,14 +381,12 @@ export function ClientDetailSheet({ client, open, onOpenChange }: ClientDetailSh
                   <Button
                     size="sm"
                     variant="outline"
-                    className="h-7 text-xs"
                     onClick={() => setIsAddingContact(false)}
                   >
                     Cancel
                   </Button>
                   <Button
                     size="sm"
-                    className="h-7 text-xs"
                     onClick={handleAddContact}
                     disabled={addContactMutation.isPending}
                   >
@@ -446,8 +442,8 @@ export function ClientDetailSheet({ client, open, onOpenChange }: ClientDetailSh
 
                     <Button
                       variant="ghost"
-                      size="sm"
-                      className="h-7 w-7 p-0 text-muted-foreground hover:text-rose-600"
+                      size="icon-sm"
+                      className="text-muted-foreground hover:text-destructive"
                       onClick={() => setDeleteContactTargetId(contact.id)}
                       title="Remove contact"
                     >
@@ -472,7 +468,7 @@ export function ClientDetailSheet({ client, open, onOpenChange }: ClientDetailSh
               size="sm"
               onClick={handleDeleteClient}
               disabled={deleteMutation.isPending}
-              className="h-7 text-xs border-rose-500/30 text-rose-600 hover:bg-rose-500/10 hover:text-rose-600"
+              className="border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive"
             >
               <Trash2 className="size-3.5 mr-1" />
               <span>Delete</span>

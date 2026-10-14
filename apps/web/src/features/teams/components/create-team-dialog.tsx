@@ -15,6 +15,7 @@ import {
   FieldError,
   FieldDescription,
   FieldGroup,
+  Checkbox,
 } from '@reka/ui';
 import { useCreateTeam } from '../hooks/use-teams';
 
@@ -31,6 +32,7 @@ export function CreateTeamDialog({ open, onOpenChange }: CreateTeamDialogProps) 
       name: '',
       key: '',
       description: '',
+      isPrivate: false,
     },
     onSubmit: async ({ value }) => {
       createMutation.mutate(
@@ -38,6 +40,7 @@ export function CreateTeamDialog({ open, onOpenChange }: CreateTeamDialogProps) 
           name: value.name.trim(),
           key: value.key.trim().toUpperCase(),
           description: value.description?.trim() || undefined,
+          isPrivate: value.isPrivate,
         },
         {
           onSuccess: () => {
@@ -151,6 +154,13 @@ export function CreateTeamDialog({ open, onOpenChange }: CreateTeamDialogProps) 
             <p className="text-xs text-muted-foreground font-mono">
               Issues created in this team will use this key prefix (e.g. <span className="font-semibold text-foreground">{form.getFieldValue('key') || 'ENG'}-1</span>).
             </p>
+
+            <form.Field name="isPrivate" children={field => (
+              <Field orientation="horizontal" className="items-start gap-3">
+                <Checkbox id="team-private" checked={field.state.value} onCheckedChange={value => field.handleChange(value === true)} />
+                <div className="flex flex-col gap-1"><FieldLabel htmlFor="team-private">Private team</FieldLabel><FieldDescription>Only explicitly added members can find or view this team. You will be added as its lead.</FieldDescription></div>
+              </Field>
+            )} />
 
             {/* Description Field */}
             <form.Field

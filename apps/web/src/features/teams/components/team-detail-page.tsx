@@ -1,11 +1,6 @@
 import * as React from 'react';
 import { useParams, Link, useLocation, useNavigate } from 'react-router-dom';
 import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardContent,
   Badge,
   Button,
   Skeleton,
@@ -14,6 +9,7 @@ import {
   TabsTrigger,
   TabsContent,
   Avatar,
+  AvatarImage,
   Select,
   SelectContent,
   SelectGroup,
@@ -32,18 +28,22 @@ import {
   RefreshCw,
   UserPlus,
   Shield,
+  LockKeyhole,
+  Settings2,
+  LogOut,
   FolderKanban,
   ArrowRight,
 } from 'lucide-react';
-import { useTeam, useDeleteTeam, useRemoveTeamMember } from '../hooks/use-teams';
+import { useTeam, useDeleteTeam, useJoinTeam, useRemoveTeamMember, useUpdateTeamMember } from '../hooks/use-teams';
 import { useIssues, useUpdateIssue } from '../../issues/hooks/use-issues';
 import { useProjects } from '../../projects/hooks/use-projects';
 import { useCycles } from '../../cycles/hooks/use-cycles';
 import { CreateIssueDialog } from '../../issues/components/create-issue-dialog';
 import { IssueDetailSheet } from '../../issues/components/issue-detail-sheet';
 import { AddMemberDialog } from './add-member-dialog';
+import { TeamSettingsDialog } from './team-settings-dialog';
 import { ConfirmDeleteDialog } from '../../../components/common/confirm-delete-dialog';
-import type { Issue } from '@reka/types';
+import { getIssueStatusCategory, isIssueClosed, type Issue } from '@reka/types';
 
 export function TeamDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -61,6 +61,7 @@ export function TeamDetailPage() {
   const [selectedIssue, setSelectedIssue] = React.useState<Issue | null>(null);
   const [isIssueDetailOpen, setIsIssueDetailOpen] = React.useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = React.useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = React.useState(false);
 
   const { data: team, isLoading, isError, refetch } = useTeam(id);
   const { data: allIssues = [] } = useIssues();
@@ -69,6 +70,8 @@ export function TeamDetailPage() {
   const updateIssueMutation = useUpdateIssue();
   const deleteMutation = useDeleteTeam();
   const removeMemberMutation = useRemoveTeamMember(id || '');
+  const updateMemberMutation = useUpdateTeamMember(id || '');
+  const joinMutation = useJoinTeam(id || '');
 
   // Issues belonging to this team
   const teamIssues = React.useMemo(() => {
@@ -86,12 +89,12 @@ export function TeamDetailPage() {
   const activeCycle = teamCycles.find((cycle) => cycle.status === 'active');
   const planningCycle = activeCycle ?? teamCycles.find((cycle) => cycle.status === 'upcoming');
   const backlogIssues = teamIssues.filter((issue) =>
-    !issue.cycleId && issue.status !== 'done' && issue.status !== 'canceled',
+    !issue.cycleId && !isIssueClosed(issue),
   );
   const cycleIssues = activeCycle
     ? teamIssues.filter((issue) => issue.cycleId === activeCycle.id)
     : [];
-  const doneCycleIssues = cycleIssues.filter((issue) => issue.status === 'done').length;
+  const doneCycleIssues = cycleIssues.filter((issue) => getIssueStatusCategory(issue) === 'completed').length;
   const cycleProgress = cycleIssues.length ? Math.round((doneCycleIssues / cycleIssues.length) * 100) : 0;
 
   const handleDelete = () => {
@@ -106,7 +109,7 @@ export function TeamDetailPage() {
 
   if (isLoading) {
     return (
-      <div className="flex flex-col gap-5 max-w-7xl mx-auto">
+      <div className="flex flex-col gap-5 max-w-none mx-auto">
         <Skeleton className="h-8 w-40 rounded-[6px]" />
         <Skeleton className="h-32 w-full rounded-lg" />
         <Skeleton className="h-64 w-full rounded-lg" />
@@ -127,7 +130,7 @@ export function TeamDetailPage() {
   }
 
   return (
-    <div className="flex flex-col gap-6 max-w-7xl mx-auto selection:bg-foreground selection:text-background pb-10">
+    <div className="flex flex-col gap-5 max-w-none mx-auto selection:bg-foreground selection:text-background pb-10">
       {/* Top back navigation */}
       <div className="flex items-center justify-between">
         <Link
@@ -138,30 +141,22 @@ export function TeamDetailPage() {
           <span>Back to Teams</span>
         </Link>
 
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-xs"
-          onClick={handleDelete}
-          className="text-muted-foreground/50 hover:text-destructive"
-          title="Delete team"
-        >
-          <Trash2 className="size-3.5" />
-        </Button>
+        <div className="flex items-center gap-2">
+          {team.canJoin && <Button variant="outline" size="sm" disabled={joinMutation.isPending} onClick={() => joinMutation.mutate()}>{joinMutation.isPending ? 'Joining…' : 'Join team'}</Button>}
+          {team.canManage && <Button variant="outline" size="sm" onClick={() => setIsSettingsOpen(true)}><Settings2 data-icon="inline-start" />Settings</Button>}
+          {team.canDelete && <Button type="button" variant="ghost" size="icon-xs" onClick={handleDelete} className="text-muted-foreground/50 hover:text-destructive" title="Delete team"><Trash2 className="size-3.5" /></Button>}
+        </div>
       </div>
 
       {/* Team Header Spotlight */}
-      <div className="rounded-lg border border-border/80 bg-card/40 p-6 flex flex-col gap-5 shadow-2xs">
+      <div className="flex flex-col gap-5 border-b border-border pb-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="size-10 rounded-lg bg-secondary flex items-center justify-center text-foreground font-mono font-bold text-sm shrink-0 border border-border/70 shadow-2xs">
-              {team.key}
-            </div>
+            <span aria-hidden="true" className="flex size-10 shrink-0 items-center justify-center rounded-md border border-border bg-muted text-sm font-semibold text-muted-foreground">{team.key}</span>
             <div>
               <div className="flex items-center gap-2.5">
-                <h1 className="text-xl sm:text-2xl font-semibold tracking-[-0.03em] text-foreground">
-                  {team.name}
-                </h1>
+                <h1 className="text-xl sm:text-2xl font-semibold tracking-[-0.03em] text-foreground">{team.name}</h1>
+                {team.isPrivate && <Badge variant="outline"><LockKeyhole data-icon="inline-start" />Private</Badge>}
                 <Badge variant="outline" className="font-mono text-xs px-2 py-0.5 border-border/70 bg-background/60">
                   {team.key}
                 </Badge>
@@ -173,23 +168,21 @@ export function TeamDetailPage() {
           </div>
 
           <div className="flex items-center gap-2">
-            <Button
+            {team.canManage && <Button
               variant="outline"
               size="sm"
               onClick={() => setIsAddMemberOpen(true)}
-              className="h-8 text-xs rounded-[6px]"
             >
               <UserPlus data-icon="inline-start" className="size-3.5" />
               <span>Add Member</span>
-            </Button>
-            <Button
+            </Button>}
+            {team.canWrite && <Button
               size="sm"
               onClick={() => setIsCreateIssueOpen(true)}
-              className="h-8 text-xs rounded-[6px]"
             >
               <Plus data-icon="inline-start" className="size-3.5" />
               <span>New Team Issue</span>
-            </Button>
+            </Button>}
           </div>
         </div>
 
@@ -203,7 +196,7 @@ export function TeamDetailPage() {
         <div className="flex items-center gap-6 pt-3 border-t border-border/50 text-xs font-mono text-muted-foreground">
           <div className="flex items-center gap-2">
             <Users className="size-3.5 text-muted-foreground/70" />
-            <span>{team.members?.length || 1} members</span>
+            <span>{team.members?.length ?? team.memberCount ?? 0} members</span>
           </div>
           <div className="flex items-center gap-2">
             <CheckSquare className="size-3.5 text-muted-foreground/70" />
@@ -227,11 +220,11 @@ export function TeamDetailPage() {
             className="h-8 flex-none rounded-none border-0 bg-transparent px-0 text-sm font-medium text-muted-foreground hover:text-foreground data-[state=active]:text-foreground"
           >
             <Users className="size-3.5" />
-            <span>Members ({team.members?.length || 1})</span>
+            <span>Members</span>
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="home" className="mt-0 w-full space-y-5">
+        <TabsContent value="home" className="mt-0 flex w-full flex-col gap-5">
           <div className="grid grid-cols-1 gap-5 lg:grid-cols-12">
             <section className="lg:col-span-7 rounded-lg border border-border/80 bg-card overflow-hidden">
               <div className="flex items-center justify-between gap-3 border-b border-border/60 bg-muted/20 px-4 py-3">
@@ -244,7 +237,7 @@ export function TeamDetailPage() {
                     Open cycle <ArrowRight className="size-3" />
                   </Link>
                 ) : (
-                  <Button variant="ghost" size="sm" className="h-6 px-1.5 text-xs" onClick={() => navigate('/cycles')}>
+                  <Button variant="ghost" size="xs" className="px-1.5" onClick={() => navigate('/cycles')}>
                     Create cycle
                   </Button>
                 )}
@@ -273,7 +266,7 @@ export function TeamDetailPage() {
                           data: { cycleId: planningCycle.id },
                         })}
                       >
-                        <SelectTrigger disabled={!backlogIssues.length} className="h-8 flex-1 rounded-[6px] text-xs">
+                        <SelectTrigger size="compact" disabled={!team.canWrite || !backlogIssues.length} className="flex-1">
                           <SelectValue placeholder={backlogIssues.length ? 'Plan backlog issue…' : 'No backlog issues'} />
                         </SelectTrigger>
                         <SelectContent>
@@ -347,14 +340,15 @@ export function TeamDetailPage() {
         <TabsContent value="members" className="mt-0 w-full">
           <div className="rounded-lg border border-border/80 divide-y divide-border/60 bg-card/30 overflow-hidden">
             {(team.members || []).map((m) => {
-              const userName = m.user?.name || 'Gustam';
-              const userEmail = m.user?.email || 'owner@rekasandi.com';
+              const userName = m.user?.name || 'Unknown member';
+              const userEmail = m.user?.email || 'Email unavailable';
               const initial = userName[0] || 'U';
 
               return (
                 <div key={m.userId} className="flex items-center justify-between p-3.5 text-xs hover:bg-secondary/30 transition-colors">
                   <div className="flex items-center gap-3">
                     <Avatar className="size-7 rounded-full border border-border/70">
+                      {m.user?.avatarUrl && <AvatarImage src={m.user.avatarUrl} alt={userName} />}
                       <AvatarFallback className="text-xs font-medium bg-secondary text-foreground">
                         {initial}
                       </AvatarFallback>
@@ -366,21 +360,11 @@ export function TeamDetailPage() {
                   </div>
 
                   <div className="flex items-center gap-3">
-                    <Badge variant={m.role === 'lead' ? 'default' : 'secondary'} className="capitalize text-xs h-5 px-2">
-                      {m.role === 'lead' && <Shield className="size-2.5 mr-1" />}
-                      <span>{m.role}</span>
-                    </Badge>
-
-                    {m.role !== 'lead' && (
-                      <button
-                        type="button"
-                        onClick={() => removeMemberMutation.mutate(m.userId)}
-                        className="text-muted-foreground/30 hover:text-destructive p-1 rounded transition-colors"
-                        title="Remove member"
-                      >
-                        <Trash2 className="size-3.5" />
-                      </button>
-                    )}
+                    {team.canManage ? <Select value={m.role} disabled={updateMemberMutation.isPending} onValueChange={role => updateMemberMutation.mutate({ userId: m.userId, role: role as 'lead' | 'member' | 'viewer' })}>
+                      <SelectTrigger aria-label={`Team role for ${userName}`} size="sm" className="w-28"><SelectValue /></SelectTrigger>
+                      <SelectContent><SelectGroup><SelectItem value="lead">Lead</SelectItem><SelectItem value="member">Member</SelectItem><SelectItem value="viewer">Viewer</SelectItem></SelectGroup></SelectContent>
+                    </Select> : <Badge variant={m.role === 'lead' ? 'default' : 'secondary'} className="capitalize text-xs">{m.role}</Badge>}
+                    {(team.canManage || (m.userId === team.currentMemberUserId && team.canLeave)) && <Button type="button" variant="ghost" size="icon-xs" disabled={removeMemberMutation.isPending} onClick={() => removeMemberMutation.mutate(m.userId)} aria-label={m.userId === team.currentMemberUserId ? 'Leave team' : `Remove ${userName}`} title={m.userId === team.currentMemberUserId ? 'Leave team' : 'Remove member'}>{m.userId === team.currentMemberUserId ? <LogOut /> : <Trash2 />}</Button>}
                   </div>
                 </div>
               );
@@ -395,6 +379,8 @@ export function TeamDetailPage() {
         </TabsContent>
       </Tabs>
 
+      <TeamSettingsDialog team={team} open={isSettingsOpen} onOpenChange={setIsSettingsOpen} />
+
       {/* Add Member Dialog */}
       <AddMemberDialog
         teamId={team.id}
@@ -404,11 +390,11 @@ export function TeamDetailPage() {
       />
 
       {/* Create Issue Dialog pre-configured for this team */}
-      <CreateIssueDialog
+      {team.canWrite && <CreateIssueDialog
         open={isCreateIssueOpen}
         onOpenChange={setIsCreateIssueOpen}
         defaultTeamId={team.id}
-      />
+      />}
 
       {/* Detail Sheet for issues */}
       <IssueDetailSheet
