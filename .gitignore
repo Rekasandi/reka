@@ -40,3 +40,6 @@ coverage/
 # Drizzle
 drizzle/meta/
 .neon
+
+# Local demo seed manifests (workspace IDs; not source code)
+.pi/demo-data*.json
