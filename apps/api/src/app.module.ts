@@ -23,6 +23,7 @@ import { ViewsModule } from './views/views.module';
 import { GithubModule } from './github/github.module';
 import { AutomationsModule } from './automations/automations.module';
 import { TriageModule } from './triage/triage.module';
+import { DocumentsModule } from './documents/documents.module';
 import { IssueSubscriptionsModule } from './issue-subscriptions/issue-subscriptions.module';
 import { AttachmentsModule } from './attachments/attachments.module';
 
@@ -53,6 +54,7 @@ import { AttachmentsModule } from './attachments/attachments.module';
     GithubModule,
     AutomationsModule,
     TriageModule,
+    DocumentsModule,
     IssueSubscriptionsModule,
     AttachmentsModule,
   ],
