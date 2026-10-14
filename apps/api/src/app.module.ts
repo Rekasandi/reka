@@ -27,6 +27,7 @@ import { DocumentsModule } from './documents/documents.module';
 import { InitiativesModule } from './initiatives/initiatives.module';
 import { IssueSubscriptionsModule } from './issue-subscriptions/issue-subscriptions.module';
 import { AttachmentsModule } from './attachments/attachments.module';
+import { InsightsModule } from './insights/insights.module';
 
 @Module({
   imports: [
@@ -59,6 +60,7 @@ import { AttachmentsModule } from './attachments/attachments.module';
     InitiativesModule,
     IssueSubscriptionsModule,
     AttachmentsModule,
+    InsightsModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: AuthGuard }],
 })
