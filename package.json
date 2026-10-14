@@ -15,9 +15,26 @@
     "db:generate": "turbo run db:generate",
     "db:migrate": "turbo run db:migrate",
     "db:push": "turbo run db:push",
-    "db:seed": "turbo run db:seed"
+    "test:workflow-foundation": "turbo run build --filter=@reka/api --filter=@reka/worker && node --test apps/api/test/workflow-foundation-postgres.integration.test.cjs apps/api/test/workflow-foundation-http.integration.test.cjs apps/api/test/notifications-postgres.integration.test.cjs apps/worker/test/github-pr-event-postgres.integration.test.cjs",
+    "test:web:real-api": "node apps/web/test/workflow-foundation-real-api.mjs",
+    "test:web:workspace": "node apps/web/test/workspace-access-real-api.mjs",
+    "test:workspace-native": "turbo run build --filter=@reka/api && node --test apps/api/test/workspace-native-neon.integration.test.cjs",
+    "test:workspace-access": "turbo run build --filter=@reka/api && node --test apps/api/test/workspace-identity-http.integration.test.cjs apps/api/test/team-membership-http.integration.test.cjs apps/api/test/workspace-access-http.integration.test.cjs apps/api/test/github-webhook-signature.integration.test.cjs apps/api/test/github-workspace-scope.integration.test.cjs apps/api/test/github-installation-verification.integration.test.cjs apps/api/test/github-pull-request-access.integration.test.cjs apps/api/test/auth-guard.test.cjs apps/api/test/issues-list-labels.test.cjs apps/api/test/member-invites.test.cjs apps/api/test/issue-comment-notifications.test.cjs apps/api/test/notification-event-integration.test.cjs",
+    "test:issues": "turbo run build --filter=@reka/api --filter=@reka/worker && node --test apps/api/test/issues-workflows.integration.test.cjs apps/api/test/labels-management.integration.test.cjs apps/api/test/workflow-foundation-http.integration.test.cjs apps/worker/test/issue-recurrence-postgres.integration.test.cjs",
+    "test:triage": "turbo run build --filter=@reka/api && node --test apps/api/test/triage-intake.integration.test.cjs",
+    "test:views": "turbo run build --filter=@reka/api && node --test apps/api/test/views-search.integration.test.cjs",
+    "test:projects-docs": "turbo run build --filter=@reka/api && node --test apps/api/test/projects-documents.integration.test.cjs",
+    "test:initiatives": "turbo run build --filter=@reka/api && node --test apps/api/test/initiatives-roadmap.integration.test.cjs",
+    "test:cycles": "turbo run build --filter=@reka/api --filter=@reka/worker && node --test apps/api/test/cycles-workflows.integration.test.cjs apps/api/test/cycles-migration.integration.test.cjs apps/worker/test/cycle-planning-postgres.integration.test.cjs",
+    "test:web:cycles-real-api": "node apps/web/test/cycles-real-api.mjs",
+    "test:collaboration": "turbo run build --filter=@reka/api && node --test apps/api/test/collaboration.integration.test.cjs apps/api/test/collaboration-migration.integration.test.cjs",
+    "test:github": "turbo run build --filter=@reka/api --filter=@reka/worker && node --test apps/api/test/github-webhook-signature.integration.test.cjs apps/api/test/github-installation-verification.integration.test.cjs apps/api/test/github-pull-request-access.integration.test.cjs apps/api/test/github-workspace-scope.integration.test.cjs apps/worker/test/github-pr-event-postgres.integration.test.cjs apps/worker/test/github-webhook-delivery.integration.test.cjs apps/worker/test/github-migrations.integration.test.cjs",
+    "test:insights": "turbo run build --filter=@reka/api && node --test apps/api/test/insights-history-migration.integration.test.cjs apps/api/test/insights.integration.test.cjs",
+    "test:web:insights-real-api": "node apps/web/test/insights-real-api.mjs",
+    "test:web:collaboration-real-api": "node apps/web/test/collaboration-real-api.mjs"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "0.5.8",
     "prettier": "^3.5.3",
     "turbo": "^2.4.4",
     "typescript": "^5.8.2"
