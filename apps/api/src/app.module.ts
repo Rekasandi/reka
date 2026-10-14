@@ -24,6 +24,7 @@ import { GithubModule } from './github/github.module';
 import { AutomationsModule } from './automations/automations.module';
 import { TriageModule } from './triage/triage.module';
 import { DocumentsModule } from './documents/documents.module';
+import { InitiativesModule } from './initiatives/initiatives.module';
 import { IssueSubscriptionsModule } from './issue-subscriptions/issue-subscriptions.module';
 import { AttachmentsModule } from './attachments/attachments.module';
 
@@ -55,6 +56,7 @@ import { AttachmentsModule } from './attachments/attachments.module';
     AutomationsModule,
     TriageModule,
     DocumentsModule,
+    InitiativesModule,
     IssueSubscriptionsModule,
     AttachmentsModule,
   ],
