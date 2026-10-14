@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { useLocation, useSearchParams } from 'react-router-dom';
 import {
   Card,
   CardHeader,
@@ -10,25 +11,22 @@ import {
   Avatar,
   AvatarImage,
   AvatarFallback,
+  Skeleton,
   Field,
   FieldLabel,
-  Input,
+  toast,
 } from '@reka/ui';
 import {
   GitBranch,
-  KeyRound,
-  Shield,
   Check,
   ExternalLink,
   Plus,
   Trash2,
   Lock,
   Globe,
-  Sliders,
-  CheckCircle2,
-  ArrowRight,
   Building2,
   FolderKanban,
+  RefreshCw,
 } from 'lucide-react';
 import { useAuthStore } from '../../../stores/auth.store';
 import {
@@ -36,10 +34,13 @@ import {
   useDeleteGithubRepository,
   useGithubInstallations,
   useDeleteGithubInstallation,
+  useGithubWebhookDeliveries,
 } from '../hooks/use-github-repos';
 import { AddRepositoryDialog } from './add-repository-dialog';
 import { ConnectOrganizationDialog } from './connect-organization-dialog';
 import { ConfirmDeleteDialog } from '../../../components/common/confirm-delete-dialog';
+import { WorkspaceSettings } from './workspace-settings';
+import { useTheme } from '../../../components/theme/theme-provider';
 
 function GithubIcon({ className }: { className?: string }) {
   return (
@@ -57,21 +58,23 @@ function GithubIcon({ className }: { className?: string }) {
 
 export function SettingsPage() {
   const { user } = useAuthStore();
+  const { theme, setTheme } = useTheme();
+  const { hash } = useLocation();
+  React.useEffect(() => {
+    if (hash) document.getElementById(hash.slice(1))?.scrollIntoView({ block: 'start' });
+  }, [hash]);
+  const canManageGithub = user?.role === 'owner' || user?.role === 'admin';
+  const [searchParams, setSearchParams] = useSearchParams();
   const [isAddRepoOpen, setIsAddRepoOpen] = React.useState(false);
   const [isConnectOrgOpen, setIsConnectOrgOpen] = React.useState(false);
   const [disconnectTargetOrg, setDisconnectTargetOrg] = React.useState<{ id: string; name: string } | null>(null);
   const [disconnectTargetRepo, setDisconnectTargetRepo] = React.useState<{ id: string; fullName: string } | null>(null);
 
-  // Workflow Automation Settings State (persisted in localStorage or organization config)
-  const [autoBranchInProgress, setAutoBranchInProgress] = React.useState(true);
-  const [autoPrInReview, setAutoPrInReview] = React.useState(true);
-  const [autoMergeDone, setAutoMergeDone] = React.useState(true);
-  const [autoCloseBackToProgress, setAutoCloseBackToProgress] = React.useState(true);
-
-  const { data: installations = [], isLoading: isInstallationsLoading } = useGithubInstallations();
+  const { data: installations = [], isLoading: isInstallationsLoading, isError: isInstallationsError, refetch: retryInstallations } = useGithubInstallations();
   const deleteOrgMutation = useDeleteGithubInstallation();
+  const { data: deliveries = [], isLoading: deliveriesLoading, isError: deliveriesError, refetch: retryDeliveries } = useGithubWebhookDeliveries(canManageGithub);
 
-  const { data: repositories = [], isLoading: isReposLoading } = useGithubRepositories();
+  const { data: repositories = [], isLoading: isReposLoading, isError: isReposError, refetch: retryRepositories } = useGithubRepositories();
   const deleteRepoMutation = useDeleteGithubRepository();
 
   const name = user?.name || '';
@@ -79,27 +82,36 @@ export function SettingsPage() {
   const avatarUrl = user?.avatarUrl || undefined;
   const initial = (name[0] || email[0] || 'U').toUpperCase();
 
-  // Use actual GitHub username if available
-  const githubUsername =
-    user?.githubUsername ||
-    (email.includes('@users.noreply.github.com')
-      ? email.replace('@users.noreply.github.com', '')
-      : (email ? email.split('@')[0] : ''));
+  const githubUsername = user?.githubUsername || '';
+
+  React.useEffect(() => {
+    const result = searchParams.get('github');
+    if (!result) return;
+    if (result === 'installed') toast.success('GitHub App installation verified and connected');
+    else if (result === 'verification_failed') toast.error('GitHub App installation could not be verified. Check the App configuration and retry.');
+    const clean = new URLSearchParams(searchParams);
+    clean.delete('github');
+    setSearchParams(clean, { replace: true });
+  }, [searchParams, setSearchParams]);
 
   return (
-    <div className="flex flex-col gap-6 max-w-7xl mx-auto selection:bg-foreground selection:text-background pb-12">
+    <div className="flex flex-col gap-5 max-w-none mx-auto selection:bg-foreground selection:text-background pb-10">
       <div className="flex flex-col gap-0.5">
         <h1 className="text-xl sm:text-2xl font-semibold tracking-[-0.03em] text-foreground">
           Settings & Workflows
         </h1>
         <p className="text-xs text-muted-foreground">
-          Manage profile identity, GitHub repository connections, and git automated transitions.
+          Workspace access, your profile, appearance, and GitHub workflows.
         </p>
       </div>
 
-      <div className="flex flex-col gap-5">
-        {/* User Profile Card */}
-        <Card className="rounded-lg border border-border bg-card p-5 shadow-none flex flex-col gap-5">
+      <nav aria-label="Settings sections" className="flex flex-wrap gap-2 border-b border-border pb-3">
+        {[['workspace', 'Workspace'], ['profile', 'Profile'], ['appearance', 'Appearance'], ['github-workflows', 'GitHub workflows'], ['github-connections', 'Connections']].map(([id, label]) => <Button key={id} variant="outline" size="sm" asChild><a href={`#${id}`}>{label}</a></Button>)}
+      </nav>
+      <div className="settings-sections flex flex-col gap-8">
+        <WorkspaceSettings />
+        {/* User profile */}
+        <Card id="profile" className="rounded-lg border border-border bg-card p-5 shadow-none flex flex-col gap-5">
           <CardHeader className="p-0">
             <CardTitle className="text-base font-semibold text-foreground">
               User Profile
@@ -117,26 +129,15 @@ export function SettingsPage() {
               </AvatarFallback>
             </Avatar>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 flex-1 w-full">
-              <Field>
-                <FieldLabel className="text-xs text-muted-foreground">GitHub Username</FieldLabel>
-                <Input value={githubUsername ? `@${githubUsername}` : '-'} readOnly className="h-8 text-xs font-mono bg-background/80" />
-              </Field>
-
-              <Field>
-                <FieldLabel className="text-xs text-muted-foreground">Full Name</FieldLabel>
-                <Input value={name || githubUsername || '-'} readOnly className="h-8 text-xs bg-background/80" />
-              </Field>
-
-              <Field>
-                <FieldLabel className="text-xs text-muted-foreground">Email Address</FieldLabel>
-                <Input value={email || '-'} readOnly className="h-8 text-xs font-mono bg-background/80" />
-              </Field>
-            </div>
+            <dl className="grid min-w-0 flex-1 grid-cols-1 gap-4 sm:grid-cols-3">
+              <div className="flex min-w-0 flex-col gap-1"><dt className="text-xs text-muted-foreground">GitHub Username</dt><dd className="break-words text-sm">{githubUsername ? `@${githubUsername}` : 'Not available'}</dd></div>
+              <div className="flex min-w-0 flex-col gap-1"><dt className="text-xs text-muted-foreground">Full Name</dt><dd className="break-words text-sm">{name || 'Not available'}</dd></div>
+              <div className="flex min-w-0 flex-col gap-1"><dt className="text-xs text-muted-foreground">Email Address</dt><dd className="break-all text-sm">{email || 'Not available'}</dd></div>
+            </dl>
           </CardContent>
 
-          {/* GitHub Linked Identity Section */}
-          <div className="rounded-lg border border-border/70 bg-background/70 p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          {/* GitHub linked identity is shown only when supplied by the account. */}
+          {githubUsername && <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
             <div className="flex items-center gap-3">
               <div className="size-8 rounded-[6px] bg-secondary flex items-center justify-center text-foreground shrink-0 border border-border/60">
                 <GithubIcon className="size-4" />
@@ -144,7 +145,7 @@ export function SettingsPage() {
               <div className="flex flex-col">
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-semibold text-foreground">GitHub Identity</span>
-                  <Badge variant="outline" className="text-xs font-mono border-emerald-500/30 bg-emerald-500/10 text-emerald-500 h-4.5 px-1.5 gap-1">
+                  <Badge variant="success" className="text-xs font-mono h-4.5 px-1.5 gap-1">
                     <Check className="size-2.5" />
                     <span>Connected</span>
                   </Badge>
@@ -159,102 +160,48 @@ export function SettingsPage() {
               variant="outline"
               size="sm"
               asChild
-              className="h-7 text-xs rounded-[6px] gap-1.5"
             >
               <a href={`https://github.com/${githubUsername}`} target="_blank" rel="noopener noreferrer">
                 <span>View on GitHub</span>
                 <ExternalLink className="size-3 text-muted-foreground" />
               </a>
             </Button>
-          </div>
+          </div>}
         </Card>
 
-        {/* GitHub Workflow Automations (Linear-style rules) */}
-        <Card className="rounded-lg border border-border bg-card p-5 shadow-none flex flex-col gap-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <Sliders className="size-4 text-foreground" />
-              <CardTitle className="text-base font-semibold text-foreground">
-                GitHub Workflow Automations
-              </CardTitle>
-            </div>
-            <Badge variant="outline" className="font-mono text-xs text-emerald-500 border-emerald-500/30 bg-emerald-500/10">
-              Active Rules
-            </Badge>
-          </div>
-          <CardDescription className="text-xs text-muted-foreground -mt-1">
-            Configure how pull requests and git branch activities automatically transition issue statuses.
-          </CardDescription>
-
-          <div className="rounded-lg border border-border/70 divide-y divide-border/50 bg-background/80 overflow-hidden">
-            {/* Rule 1: Branch Created */}
-            <div className="flex items-center justify-between p-3.5 text-xs gap-4">
-              <div className="flex flex-col gap-0.5">
-                <span className="font-semibold text-foreground text-xs">Branch Checkout / Creation</span>
-                <span className="text-muted-foreground text-xs">
-                  When a branch starting with <code className="text-foreground font-mono">feature/RS-x</code> is checked out or pushed &rarr; move issue to <span className="font-semibold text-foreground">In Progress</span>.
-                </span>
-              </div>
-              <input
-                type="checkbox"
-                checked={autoBranchInProgress}
-                onChange={(e) => setAutoBranchInProgress(e.target.checked)}
-                className="size-4 rounded border border-border bg-transparent checked:bg-primary accent-primary cursor-pointer shrink-0"
-              />
-            </div>
-
-            {/* Rule 2: PR Opened */}
-            <div className="flex items-center justify-between p-3.5 text-xs gap-4">
-              <div className="flex flex-col gap-0.5">
-                <span className="font-semibold text-foreground text-xs">Pull Request Opened / Linked</span>
-                <span className="text-muted-foreground text-xs">
-                  When a PR linking the issue is opened or linked &rarr; move issue to <span className="font-semibold text-foreground">In Review</span>.
-                </span>
-              </div>
-              <input
-                type="checkbox"
-                checked={autoPrInReview}
-                onChange={(e) => setAutoPrInReview(e.target.checked)}
-                className="size-4 rounded border border-border bg-transparent checked:bg-primary accent-primary cursor-pointer shrink-0"
-              />
-            </div>
-
-            {/* Rule 3: PR Merged */}
-            <div className="flex items-center justify-between p-3.5 text-xs gap-4">
-              <div className="flex flex-col gap-0.5">
-                <span className="font-semibold text-foreground text-xs">Pull Request Merged</span>
-                <span className="text-muted-foreground text-xs">
-                  When a PR is merged to main &rarr; automatically close and move issue to <span className="font-semibold text-emerald-500">Done</span>.
-                </span>
-              </div>
-              <input
-                type="checkbox"
-                checked={autoMergeDone}
-                onChange={(e) => setAutoMergeDone(e.target.checked)}
-                className="size-4 rounded border border-border bg-transparent checked:bg-primary accent-primary cursor-pointer shrink-0"
-              />
-            </div>
-
-            {/* Rule 4: PR Closed unmerged */}
-            <div className="flex items-center justify-between p-3.5 text-xs gap-4">
-              <div className="flex flex-col gap-0.5">
-                <span className="font-semibold text-foreground text-xs">Pull Request Closed without Merge</span>
-                <span className="text-muted-foreground text-xs">
-                  If PR is closed without merging &rarr; reopen and move issue back to <span className="font-semibold text-foreground">In Progress</span>.
-                </span>
-              </div>
-              <input
-                type="checkbox"
-                checked={autoCloseBackToProgress}
-                onChange={(e) => setAutoCloseBackToProgress(e.target.checked)}
-                className="size-4 rounded border border-border bg-transparent checked:bg-primary accent-primary cursor-pointer shrink-0"
-              />
-            </div>
-          </div>
+        <Card id="appearance">
+          <CardHeader><CardTitle>Appearance</CardTitle><CardDescription>Choose a theme for this browser. System follows your device preference.</CardDescription></CardHeader>
+          <CardContent><Field className="max-w-sm"><FieldLabel htmlFor="appearance-theme">Theme</FieldLabel><select id="appearance-theme" value={theme} onChange={event => setTheme(event.target.value as 'dark' | 'light' | 'system')} className="h-9 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><option value="dark">Dark</option><option value="light">Light</option><option value="system">System</option></select></Field></CardContent>
         </Card>
+
+        {/* Read-only documentation of the worker's supported automation rules. */}
+        <Card id="github-workflows" className="flex flex-col gap-4">
+          <CardHeader className="p-0">
+            <CardTitle>GitHub Workflow Automations</CardTitle>
+            <CardDescription>Verified webhook events update matching REKA work. Per-rule automation configuration is not available.</CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-4 p-0">
+            <div className="flex flex-col gap-1"><h3 className="text-sm font-medium">Branch pushes and deletes</h3><p className="text-sm text-muted-foreground">Track the latest commit for issue-key branches; newly linked branches move pending issues into an active workflow state.</p></div>
+            <div className="flex flex-col gap-1"><h3 className="text-sm font-medium">Pull requests and reviews</h3><p className="text-sm text-muted-foreground">Open/reopen moves work to an active state; requested reviews and submitted approvals/changes update review status. Merge moves work to a completed state; unmerged close does not.</p></div>
+            <p className="text-xs text-muted-foreground">Team workflow categories determine status targets. Issue identifiers in the pull request title or branch name link the work to REKA.</p>
+          </CardContent>
+        </Card>
+
+        {canManageGithub && <Card className="flex flex-col gap-4">
+          <CardHeader className="flex flex-row items-start justify-between gap-3 p-0">
+            <div className="flex flex-col gap-1"><CardTitle>Recent GitHub webhook deliveries</CardTitle><CardDescription>Worker outcomes for this workspace. Failed deliveries are retained for retry; delivery IDs are scoped to connected installations.</CardDescription></div>
+            <Button type="button" variant="outline" size="sm" onClick={() => void retryDeliveries()} aria-label="Refresh webhook deliveries"><RefreshCw className="size-3.5" /><span className="sr-only">Refresh</span></Button>
+          </CardHeader>
+          <CardContent className="p-0">
+            {deliveriesLoading ? <Skeleton className="h-16 w-full" />
+              : deliveriesError ? <div role="alert" className="flex items-center justify-between gap-3 text-sm text-destructive"><span>Could not load delivery status.</span><Button type="button" variant="outline" size="sm" onClick={() => void retryDeliveries()}>Retry</Button></div>
+              : deliveries.length ? <ul className="divide-y divide-border/60 rounded-md border border-border/70">{deliveries.map(delivery => <li key={delivery.id} className="flex flex-col gap-1 p-3 sm:flex-row sm:items-start sm:justify-between"><div className="min-w-0"><div className="flex items-center gap-2"><span className="font-mono text-xs font-medium">{delivery.event}</span><Badge variant={delivery.error ? 'destructive' : delivery.processed ? 'outline' : 'secondary'}>{delivery.error ? 'Failed' : delivery.processed ? 'Processed' : 'Queued'}</Badge></div><p className="mt-1 truncate font-mono text-[10px] text-muted-foreground" title={delivery.deliveryId}>{delivery.deliveryId}</p>{delivery.error && <p role="alert" className="mt-1 break-words text-xs text-destructive">{delivery.error}</p>}</div><time className="shrink-0 text-[10px] text-muted-foreground">{new Date(delivery.createdAt).toLocaleString()}</time></li>)}</ul>
+              : <p className="rounded-md border border-dashed border-border/70 p-3 text-xs text-muted-foreground">No webhook deliveries have been recorded for this workspace.</p>}
+          </CardContent>
+        </Card>}
 
         {/* Connected GitHub Organization Management (Workspace Level) */}
-        <Card className="rounded-lg border border-border bg-card p-5 shadow-none flex flex-col gap-4">
+        <Card id="github-connections" className="rounded-lg border border-border bg-card p-5 shadow-none flex flex-col gap-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex flex-col gap-0.5">
               <div className="flex items-center gap-2">
@@ -267,21 +214,23 @@ export function SettingsPage() {
                 </Badge>
               </div>
               <CardDescription className="text-xs text-muted-foreground">
-                Connect your GitHub Organization or Account to grant REKA access to your code repositories.
+                GitHub App installations verified for this workspace.
               </CardDescription>
             </div>
 
-            <Button
+            {canManageGithub && <Button
               size="sm"
               onClick={() => setIsConnectOrgOpen(true)}
               className="h-8 rounded-[6px] text-xs gap-1.5 font-medium shrink-0"
             >
               <Plus className="size-3.5" />
               <span>Connect Organization</span>
-            </Button>
+            </Button>}
           </div>
 
           <div className="rounded-lg border border-border/70 divide-y divide-border/50 bg-background/80 overflow-hidden">
+            {isInstallationsLoading && <Skeleton className="h-20 w-full" />}
+            {isInstallationsError && <div role="alert" className="flex flex-wrap items-center gap-3 p-4"><p className="text-sm text-muted-foreground">Could not load GitHub connections.</p><Button variant="outline" size="sm" onClick={() => retryInstallations()}>Retry</Button></div>}
             {installations.map((inst) => (
               <div key={inst.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 text-xs gap-3 hover:bg-secondary/30 transition-colors">
                 <div className="flex items-center gap-3 min-w-0">
@@ -293,7 +242,7 @@ export function SettingsPage() {
                       <span className="font-mono font-semibold text-foreground text-xs truncate">
                         {inst.accountLogin}
                       </span>
-                      <Badge variant="outline" className="text-xs h-4.5 px-1.5 gap-1 border-emerald-500/30 text-emerald-500 bg-emerald-500/10 font-mono">
+                      <Badge variant="success" className="text-xs h-4.5 px-1.5 gap-1 font-mono">
                         <Check className="size-2.5" />
                         <span>Connected</span>
                       </Badge>
@@ -302,7 +251,7 @@ export function SettingsPage() {
                       </Badge>
                     </div>
                     <span className="text-xs text-muted-foreground mt-0.5">
-                      Installation ID #{inst.installationId} &bull; {inst.repositoryCount || repositories.length} repositories accessible
+                      Installation ID #{inst.installationId} &bull; {inst.repositoryCount ?? 0} repositories accessible
                     </span>
                   </div>
                 </div>
@@ -314,26 +263,26 @@ export function SettingsPage() {
                     </a>
                   </Button>
 
-                  <button
+                  {canManageGithub && <button
                     type="button"
                     onClick={() => setDisconnectTargetOrg({ id: inst.id, name: inst.accountLogin })}
                     className="text-muted-foreground/30 hover:text-destructive p-1 rounded transition-colors text-xs"
                     title="Disconnect organization"
                   >
                     <Trash2 className="size-3.5" />
-                  </button>
+                  </button>}
                 </div>
               </div>
             ))}
 
-            {installations.length === 0 && !isInstallationsLoading && (
+            {installations.length === 0 && !isInstallationsLoading && !isInstallationsError && (
               <div className="p-8 text-center text-xs text-muted-foreground flex flex-col items-center gap-2">
                 <Building2 className="size-7 text-muted-foreground/40" />
                 <span className="font-semibold text-foreground">No GitHub organization connected yet.</span>
                 <span className="text-xs text-muted-foreground max-w-md">
-                  Click &ldquo;Connect Organization&rdquo; to install the GitHub App or specify your GitHub organization name. Once connected, each project can link to its specific repository.
+                  Install the REKA GitHub App through GitHub&apos;s verified account and repository selection flow. Once connected, each project can link to its specific repository.
                 </span>
-                <Button
+                {canManageGithub && <Button
                   size="sm"
                   variant="outline"
                   onClick={() => setIsConnectOrgOpen(true)}
@@ -341,7 +290,7 @@ export function SettingsPage() {
                 >
                   <Plus className="size-3" />
                   <span>Connect Organization</span>
-                </Button>
+                </Button>}
               </div>
             )}
           </div>
@@ -375,7 +324,7 @@ export function SettingsPage() {
                 </CardDescription>
               </div>
 
-              <Button
+              {canManageGithub && <Button
                 size="sm"
                 variant="outline"
                 onClick={() => setIsAddRepoOpen(true)}
@@ -383,10 +332,12 @@ export function SettingsPage() {
               >
                 <Plus className="size-3.5" />
                 <span>Add Repo</span>
-              </Button>
+              </Button>}
             </div>
 
             <div className="rounded-lg border border-border/70 divide-y divide-border/50 bg-background/80 overflow-hidden max-h-[300px] overflow-y-auto">
+              {isReposLoading && <Skeleton className="h-20 w-full" />}
+              {isReposError && <div role="alert" className="flex flex-wrap items-center gap-3 p-4"><p className="text-sm text-muted-foreground">Could not load repositories.</p><Button variant="outline" size="sm" onClick={() => retryRepositories()}>Retry</Button></div>}
               {repositories.map((repo) => (
                 <div key={repo.id} className="flex items-center justify-between p-3 text-xs gap-3 hover:bg-secondary/30 transition-colors">
                   <div className="flex items-center gap-2.5 min-w-0">
@@ -420,19 +371,19 @@ export function SettingsPage() {
                         <ExternalLink className="size-3" />
                       </a>
                     </Button>
-                    <button
+                    {canManageGithub && <button
                       type="button"
                       onClick={() => setDisconnectTargetRepo({ id: repo.id, fullName: repo.fullName })}
                       className="text-muted-foreground/30 hover:text-destructive p-1 rounded transition-colors"
                       title="Disconnect repository"
                     >
                       <Trash2 className="size-3" />
-                    </button>
+                    </button>}
                   </div>
                 </div>
               ))}
 
-              {repositories.length === 0 && !isReposLoading && (
+              {repositories.length === 0 && !isReposLoading && !isReposError && (
                 <div className="p-6 text-center text-xs text-muted-foreground">
                   No repositories added to workspace cache yet. Click &ldquo;Add Repo&rdquo; to add.
                 </div>
@@ -452,7 +403,6 @@ export function SettingsPage() {
       <ConnectOrganizationDialog
         open={isConnectOrgOpen}
         onOpenChange={setIsConnectOrgOpen}
-        defaultLogin={githubUsername}
       />
 
       {/* Disconnect Organization Confirmation Dialog */}

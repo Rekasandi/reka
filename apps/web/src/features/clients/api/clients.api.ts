@@ -101,13 +101,3 @@ export async function deleteClientContact(contactId: string): Promise<{ success:
   }
   return res.json();
 }
-
-export async function seedDemoClients(): Promise<{ success: boolean; count: number }> {
-  const res = await fetch('/api/clients/seed-demo', {
-    method: 'POST',
-  });
-  if (!res.ok) {
-    throw new Error('Failed to seed demo clients');
-  }
-  return res.json();
-}

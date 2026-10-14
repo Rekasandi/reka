@@ -9,13 +9,14 @@ import {
   type UpdateUserInput,
 } from '../api/users.api';
 import { toast } from '@reka/ui';
+import { useAuthStore } from '../../../stores/auth.store';
 
 export const USERS_QUERY_KEY = ['users'];
 
-export function useUsers() {
+export function useUsers(includeInactive = false) {
   return useQuery({
-    queryKey: USERS_QUERY_KEY,
-    queryFn: getUsers,
+    queryKey: includeInactive ? [...USERS_QUERY_KEY, 'including-inactive'] : USERS_QUERY_KEY,
+    queryFn: () => getUsers(includeInactive),
   });
 }
 
@@ -34,7 +35,7 @@ export function useCreateUser() {
     mutationFn: (input: CreateUserInput) => createUser(input),
     onSuccess: (newUser) => {
       queryClient.invalidateQueries({ queryKey: USERS_QUERY_KEY });
-      toast.success(`User "${newUser.name}" added to workspace`);
+      toast.success(`Profile "${newUser.name}" saved. An invitation is required to join.`);
     },
     onError: (err) => {
       toast.error('Failed to create user', {
@@ -53,6 +54,9 @@ export function useUpdateUser() {
     onSuccess: (updated) => {
       queryClient.invalidateQueries({ queryKey: USERS_QUERY_KEY });
       queryClient.invalidateQueries({ queryKey: ['user', updated.id] });
+      queryClient.invalidateQueries({ queryKey: ['workspace'] });
+      const current = useAuthStore.getState().user;
+      if (current?.id === updated.id) useAuthStore.getState().setUser({ ...current, name: updated.name, role: updated.role });
       toast.info(`User "${updated.name}" updated`);
     },
     onError: (err) => {
@@ -70,7 +74,7 @@ export function useDeleteUser() {
     mutationFn: (id: string) => deleteUser(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: USERS_QUERY_KEY });
-      toast.success('User removed from workspace');
+      toast.success('User deactivated. Authored work is preserved.');
     },
     onError: (err) => {
       toast.error('Failed to delete user', {

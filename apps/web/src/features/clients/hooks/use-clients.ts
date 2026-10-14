@@ -8,7 +8,6 @@ import {
   getClientContacts,
   addClientContact,
   deleteClientContact,
-  seedDemoClients,
   type CreateClientInput,
   type CreateContactInput,
 } from '../api/clients.api';
@@ -127,25 +126,6 @@ export function useDeleteClientContact(clientId?: string) {
     },
     onError: (err) => {
       toast.error('Failed to remove contact', {
-        description: (err as Error).message,
-      });
-    },
-  });
-}
-
-export function useSeedDemoClients() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: seedDemoClients,
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: CLIENTS_QUERY_KEY });
-      toast.success('Generated demo clients', {
-        description: `Added ${data.count} client accounts`,
-      });
-    },
-    onError: (err) => {
-      toast.error('Failed to seed demo clients', {
         description: (err as Error).message,
       });
     },

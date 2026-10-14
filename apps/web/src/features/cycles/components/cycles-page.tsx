@@ -1,321 +1,64 @@
 import * as React from 'react';
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardContent,
-  CardFooter,
-  Badge,
-  Button,
-  Skeleton,
-} from '@reka/ui';
-import {
-  Plus,
-  RefreshCw,
-  Repeat,
-  Calendar,
-  CheckCircle2,
-  Clock,
-  Trash2,
-  Check,
-} from 'lucide-react';
-import { useCycles, useUpdateCycle, useDeleteCycle } from '../hooks/use-cycles';
+import { Badge, Button, Skeleton } from '@reka/ui';
+import { CalendarClock, Plus, RefreshCw, Repeat, ChevronRight } from 'lucide-react';
+import { Link, useSearchParams } from 'react-router-dom';
+import { useCycles, useReopenCycle } from '../hooks/use-cycles';
 import { CreateCycleDialog } from './create-cycle-dialog';
 import { CompleteCycleDialog } from './complete-cycle-dialog';
-import { useNavigate } from 'react-router-dom';
+import { CycleStatusBadge } from './cycle-status-badge';
+import { CycleScheduleDialog } from './cycle-schedule-dialog';
 import type { Cycle } from '../api/cycles.api';
 
-function CycleStatusBadge({ status }: { status: Cycle['status'] }) {
-  if (status === 'active') {
-    return (
-      <Badge className="bg-emerald-500/15 border-emerald-500/30 text-emerald-500 text-xs font-normal gap-1 h-5">
-        <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
-        <span>Active</span>
-      </Badge>
-    );
-  }
-  if (status === 'completed') {
-    return (
-      <Badge variant="outline" className="border-border/60 bg-muted/40 text-muted-foreground text-xs font-normal gap-1 h-5">
-        <Check className="size-3" />
-        <span>Completed</span>
-      </Badge>
-    );
-  }
-  return (
-    <Badge variant="secondary" className="text-xs font-normal gap-1 h-5">
-      <Clock className="size-3 text-muted-foreground" />
-      <span>Upcoming</span>
-    </Badge>
-  );
-}
-
 function formatDateRange(start: string, end: string) {
-  const s = new Date(start);
-  const e = new Date(end);
-  const sStr = s.toLocaleDateString([], { month: 'short', day: 'numeric' });
-  const eStr = e.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
-  return `${sStr} — ${eStr}`;
+  return `${new Date(start).toLocaleDateString([], { month: 'short', day: 'numeric' })} - ${new Date(end).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}`;
 }
 
 export function CyclesPage() {
-  const navigate = useNavigate();
   const [isCreateOpen, setIsCreateOpen] = React.useState(false);
+  const [isScheduleOpen, setIsScheduleOpen] = React.useState(false);
   const [completeCycleTarget, setCompleteCycleTarget] = React.useState<Cycle | null>(null);
-  const [filterTab, setFilterTab] = React.useState('all');
-
+  const [params, setParams] = useSearchParams();
+  const teamId = params.get('teamId');
+  const status = params.get('status') || 'all';
+  const filterTab = ['all', 'active', 'upcoming', 'completed'].includes(status) ? status : 'all';
+  const setFilterTab = (value: string) => setParams(current => {
+    if (value === 'all') current.delete('status'); else current.set('status', value);
+    return current;
+  });
   const { data: cycles = [], isLoading, isError, refetch } = useCycles();
-  const updateMutation = useUpdateCycle();
-  const deleteMutation = useDeleteCycle();
-
-  const activeCycle = React.useMemo(() => {
-    return cycles.find((c) => c.status === 'active');
-  }, [cycles]);
-
-  const filterOptions = React.useMemo(() => [
-    { id: 'all', label: 'All', count: cycles.length },
-    { id: 'active', label: 'Active', count: cycles.filter((c) => c.status === 'active').length },
-    { id: 'upcoming', label: 'Upcoming', count: cycles.filter((c) => c.status === 'upcoming').length },
-    { id: 'completed', label: 'Completed', count: cycles.filter((c) => c.status === 'completed').length },
-  ], [cycles]);
-
-  const filteredCycles = React.useMemo(() => {
-    if (filterTab === 'all') return cycles;
-    return cycles.filter((c) => c.status === filterTab);
-  }, [cycles, filterTab]);
-
-  const handleToggleComplete = (c: Cycle, e: React.MouseEvent) => {
-    e.stopPropagation();
-    updateMutation.mutate({
-      id: c.id,
-      data: { isCompleted: !c.isCompleted },
-    });
-  };
-
+  const reopenMutation = useReopenCycle();
+  const scopedCycles = teamId ? cycles.filter(cycle => cycle.teamId === teamId) : cycles;
+  const filteredCycles = filterTab === 'all' ? scopedCycles : scopedCycles.filter(cycle => cycle.status === filterTab);
   return (
-    <div className="flex flex-col gap-6 max-w-7xl mx-auto selection:bg-foreground selection:text-background pb-10">
-      {/* Page Header */}
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex flex-col gap-1">
-          <div className="flex items-center gap-2.5">
-            <h1 className="text-xl sm:text-2xl font-semibold tracking-[-0.03em] text-foreground">Cycles</h1>
-            <span className="font-mono text-xs font-medium text-muted-foreground bg-secondary/80 border border-border/60 px-2 py-0.5 rounded-[5px]">
-              {cycles.length}
-            </span>
-          </div>
-          <p className="text-xs text-muted-foreground">
-            Time-boxed plans for backlog issues, delivery cadence, and team velocity.
-          </p>
-        </div>
-
-        <Button size="sm" onClick={() => setIsCreateOpen(true)} className="rounded-[6px] h-8 px-3 text-xs font-medium">
-          <Plus data-icon="inline-start" className="size-3.5" />
-          <span>New Cycle</span>
-        </Button>
+    <div className="flex flex-col gap-5 pb-10">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex flex-col gap-1"><div className="flex items-center gap-2.5"><h1 className="text-xl font-semibold tracking-tight sm:text-2xl">Cycles</h1><Badge variant="outline">{scopedCycles.length}</Badge></div><p className="text-xs text-muted-foreground">Plan issues into scheduled cycles and track completion.</p></div>
+        <div className="flex flex-wrap gap-2"><Button variant="outline" onClick={() => setIsScheduleOpen(true)}><CalendarClock data-icon="inline-start" />Schedule settings</Button><Button onClick={() => setIsCreateOpen(true)}><Plus data-icon="inline-start" />New Cycle</Button></div>
       </div>
-
-      {/* Active Sprint Spotlight Hero Card */}
-      {activeCycle && (
-        <Card
-          onClick={() => navigate(`/cycles/${activeCycle.id}`)}
-          className="rounded-lg border border-border bg-card p-5 flex flex-col gap-4 relative overflow-hidden cursor-pointer hover:border-foreground/25 transition-colors group shadow-none"
-        >
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div className="size-8 rounded-[7px] bg-emerald-500/15 text-emerald-500 flex items-center justify-center shrink-0 border border-emerald-500/20">
-                <Repeat className="size-4" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <h2 className="text-base font-semibold tracking-[-0.02em] text-foreground">
-                    {activeCycle.name || `Cycle ${activeCycle.number}`}
-                  </h2>
-                  <CycleStatusBadge status="active" />
-                </div>
-                <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-mono mt-0.5">
-                  <Calendar className="size-3 text-muted-foreground/70" />
-                  <span>{formatDateRange(activeCycle.startDate, activeCycle.endDate)}</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setCompleteCycleTarget(activeCycle);
-                }}
-                className="h-7 text-xs rounded-[6px] border-border/70"
-              >
-                <CheckCircle2 data-icon="inline-start" className="size-3 text-muted-foreground" />
-                <span>End Cycle</span>
-              </Button>
-            </div>
-          </div>
-
-          {activeCycle.description && (
-            <p className="text-xs text-foreground/80 leading-relaxed max-w-2xl">
-              {activeCycle.description}
-            </p>
-          )}
-
-          {/* Active Progress Bar */}
-          <div className="flex flex-col gap-1.5 pt-1">
-            <div className="flex justify-between items-center text-xs font-mono text-muted-foreground">
-              <span>{activeCycle.completedIssues || 0} of {activeCycle.totalIssues || 0} issues completed</span>
-              <span className="font-semibold text-foreground">{activeCycle.progress || 0}%</span>
-            </div>
-            <div className="h-2 w-full bg-secondary rounded-full overflow-hidden">
-              <div
-                className="h-full bg-emerald-500 transition-all duration-300"
-                style={{ width: `${activeCycle.progress || 0}%` }}
-              />
-            </div>
-          </div>
-        </Card>
-      )}
-
-      {/* Filter Tabs */}
-      <div className="flex items-center gap-1.5 border-b border-border/70 pb-2">
-        {filterOptions.map((opt) => {
-          const isSelected = filterTab === opt.id;
-          return (
-            <button
-              key={opt.id}
-              type="button"
-              onClick={() => setFilterTab(opt.id)}
-              className={`h-7 px-2.5 text-xs rounded-[6px] font-medium transition-colors flex items-center gap-1.5 ${
-                isSelected
-                  ? 'bg-secondary text-foreground shadow-2xs border border-border/60'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-secondary/40'
-              }`}
-            >
-              <span>{opt.label}</span>
-              <span className="font-mono text-xs text-muted-foreground">
-                {opt.count}
-              </span>
-            </button>
-          );
-        })}
+      <div aria-label="Cycle filters" className="flex flex-wrap gap-1.5 border-b border-border pb-3">
+        {['all', 'active', 'upcoming', 'completed'].map(filter => <Button key={filter} variant="category" size="sm" aria-pressed={filterTab === filter} onClick={() => setFilterTab(filter)}>{filter[0].toUpperCase() + filter.slice(1)}</Button>)}
       </div>
-
-      {/* Loading Skeletons */}
-      {isLoading && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <Skeleton key={i} className="h-40 w-full rounded-lg" />
-          ))}
-        </div>
-      )}
-
-      {/* Error State */}
-      {isError && (
-        <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-xs text-destructive flex items-center justify-between">
-          <span>Failed to load cycles from server.</span>
-          <Button variant="outline" size="sm" onClick={() => refetch()} className="rounded-[6px]">
-            <RefreshCw data-icon="inline-start" className="size-3.5" />
-            Retry
-          </Button>
-        </div>
-      )}
-
-      {/* Cycles Grid */}
-      {!isLoading && !isError && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredCycles.map((c) => {
-            const progress = c.progress || 0;
-            return (
-              <Card
-                key={c.id}
-                onClick={() => navigate(`/cycles/${c.id}`)}
-                className="rounded-lg border border-border bg-card hover:border-foreground/25 transition-colors flex flex-col justify-between group cursor-pointer shadow-none"
-              >
-                <CardHeader className="p-4 pb-2">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <span className="size-2 rounded-full shrink-0 bg-purple-500" />
-                      <CardTitle className="text-sm font-semibold truncate">
-                        {c.name || `Cycle ${c.number}`}
-                      </CardTitle>
-                    </div>
-
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <CycleStatusBadge status={c.status} />
-                    </div>
-                  </div>
-
-                  <CardDescription className="text-xs line-clamp-2 text-muted-foreground leading-relaxed mt-1">
-                    {c.description || 'No cycle objectives specified.'}
-                  </CardDescription>
-                </CardHeader>
-
-                <CardContent className="p-4 py-2 flex flex-col gap-2">
-                  {/* Progress Bar */}
-                  <div className="flex flex-col gap-1.5">
-                    <div className="flex justify-between items-center text-xs font-mono text-muted-foreground">
-                      <span>{c.completedIssues || 0}/{c.totalIssues || 0} issues</span>
-                      <span className="font-semibold text-foreground">{progress}%</span>
-                    </div>
-                    <div className="h-1.5 w-full bg-secondary rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-primary transition-all duration-300"
-                        style={{ width: `${progress}%` }}
-                      />
-                    </div>
-                  </div>
-                </CardContent>
-
-                <CardFooter className="p-4 pt-2.5 border-t border-border/60 flex items-center justify-between text-xs text-muted-foreground">
-                  <div className="flex items-center gap-1.5">
-                    <Calendar className="size-3 text-muted-foreground/70" />
-                    <span className="text-xs font-mono">{formatDateRange(c.startDate, c.endDate)}</span>
-                  </div>
-
-                  {c.isCompleted ? (
-                    <button
-                      type="button"
-                      onClick={(e) => handleToggleComplete(c, e)}
-                      className="text-xs text-muted-foreground hover:text-foreground font-medium transition-colors"
-                    >
-                      Reopen
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setCompleteCycleTarget(c);
-                      }}
-                      className="text-xs text-muted-foreground hover:text-foreground font-medium transition-colors"
-                    >
-                      End Cycle...
-                    </button>
-                  )}
-                </CardFooter>
-              </Card>
-            );
-          })}
-
-          {filteredCycles.length === 0 && (
-            <div className="col-span-full rounded-lg border border-dashed border-border/80 p-14 text-center text-xs text-muted-foreground bg-card/10">
-              No cycles found in this filter. Click &ldquo;New Cycle&rdquo; to start your first sprint.
+      {isLoading ? <div role="status" aria-label="Loading cycles" className="flex flex-col gap-2">{[0, 1, 2].map(i => <Skeleton key={i} className="h-20 w-full" />)}</div> : isError ? (
+        <div role="alert" className="flex flex-wrap items-center gap-3 py-6"><p className="text-sm text-muted-foreground">Could not load cycles.</p><Button variant="outline" size="sm" onClick={() => refetch()}><RefreshCw data-icon="inline-start" />Retry</Button></div>
+      ) : filteredCycles.length ? (
+        <ul aria-label="Cycles" className="divide-y divide-border">
+          {filteredCycles.map(cycle => <li key={cycle.id} className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:gap-6">
+            <Link to={`/cycles/${cycle.id}`} aria-label={`Open cycle ${cycle.name || `Cycle ${cycle.number}`}`} className="flex min-w-0 flex-1 items-center gap-3 rounded-md p-1 hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+              <Repeat className="size-4 shrink-0 text-muted-foreground" />
+              <span className="flex min-w-0 flex-1 flex-col gap-1"><span className="flex flex-wrap items-center gap-2"><span className="text-sm font-medium">{cycle.name || `Cycle ${cycle.number}`}</span><CycleStatusBadge status={cycle.status} /></span><span className="truncate text-xs text-muted-foreground">{cycle.description || 'No objectives added.'}</span><span className="text-xs text-muted-foreground">{formatDateRange(cycle.startDate, cycle.endDate)}</span></span>
+              <ChevronRight className="size-4 shrink-0 text-muted-foreground sm:hidden" />
+            </Link>
+            <div className="flex shrink-0 items-center justify-between gap-5 pl-8 text-xs sm:pl-0">
+              <span className="text-muted-foreground tabular-nums">{cycle.completedIssues ?? 0} / {cycle.totalIssues ?? 0} completed</span>
+              <span className="tabular-nums">{cycle.progress ?? 0}%</span>
+              <Button variant="ghost" size="sm" disabled={reopenMutation.isPending} onClick={() => cycle.isCompleted ? reopenMutation.mutate(cycle.id) : setCompleteCycleTarget(cycle)}>{cycle.isCompleted ? 'Reopen' : 'End Cycle'}</Button>
             </div>
-          )}
-        </div>
-      )}
-
-      {/* Create Cycle Modal */}
+          </li>)}
+        </ul>
+      ) : <div className="flex flex-col items-center gap-2 py-16"><p className="text-sm font-medium">{scopedCycles.length ? 'No matching cycles' : 'No cycles yet'}</p><p className="text-sm text-muted-foreground">{scopedCycles.length ? 'Choose another filter to see your cycles.' : 'Create a cycle to schedule work for your team.'}</p></div>}
       <CreateCycleDialog open={isCreateOpen} onOpenChange={setIsCreateOpen} />
-
-      {/* Complete Cycle & Rollover Modal */}
-      <CompleteCycleDialog
-        cycle={completeCycleTarget}
-        open={!!completeCycleTarget}
-        onOpenChange={(open) => !open && setCompleteCycleTarget(null)}
-      />
+      <CycleScheduleDialog open={isScheduleOpen} onOpenChange={setIsScheduleOpen} />
+      <CompleteCycleDialog cycle={completeCycleTarget} open={!!completeCycleTarget} onOpenChange={open => !open && setCompleteCycleTarget(null)} />
     </div>
   );
 }

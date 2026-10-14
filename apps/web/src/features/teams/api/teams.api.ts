@@ -1,4 +1,4 @@
-import type { Issue } from '@reka/types';
+import type { EntityIconName, Issue } from '@reka/types';
 import type { Cycle } from '../../cycles/api/cycles.api';
 
 export interface TeamMember {
@@ -19,7 +19,16 @@ export interface Team {
   organizationId: string;
   name: string;
   key: string;
+  icon?: EntityIconName | null;
   description?: string | null;
+  isPrivate: boolean;
+  currentMemberUserId?: string;
+  currentMemberRole?: 'lead' | 'member' | 'viewer' | null;
+  canManage?: boolean;
+  canWrite?: boolean;
+  canDelete?: boolean;
+  canJoin?: boolean;
+  canLeave?: boolean;
   memberCount?: number;
   issueCount?: number;
   members?: TeamMember[];
@@ -33,17 +42,31 @@ export interface CreateTeamInput {
   name: string;
   key: string;
   description?: string;
+  isPrivate?: boolean;
 }
 
 export interface UpdateTeamInput {
   name?: string;
   key?: string;
+  icon?: EntityIconName | null;
   description?: string;
+  isPrivate?: boolean;
 }
 
 export interface AddTeamMemberInput {
   userId: string;
   role?: string;
+}
+
+export type WorkflowStateCategory = 'triage' | 'backlog' | 'unstarted' | 'started' | 'completed' | 'canceled';
+export interface TeamWorkflowState {
+  teamId: string;
+  key: string;
+  name: string;
+  category: WorkflowStateCategory;
+  color: string;
+  position: number;
+  isActive: boolean;
 }
 
 export async function getTeams(): Promise<Team[]> {
@@ -84,6 +107,20 @@ export async function addTeamMember(teamId: string, input: AddTeamMemberInput): 
   return res.json();
 }
 
+export async function updateTeamMember(teamId: string, userId: string, role: TeamMember['role']): Promise<TeamMember> {
+  const res = await fetch(`/api/teams/${teamId}/members/${userId}`, {
+    method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ role }),
+  });
+  const body = await res.json().catch(() => null);
+  if (!res.ok) throw new Error(body?.message || 'Failed to update team role');
+  return body;
+}
+
+export async function joinTeam(teamId: string): Promise<void> {
+  const res = await fetch(`/api/teams/${teamId}/join`, { method: 'POST' });
+  if (!res.ok) { const body = await res.json().catch(() => null); throw new Error(body?.message || 'Failed to join team'); }
+}
+
 export async function removeTeamMember(teamId: string, userId: string): Promise<void> {
   const res = await fetch(`/api/teams/${teamId}/members/${userId}`, {
     method: 'DELETE',
@@ -99,6 +136,21 @@ export async function updateTeam(id: string, input: UpdateTeamInput): Promise<Te
   });
   if (!res.ok) throw new Error('Failed to update team');
   return res.json();
+}
+
+export async function getTeamWorkflowStates(teamId: string): Promise<TeamWorkflowState[]> {
+  const response = await fetch(`/api/teams/${teamId}/workflow-states`);
+  if (!response.ok) throw new Error('Failed to fetch team workflow');
+  return response.json();
+}
+
+export async function updateTeamWorkflowStates(teamId: string, states: Omit<TeamWorkflowState, 'teamId'>[]): Promise<TeamWorkflowState[]> {
+  const response = await fetch(`/api/teams/${teamId}/workflow-states`, {
+    method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ states }),
+  });
+  const body = await response.json().catch(() => null);
+  if (!response.ok) throw new Error(body?.message || 'Failed to update team workflow');
+  return body;
 }
 
 export async function deleteTeam(id: string): Promise<void> {

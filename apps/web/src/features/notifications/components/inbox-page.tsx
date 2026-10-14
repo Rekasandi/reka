@@ -3,8 +3,6 @@ import {
   Card,
   CardContent,
   CardHeader,
-  CardTitle,
-  CardDescription,
   Button,
   Badge,
   Input,
@@ -13,7 +11,6 @@ import {
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   Skeleton,
   toast,
 } from '@reka/ui';
@@ -27,19 +24,19 @@ import {
   AtSign,
   UserPlus,
   MessageSquare,
-  Clock,
   ArrowRightCircle,
   AlertCircle,
   Check,
   Search,
   MoreHorizontal,
-  Sparkles,
+  FolderKanban,
   Send,
   ExternalLink,
-  ChevronRight,
-  Filter,
+  X,
+  Settings2,
 } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
+import { useNavigate } from 'react-router-dom';
 import type { Notification, NotificationType, Issue } from '@reka/types';
 import {
   useNotifications,
@@ -48,24 +45,25 @@ import {
   useMarkAllAsRead,
   useClearRead,
   useDeleteNotification,
-  useSeedDemoNotifications,
-  useCreateNotification,
 } from '../hooks/use-notifications';
 import { useIssues } from '../../issues/hooks/use-issues';
 import { useCreateComment } from '../../issues/hooks/use-issue-details';
 import { getIssueByIdentifier } from '../../issues/api/issues.api';
 import { IssueDetailSheet } from '../../issues/components/issue-detail-sheet';
-import { StatusPicker } from '../../issues/components/status-picker';
-import { PriorityIcon } from '../../issues/components/issue-list-view';
+import { STATUS_CONFIG } from '../../issues/components/status-picker';
+import { PriorityIcon } from '../../issues/components/priority-picker';
+import { NotificationPreferencesDialog } from './notification-preferences-dialog';
 
 type FilterTab = 'all' | 'unread' | 'mentions' | 'assignments' | 'pr' | 'updates';
 
 export function InboxPage() {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = React.useState<FilterTab>('unread');
   const [searchQuery, setSearchQuery] = React.useState('');
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
   const [replyText, setReplyText] = React.useState('');
   const [isSubmittingReply, setIsSubmittingReply] = React.useState(false);
+  const [isPreferencesOpen, setIsPreferencesOpen] = React.useState(false);
 
   // Issue detail sheet integration
   const [inspectingIssue, setInspectingIssue] = React.useState<Issue | null>(null);
@@ -74,14 +72,12 @@ export function InboxPage() {
   const searchInputRef = React.useRef<HTMLInputElement>(null);
 
   // Notifications API hooks
-  const { data: notifications = [], isLoading, refetch } = useNotifications();
+  const { data: notifications = [], isLoading, isError, refetch } = useNotifications();
   const { data: unreadData } = useUnreadCount();
   const markAsReadMutation = useMarkAsRead();
   const markAllAsReadMutation = useMarkAllAsRead();
   const clearReadMutation = useClearRead();
   const deleteMutation = useDeleteNotification();
-  const seedDemoMutation = useSeedDemoNotifications();
-  const createNotificationMutation = useCreateNotification();
 
   // Issues cache
   const { data: issues = [] } = useIssues();
@@ -102,6 +98,8 @@ export function InboxPage() {
         (n) =>
           n.type === 'pr_review_requested' ||
           n.type === 'pr_approved' ||
+          n.type === 'pr_changes_requested' ||
+          n.type === 'pr_closed' ||
           n.type === 'pr_merged',
       );
     } else if (activeTab === 'updates') {
@@ -109,7 +107,9 @@ export function InboxPage() {
         (n) =>
           n.type === 'status_change' ||
           n.type === 'deadline_approaching' ||
-          n.type === 'issue_blocked',
+          n.type === 'issue_blocked' ||
+          n.type === 'team_invite' ||
+          n.type === 'project_invite',
       );
     }
 
@@ -262,21 +262,12 @@ export function InboxPage() {
 
   // Counts for tabs
   const unreadCount = unreadData?.count ?? notifications.filter((n) => !n.read).length;
-  const mentionsCount = notifications.filter((n) => n.type === 'mention').length;
-  const assignmentsCount = notifications.filter((n) => n.type === 'assignment').length;
-  const prCount = notifications.filter(
-    (n) =>
-      n.type === 'pr_review_requested' ||
-      n.type === 'pr_approved' ||
-      n.type === 'pr_merged',
-  ).length;
-
-  const tabs: { id: FilterTab; label: string; count?: number }[] = [
-    { id: 'unread', label: 'Unread', count: unreadCount },
-    { id: 'all', label: 'All', count: notifications.length },
-    { id: 'mentions', label: 'Mentions', count: mentionsCount },
-    { id: 'assignments', label: 'Assignments', count: assignmentsCount },
-    { id: 'pr', label: 'PRs & Git', count: prCount },
+  const tabs: { id: FilterTab; label: string }[] = [
+    { id: 'unread', label: 'Unread' },
+    { id: 'all', label: 'All' },
+    { id: 'mentions', label: 'Mentions' },
+    { id: 'assignments', label: 'Assignments' },
+    { id: 'pr', label: 'PRs & Git' },
     { id: 'updates', label: 'Updates' },
   ];
 
@@ -287,83 +278,88 @@ export function InboxPage() {
         return {
           icon: GitPullRequest,
           label: 'PR Merged',
-          color: 'text-purple-600 dark:text-purple-400 bg-purple-500/10 border-purple-500/20',
           badgeVariant: 'secondary' as const,
         };
       case 'pr_review_requested':
         return {
           icon: GitPullRequest,
           label: 'Review Requested',
-          color: 'text-amber-600 dark:text-amber-400 bg-amber-500/10 border-amber-500/20',
           badgeVariant: 'outline' as const,
         };
       case 'pr_approved':
         return {
           icon: GitPullRequest,
           label: 'PR Approved',
-          color: 'text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border-emerald-500/20',
           badgeVariant: 'outline' as const,
         };
+      case 'pr_changes_requested':
+        return { icon: GitPullRequest, label: 'Changes Requested', badgeVariant: 'destructive' as const };
+      case 'pr_closed':
+        return { icon: GitPullRequest, label: 'PR Closed', badgeVariant: 'outline' as const };
       case 'mention':
         return {
           icon: AtSign,
           label: 'Mention',
-          color: 'text-blue-600 dark:text-blue-400 bg-blue-500/10 border-blue-500/20',
+          badgeVariant: 'outline' as const,
+        };
+      case 'team_invite':
+        return {
+          icon: UserPlus,
+          label: 'Team Invite',
+          badgeVariant: 'outline' as const,
+        };
+      case 'project_invite':
+        return {
+          icon: FolderKanban,
+          label: 'Project Invite',
           badgeVariant: 'outline' as const,
         };
       case 'assignment':
         return {
           icon: UserPlus,
           label: 'Assignment',
-          color: 'text-foreground bg-primary/10 border-primary/20',
           badgeVariant: 'secondary' as const,
         };
       case 'comment':
         return {
           icon: MessageSquare,
           label: 'Comment',
-          color: 'text-sky-600 dark:text-sky-400 bg-sky-500/10 border-sky-500/20',
           badgeVariant: 'outline' as const,
         };
       case 'status_change':
         return {
           icon: ArrowRightCircle,
           label: 'Status Change',
-          color: 'text-muted-foreground bg-muted border-border',
           badgeVariant: 'outline' as const,
         };
       case 'deadline_approaching':
         return {
           icon: AlertCircle,
           label: 'Deadline',
-          color: 'text-rose-600 dark:text-rose-400 bg-rose-500/10 border-rose-500/20',
           badgeVariant: 'destructive' as const,
         };
       default:
         return {
           icon: Bell,
           label: 'Notification',
-          color: 'text-muted-foreground bg-muted border-border',
           badgeVariant: 'outline' as const,
         };
     }
   };
 
   return (
-    <div className="flex flex-col gap-5 max-w-7xl mx-auto w-full h-[calc(100vh-6rem)] selection:bg-foreground selection:text-background pb-4">
+    <div className="flex w-full min-w-0 flex-col gap-5 pb-10 md:h-[calc(100svh-6rem)]">
       {/* Top Header Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 shrink-0">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-xl font-semibold tracking-[-0.4px] text-foreground">Inbox</h1>
+            <h1 className="text-xl sm:text-2xl font-semibold tracking-[-0.03em] text-foreground">Inbox</h1>
             {unreadCount > 0 && (
-              <span className="flex items-center justify-center px-1.5 py-0.5 text-xs font-mono font-medium rounded-full bg-blue-500/15 text-blue-600 dark:text-blue-400 border border-blue-500/20">
-                {unreadCount} unread
-              </span>
+              <Badge variant="secondary">{unreadCount} unread</Badge>
             )}
           </div>
           <p className="text-xs text-muted-foreground">
-            Triage review requests, mentions, assignments, and GitHub pull request updates.
+            Review notifications, assignments, and pull request updates.
           </p>
         </div>
 
@@ -375,6 +371,7 @@ export function InboxPage() {
             <Input
               ref={searchInputRef}
               type="text"
+              aria-label="Filter inbox"
               placeholder="Filter inbox... (/)"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -384,18 +381,21 @@ export function InboxPage() {
               <button
                 type="button"
                 onClick={() => setSearchQuery('')}
+                aria-label="Clear inbox search"
                 className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground hover:text-foreground"
               >
-                ×
+                <X className="size-3.5" />
               </button>
             )}
           </div>
 
+          <Button type="button" variant="outline" size="icon" aria-label="Notification preferences" title="Notification preferences" onClick={() => setIsPreferencesOpen(true)}><Settings2 className="size-4" /></Button>
+
           {/* Mark all as read */}
           <Button
             variant="outline"
-            size="sm"
-            className="h-8 text-xs gap-1.5"
+            aria-label="Mark all notifications as read"
+            className="gap-1.5"
             onClick={() => markAllAsReadMutation.mutate()}
             disabled={unreadCount === 0 || markAllAsReadMutation.isPending}
             title="Mark all notifications as read"
@@ -407,7 +407,7 @@ export function InboxPage() {
           {/* More Actions Menu */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="h-8 w-8 p-0" title="Inbox actions">
+              <Button variant="outline" size="icon" title="Inbox actions">
                 <MoreHorizontal className="size-4" />
               </Button>
             </DropdownMenuTrigger>
@@ -420,50 +420,6 @@ export function InboxPage() {
                 <Archive className="size-3.5 text-muted-foreground" />
                 <span>Clear read notifications</span>
               </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={() => seedDemoMutation.mutate()}
-                disabled={seedDemoMutation.isPending}
-                className="gap-2 cursor-pointer"
-              >
-                <Sparkles className="size-3.5 text-blue-500" />
-                <span>Generate demo triage items</span>
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() =>
-                  createNotificationMutation.mutate({
-                    type: 'mention',
-                    title: 'Alex Morgan mentioned you on RS-104',
-                    body: '@gustam Can you check if the optimistic triage shortcuts feel fast?',
-                    link: '/issues',
-                    metadata: { issueIdentifier: 'RS-104', authorName: 'Alex Morgan' },
-                  })
-                }
-                className="gap-2 cursor-pointer"
-              >
-                <AtSign className="size-3.5 text-blue-500" />
-                <span>Simulate incoming mention</span>
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() =>
-                  createNotificationMutation.mutate({
-                    type: 'pr_merged',
-                    title: 'PR #182 Merged: Enhance issue query pagination',
-                    body: 'Pull request #182 was merged by Gustam. Linked issue RS-88 moved to Done.',
-                    link: '/issues',
-                    metadata: {
-                      issueIdentifier: 'RS-88',
-                      prNumber: 182,
-                      prTitle: 'Enhance issue query pagination',
-                      state: 'merged',
-                    },
-                  })
-                }
-                className="gap-2 cursor-pointer"
-              >
-                <GitPullRequest className="size-3.5 text-purple-500" />
-                <span>Simulate PR merged event</span>
-              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -474,28 +430,16 @@ export function InboxPage() {
         {tabs.map((tab) => {
           const isActive = activeTab === tab.id;
           return (
-            <button
+            <Button
               key={tab.id}
+              type="button"
+              variant="category"
+              size="sm"
+              aria-pressed={isActive}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-full transition-colors ${
-                isActive
-                  ? 'bg-foreground text-background shadow-xs'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/60'
-              }`}
             >
               <span>{tab.label}</span>
-              {tab.count !== undefined && tab.count > 0 && (
-                <span
-                  className={`text-xs font-mono px-1 rounded-full ${
-                    isActive
-                      ? 'bg-background/20 text-background'
-                      : 'bg-muted text-muted-foreground'
-                  }`}
-                >
-                  {tab.count}
-                </span>
-              )}
-            </button>
+            </Button>
           );
         })}
       </div>
@@ -503,14 +447,12 @@ export function InboxPage() {
       {/* Main Split Screen Area: Left List + Right Detail */}
       <div className="grid grid-cols-1 md:grid-cols-12 gap-4 flex-1 min-h-0">
         {/* Left Notification List Pane (5 cols on md, 4 cols on lg) */}
-        <div className="md:col-span-5 lg:col-span-5 flex flex-col border border-border rounded-lg bg-card overflow-hidden h-full">
+        <div className="flex max-h-[50svh] min-w-0 flex-col overflow-hidden rounded-lg border border-border bg-card md:col-span-5 md:h-full md:max-h-none">
           <div className="flex items-center justify-between px-3 py-2 border-b border-border/80 bg-muted/30 text-xs font-medium text-muted-foreground">
             <span>
               {filteredNotifications.length} {filteredNotifications.length === 1 ? 'item' : 'items'}
             </span>
-            <span className="hidden sm:inline text-xs lowercase text-muted-foreground/80">
-              [j/k navigate • e read]
-            </span>
+            <span className="hidden sm:inline text-xs text-muted-foreground/80">Click an item to view details</span>
           </div>
 
           <div className="flex-1 overflow-y-auto divide-y divide-border/60">
@@ -526,6 +468,8 @@ export function InboxPage() {
                   </div>
                 ))}
               </div>
+            ) : isError ? (
+              <div role="alert" className="flex flex-col items-center gap-3 p-8"><p className="text-sm text-muted-foreground">Could not load notifications.</p><Button variant="outline" size="sm" onClick={() => refetch()}>Retry</Button></div>
             ) : filteredNotifications.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full p-8 text-center gap-3 text-muted-foreground">
                 <div className="size-10 rounded-full border border-border flex items-center justify-center bg-muted/40 text-muted-foreground">
@@ -538,21 +482,9 @@ export function InboxPage() {
                   <p className="text-xs text-muted-foreground max-w-[220px]">
                     {searchQuery
                       ? 'Try clearing the search query or changing active filters.'
-                      : 'You have no pending triage items in this category.'}
+                      : 'You have no pending notifications in this category.'}
                   </p>
                 </div>
-                {!searchQuery && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-7 text-xs gap-1.5 mt-2"
-                    onClick={() => seedDemoMutation.mutate()}
-                    disabled={seedDemoMutation.isPending}
-                  >
-                    <Sparkles className="size-3 text-blue-500" />
-                    <span>Generate sample inbox items</span>
-                  </Button>
-                )}
               </div>
             ) : (
               filteredNotifications.map((item) => {
@@ -567,8 +499,17 @@ export function InboxPage() {
                 return (
                   <div
                     key={item.id}
+                    role="button"
+                    tabIndex={0}
+                    aria-pressed={isSelected}
+                    aria-label={item.title}
                     onClick={() => setSelectedId(item.id)}
-                    className={`group relative flex items-start gap-2.5 p-3 cursor-pointer transition-colors text-left select-none ${
+                    onKeyDown={(event) => {
+                      if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) {
+                        event.preventDefault(); event.stopPropagation(); setSelectedId(item.id);
+                      }
+                    }}
+                    className={`group relative flex items-start gap-2.5 p-3 cursor-pointer transition-colors text-left select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring ${
                       isSelected
                         ? 'bg-muted/80 ring-1 ring-border/80'
                         : 'hover:bg-muted/40'
@@ -585,7 +526,7 @@ export function InboxPage() {
 
                     {/* Icon */}
                     <div
-                      className={`size-7 rounded-md border flex items-center justify-center shrink-0 ${meta.color}`}
+                      className={`size-7 rounded-md flex items-center justify-center shrink-0 text-muted-foreground`}
                     >
                       <Icon className="size-3.5" />
                     </div>
@@ -654,7 +595,7 @@ export function InboxPage() {
         </div>
 
         {/* Right Detail & Triage Pane (7 cols on md, 7 cols on lg) */}
-        <div className="md:col-span-7 lg:col-span-7 flex flex-col border border-border rounded-lg bg-card overflow-hidden h-full">
+        <div className="flex min-w-0 flex-col overflow-hidden rounded-lg border border-border bg-card md:col-span-7 md:h-full">
           {selectedNotification ? (
             <div className="flex flex-col h-full overflow-y-auto">
               {/* Detail Header */}
@@ -680,7 +621,6 @@ export function InboxPage() {
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="h-7 text-xs gap-1"
                     onClick={() =>
                       markAsReadMutation.mutate({
                         id: selectedNotification.id,
@@ -693,8 +633,8 @@ export function InboxPage() {
                   </Button>
                   <Button
                     variant="ghost"
-                    size="sm"
-                    className="h-7 w-7 p-0 text-muted-foreground hover:text-rose-600"
+                    size="icon-sm"
+                    className="text-muted-foreground hover:text-destructive"
                     onClick={() => deleteMutation.mutate(selectedNotification.id)}
                     title="Delete notification (x)"
                   >
@@ -714,17 +654,25 @@ export function InboxPage() {
                   </p>
                 </div>
 
+                {selectedNotification.link?.startsWith('/') &&
+                  (selectedNotification.type === 'team_invite' || selectedNotification.type === 'project_invite') && (
+                  <Button variant="outline" size="sm" onClick={() => navigate(selectedNotification.link!)}>
+                    Open {selectedNotification.type === 'team_invite' ? 'team' : 'project'}
+                    <ExternalLink className="ml-1.5 size-3" />
+                  </Button>
+                )}
+
                 {/* Linked Issue Card Preview */}
                 {linkedIssueIdentifier && (
                   <Card className="border-border/70 bg-muted/30 hover:bg-muted/50 transition-colors">
-                    <CardHeader className="p-3.5 pb-2">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-mono font-semibold text-primary">
+                    <CardHeader className="min-w-0 grid-cols-[minmax(0,1fr)] p-3.5 pb-2">
+                      <div className="flex min-w-0 items-center justify-between gap-2">
+                        <div className="flex min-w-0 flex-1 items-center gap-2">
+                          <span className="shrink-0 text-xs font-semibold text-primary">
                             {linkedIssueIdentifier}
                           </span>
                           {linkedIssue && (
-                            <span className="text-xs text-foreground font-medium truncate max-w-sm">
+                            <span className="min-w-0 truncate text-xs font-medium text-foreground">
                               {linkedIssue.title}
                             </span>
                           )}
@@ -732,7 +680,7 @@ export function InboxPage() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="h-6 text-xs gap-1 px-2 text-muted-foreground hover:text-foreground"
+                          className="text-muted-foreground hover:text-foreground"
                           onClick={() => void handleOpenIssue()}
                         >
                           <span>Open Issue</span>
@@ -749,7 +697,7 @@ export function InboxPage() {
                           </div>
                           <span>•</span>
                           <div className="flex items-center gap-1.5">
-                            <span className="size-2 rounded-full bg-blue-500" />
+                            {STATUS_CONFIG[linkedIssue.status]?.renderIcon()}
                             <span className="capitalize">{linkedIssue.status.replace('_', ' ')}</span>
                           </div>
                           {linkedIssue.description && (
@@ -768,10 +716,10 @@ export function InboxPage() {
 
                 {/* Linked GitHub PR Card */}
                 {selectedNotification.metadata?.prNumber && (
-                  <Card className="border-purple-500/20 bg-purple-500/5">
+                  <Card>
                     <CardContent className="p-3.5 flex items-center justify-between">
                       <div className="flex items-center gap-2.5">
-                        <div className="size-8 rounded-md bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0">
+                        <div className="flex size-8 shrink-0 items-center justify-center text-muted-foreground">
                           <GitPullRequest className="size-4" />
                         </div>
                         <div>
@@ -791,12 +739,16 @@ export function InboxPage() {
                           </p>
                         </div>
                       </div>
-                      <Badge
-                        variant="outline"
-                        className="text-xs bg-background"
-                      >
-                        {selectedNotification.metadata.state || 'GitHub PR'}
-                      </Badge>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="text-xs bg-background">
+                          {selectedNotification.metadata.state || 'GitHub PR'}
+                        </Badge>
+                        {selectedNotification.link?.startsWith('https://') && (
+                          <a href={selectedNotification.link} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline">
+                            Open PR
+                          </a>
+                        )}
+                      </div>
                     </CardContent>
                   </Card>
                 )}
@@ -830,7 +782,6 @@ export function InboxPage() {
                         </span>
                         <Button
                           size="sm"
-                          className="h-7 text-xs gap-1.5"
                           onClick={() => void handleSendReply()}
                           disabled={!replyText.trim() || isSubmittingReply}
                         >
@@ -843,41 +794,8 @@ export function InboxPage() {
                 )}
               </div>
 
-              {/* Bottom Keyboard Shortcuts Helper Footer */}
-              <div className="px-5 py-2 border-t border-border bg-muted/30 text-xs font-mono text-muted-foreground flex items-center justify-between shrink-0">
-                <div className="flex items-center gap-3">
-                  <span>
-                    <kbd className="px-1 py-0.5 rounded bg-muted border border-border text-foreground font-semibold">
-                      j
-                    </kbd>{' '}
-                    /
-                    <kbd className="px-1 py-0.5 rounded bg-muted border border-border text-foreground font-semibold ml-1">
-                      k
-                    </kbd>{' '}
-                    navigate
-                  </span>
-                  <span>
-                    <kbd className="px-1 py-0.5 rounded bg-muted border border-border text-foreground font-semibold">
-                      e
-                    </kbd>{' '}
-                    toggle read
-                  </span>
-                  <span>
-                    <kbd className="px-1 py-0.5 rounded bg-muted border border-border text-foreground font-semibold">
-                      x
-                    </kbd>{' '}
-                    delete
-                  </span>
-                  {linkedIssueIdentifier && (
-                    <span>
-                      <kbd className="px-1 py-0.5 rounded bg-muted border border-border text-foreground font-semibold">
-                        ↵
-                      </kbd>{' '}
-                      open issue
-                    </span>
-                  )}
-                </div>
-                <span>Linear-grade triage</span>
+              <div className="hidden shrink-0 items-center border-t border-border px-5 py-2 text-xs text-muted-foreground md:flex">
+                Use the actions above to mark read, delete, or open a linked issue.
               </div>
             </div>
           ) : (
@@ -885,12 +803,14 @@ export function InboxPage() {
               <InboxIcon className="size-8 text-muted-foreground/40" />
               <p className="text-xs font-medium text-foreground">No item selected</p>
               <p className="text-xs text-muted-foreground max-w-xs">
-                Select a notification from the list or use <kbd className="px-1 bg-muted rounded border">j</kbd> and <kbd className="px-1 bg-muted rounded border">k</kbd> to triage.
+                Click a notification in the list to view its details.
               </p>
             </div>
           )}
         </div>
       </div>
+
+      <NotificationPreferencesDialog open={isPreferencesOpen} onOpenChange={setIsPreferencesOpen} />
 
       {/* Embedded Issue Detail Sheet for seamless triage */}
       <IssueDetailSheet

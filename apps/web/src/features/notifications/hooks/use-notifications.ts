@@ -6,14 +6,26 @@ import {
   markAllNotificationsAsRead,
   clearReadNotifications,
   deleteNotification,
-  seedDemoNotifications,
-  createNotification,
   type GetNotificationsParams,
 } from '../api/notifications.api';
 import { toast } from '@reka/ui';
+import { getNotificationPreferences, saveNotificationPreferences, type NotificationPreferences } from '../api/notification-preferences.api';
 
 export const NOTIFICATIONS_QUERY_KEY = ['notifications'];
 export const UNREAD_COUNT_QUERY_KEY = ['notifications', 'unread-count'];
+
+export function useNotificationPreferences() {
+  return useQuery({ queryKey: ['notification-preferences'], queryFn: getNotificationPreferences });
+}
+
+export function useSaveNotificationPreferences() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (preferences: NotificationPreferences) => saveNotificationPreferences(preferences),
+    onSuccess: preferences => { queryClient.setQueryData(['notification-preferences'], preferences); toast.success('Notification preferences saved'); },
+    onError: error => toast.error('Could not save preferences', { description: (error as Error).message }),
+  });
+}
 
 export function useNotifications(params?: GetNotificationsParams) {
   return useQuery({
@@ -23,10 +35,10 @@ export function useNotifications(params?: GetNotificationsParams) {
   });
 }
 
-export function useUnreadCount(userId?: string) {
+export function useUnreadCount() {
   return useQuery({
-    queryKey: [...UNREAD_COUNT_QUERY_KEY, userId],
-    queryFn: () => getUnreadCount(userId),
+    queryKey: UNREAD_COUNT_QUERY_KEY,
+    queryFn: () => getUnreadCount(),
     refetchInterval: 15000,
   });
 }
@@ -56,7 +68,7 @@ export function useMarkAllAsRead() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (userId?: string) => markAllNotificationsAsRead(userId),
+    mutationFn: () => markAllNotificationsAsRead(),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: NOTIFICATIONS_QUERY_KEY });
       queryClient.invalidateQueries({ queryKey: UNREAD_COUNT_QUERY_KEY });
@@ -74,7 +86,7 @@ export function useClearRead() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (userId?: string) => clearReadNotifications(userId),
+    mutationFn: () => clearReadNotifications(),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: NOTIFICATIONS_QUERY_KEY });
       queryClient.invalidateQueries({ queryKey: UNREAD_COUNT_QUERY_KEY });
@@ -101,48 +113,6 @@ export function useDeleteNotification() {
     onError: (err) => {
       toast.error('Failed to delete notification', {
         description: (err as Error).message,
-      });
-    },
-  });
-}
-
-export function useSeedDemoNotifications() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: (userId?: string) => seedDemoNotifications(userId),
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: NOTIFICATIONS_QUERY_KEY });
-      queryClient.invalidateQueries({ queryKey: UNREAD_COUNT_QUERY_KEY });
-      toast.success('Generated demo notifications', {
-        description: `Added ${data.count} triage items to your inbox`,
-      });
-    },
-    onError: (err) => {
-      toast.error('Failed to generate demo notifications', {
-        description: (err as Error).message,
-      });
-    },
-  });
-}
-
-export function useCreateNotification() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: (dto: {
-      userId?: string;
-      type: string;
-      title: string;
-      body: string;
-      link?: string;
-      metadata?: Record<string, any>;
-    }) => createNotification(dto),
-    onSuccess: (created) => {
-      queryClient.invalidateQueries({ queryKey: NOTIFICATIONS_QUERY_KEY });
-      queryClient.invalidateQueries({ queryKey: UNREAD_COUNT_QUERY_KEY });
-      toast.success('Notification sent', {
-        description: created.title,
       });
     },
   });

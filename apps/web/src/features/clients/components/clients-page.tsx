@@ -1,11 +1,5 @@
 import * as React from 'react';
 import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardContent,
-  CardFooter,
   Badge,
   Button,
   Input,
@@ -17,16 +11,11 @@ import {
   FolderKanban,
   Users,
   Search,
-  Sparkles,
-  ExternalLink,
-  Mail,
-  Phone,
-  Trash2,
-  Briefcase,
+  X,
   ChevronRight,
   RefreshCw,
 } from 'lucide-react';
-import { useClients, useDeleteClient, useSeedDemoClients } from '../hooks/use-clients';
+import { useClients } from '../hooks/use-clients';
 import { CreateClientDialog } from './create-client-dialog';
 import { ClientDetailSheet } from './client-detail-sheet';
 import type { Client } from '@reka/types';
@@ -40,7 +29,6 @@ export function ClientsPage() {
   const [industryFilter, setIndustryFilter] = React.useState('all');
 
   const { data: clients = [], isLoading, isError, refetch } = useClients();
-  const seedDemoMutation = useSeedDemoClients();
 
   // Distinct industries for tabs
   const industries = React.useMemo(() => {
@@ -87,7 +75,7 @@ export function ClientsPage() {
   const totalContacts = clients.reduce((acc, c) => acc + (c.contactCount || 0), 0);
 
   return (
-    <div className="flex flex-col gap-6 max-w-7xl mx-auto selection:bg-foreground selection:text-background pb-10">
+    <div className="flex flex-col gap-5 max-w-none mx-auto selection:bg-foreground selection:text-background pb-10">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex flex-col gap-1">
@@ -95,57 +83,40 @@ export function ClientsPage() {
             <h1 className="text-xl sm:text-2xl font-semibold tracking-[-0.03em] text-foreground">
               Clients
             </h1>
-            <span className="font-mono text-xs font-medium text-muted-foreground bg-secondary/80 border border-border/60 px-2 py-0.5 rounded-[5px]">
+            <Badge variant="outline" className="font-mono text-xs font-medium">
               {clients.length}
-            </span>
+            </Badge>
           </div>
           <p className="text-xs text-muted-foreground">
-            Client accounts, external contracts, stakeholders, and associated software delivery projects.
+            Client accounts, contacts, and linked projects.
           </p>
         </div>
 
         <div className="flex items-center gap-2">
-          {clients.length === 0 && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-8 text-xs gap-1.5"
-              onClick={() => seedDemoMutation.mutate()}
-              disabled={seedDemoMutation.isPending}
-            >
-              <Sparkles className="size-3.5 text-blue-500" />
-              <span>Seed Demo Clients</span>
-            </Button>
-          )}
-
-          <Button
-            size="sm"
-            onClick={() => setIsCreateOpen(true)}
-            className="rounded-[6px] h-8 px-3 text-xs font-medium gap-1.5"
-          >
-            <Plus className="size-3.5" />
+          <Button onClick={() => setIsCreateOpen(true)} className="px-3">
+            <Plus data-icon="inline-start" />
             <span>New Client</span>
           </Button>
         </div>
       </div>
 
       {/* Account summary: one calm information band instead of repeated metric cards */}
-      <div className="grid grid-cols-1 divide-y divide-border/70 rounded-lg border border-border/70 bg-card/20 sm:grid-cols-3 sm:divide-x sm:divide-y-0">
-        <div className="flex items-center gap-3 px-4 py-3">
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+        <div className="flex items-center gap-3">
           <Building2 className="size-4 text-muted-foreground" />
           <div className="flex items-baseline gap-2">
             <span className="font-mono text-lg font-semibold tracking-tight text-foreground">{clients.length}</span>
             <span className="text-xs text-muted-foreground">client accounts</span>
           </div>
         </div>
-        <div className="flex items-center gap-3 px-4 py-3">
+        <div className="flex items-center gap-3">
           <FolderKanban className="size-4 text-muted-foreground" />
           <div className="flex items-baseline gap-2">
             <span className="font-mono text-lg font-semibold tracking-tight text-foreground">{totalProjects}</span>
-            <span className="text-xs text-muted-foreground">active projects</span>
+            <span className="text-xs text-muted-foreground">linked projects</span>
           </div>
         </div>
-        <div className="flex items-center gap-3 px-4 py-3">
+        <div className="flex items-center gap-3">
           <Users className="size-4 text-muted-foreground" />
           <div className="flex items-baseline gap-2">
             <span className="font-mono text-lg font-semibold tracking-tight text-foreground">{totalContacts}</span>
@@ -158,35 +129,29 @@ export function ClientsPage() {
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 border-b border-border/70 pb-3">
         {/* Industry Filter Pills */}
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
-          <button
+          <Button
             type="button"
+            variant="category"
+            size="sm"
+            aria-pressed={industryFilter === 'all'}
             onClick={() => setIndustryFilter('all')}
-            className={`h-7 px-2.5 text-xs rounded-[6px] font-medium transition-colors flex items-center gap-1.5 shrink-0 ${
-              industryFilter === 'all'
-                ? 'bg-foreground text-background shadow-2xs'
-                : 'text-muted-foreground hover:text-foreground hover:bg-secondary/60'
-            }`}
+            className="shrink-0"
           >
             <span>All Industries</span>
-            <span className="font-mono text-xs text-muted-foreground">{clients.length}</span>
-          </button>
+          </Button>
 
           {industries.map((ind) => (
-            <button
+            <Button
               key={ind}
               type="button"
+              variant="category"
+              size="sm"
+              aria-pressed={industryFilter === ind}
               onClick={() => setIndustryFilter(ind)}
-              className={`h-7 px-2.5 text-xs rounded-[6px] font-medium transition-colors flex items-center gap-1.5 shrink-0 ${
-                industryFilter === ind
-                  ? 'bg-foreground text-background shadow-2xs'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-secondary/60'
-              }`}
+              className="shrink-0"
             >
               <span>{ind}</span>
-              <span className="font-mono text-xs text-muted-foreground">
-                {clients.filter((c) => c.industry === ind).length}
-              </span>
-            </button>
+            </Button>
           ))}
         </div>
 
@@ -195,6 +160,7 @@ export function ClientsPage() {
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
           <Input
             type="text"
+            aria-label="Search clients or contacts"
             placeholder="Search clients or contacts..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -204,25 +170,26 @@ export function ClientsPage() {
             <button
               type="button"
               onClick={() => setSearchQuery('')}
+              aria-label="Clear client search"
               className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground hover:text-foreground"
             >
-              ×
+              <X className="size-3.5" />
             </button>
           )}
         </div>
       </div>
 
-      {/* Main Grid View */}
+      {/* Client list */}
       {isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div role="status" aria-label="Loading clients" className="flex flex-col gap-2">
           {[1, 2, 3, 4, 5, 6].map((i) => (
-            <Skeleton key={i} className="h-44 w-full rounded-lg" />
+            <Skeleton key={i} className="h-16 w-full rounded-md" />
           ))}
         </div>
       ) : isError ? (
         <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-xs text-destructive flex items-center justify-between">
-          <span>Failed to load clients. Verify database connection.</span>
-          <Button variant="outline" size="sm" onClick={() => refetch()} className="rounded-[6px]">
+          <span>Could not load clients. Please try again.</span>
+          <Button variant="outline" size="sm" onClick={() => refetch()}>
             <RefreshCw data-icon="inline-start" className="size-3.5" />
             <span>Retry</span>
           </Button>
@@ -235,105 +202,63 @@ export function ClientsPage() {
             <p className="text-xs text-muted-foreground mt-0.5">
               {searchQuery || industryFilter !== 'all'
                 ? 'Try adjusting your search query or industry filter.'
-                : 'Get started by creating your first client account or generating sample data.'}
+                : 'Create a client account to get started.'}
             </p>
           </div>
           {!searchQuery && industryFilter === 'all' && (
-            <div className="flex items-center gap-2 mt-2">
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-8 text-xs gap-1.5"
-                onClick={() => seedDemoMutation.mutate()}
-                disabled={seedDemoMutation.isPending}
-              >
-                <Sparkles className="size-3.5 text-blue-500" />
-                <span>Seed Sample Clients</span>
-              </Button>
-              <Button
-                size="sm"
-                className="h-8 text-xs gap-1.5"
-                onClick={() => setIsCreateOpen(true)}
-              >
-                <Plus className="size-3.5" />
-                <span>Create Client</span>
-              </Button>
-            </div>
+            <Button
+              className="gap-1.5"
+              onClick={() => setIsCreateOpen(true)}
+            >
+              <Plus className="size-3.5" />
+              <span>Create Client</span>
+            </Button>
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredClients.map((client) => {
-            const primaryContact = client.contacts?.[0];
-
-            return (
-              <Card
-                key={client.id}
-                onClick={() => handleOpenDetail(client)}
-                className="rounded-lg border border-border bg-card hover:border-foreground/25 transition-colors cursor-pointer flex flex-col justify-between group shadow-none"
-              >
-                <CardHeader className="p-4 pb-2">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <Building2 className="size-4 text-muted-foreground shrink-0" />
-                      <CardTitle className="text-sm font-semibold truncate group-hover:text-foreground">
-                        {client.name}
-                      </CardTitle>
-                    </div>
-
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      {client.industry && (
-                        <Badge variant="outline" className="text-xs font-mono">
-                          {client.industry}
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
-
-                  <CardDescription className="text-xs line-clamp-2 text-muted-foreground leading-relaxed mt-2 min-h-[32px]">
-                    {client.notes || 'No description or account notes recorded.'}
-                  </CardDescription>
-                </CardHeader>
-
-                <CardContent className="p-4 py-2 flex flex-col gap-2">
-                  {/* Linked Projects Preview */}
-                  <div className="flex items-center justify-between text-xs text-muted-foreground pt-1">
-                    <span className="font-mono text-xs flex items-center gap-1">
-                      <FolderKanban className="size-3" />
-                      <span>{client.projectCount || 0} projects</span>
-                    </span>
-
-                    <span className="font-mono text-xs flex items-center gap-1">
-                      <Users className="size-3" />
-                      <span>{client.contactCount || 0} contacts</span>
-                    </span>
-                  </div>
-
-                  {/* Primary contact preview if available */}
-                  {primaryContact && (
-                    <div className="rounded-[6px] bg-background/60 border border-border/60 p-2 text-xs flex items-center justify-between">
-                      <span className="font-medium text-foreground truncate max-w-[140px]">
-                        {primaryContact.name}
+        <div>
+          <div aria-hidden="true" className="hidden grid-cols-[minmax(0,1.5fr)_120px_minmax(0,1fr)_80px_80px_110px_16px] items-center gap-4 border-b border-border px-3 pb-3 text-xs text-muted-foreground xl:grid">
+            <span>Client</span><span>Industry</span><span>Primary contact</span>
+            <span>Projects</span><span>Contacts</span><span>Added</span><span />
+          </div>
+          <ul aria-label="Clients" className="divide-y divide-border">
+            {filteredClients.map((client) => {
+              const primaryContact = client.contacts?.[0];
+              return (
+                <li key={client.id}>
+                  <button
+                    type="button"
+                    aria-label={`Open client ${client.name}`}
+                    onClick={() => handleOpenDetail(client)}
+                    className="grid w-full grid-cols-[minmax(0,1fr)_16px] items-center gap-4 rounded-md px-3 py-4 text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset xl:grid-cols-[minmax(0,1.5fr)_120px_minmax(0,1fr)_80px_80px_110px_16px]"
+                  >
+                    <span className="flex min-w-0 items-start gap-3">
+                      <Building2 className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                      <span className="flex min-w-0 flex-col gap-1">
+                        <span className="truncate text-sm font-medium">{client.name}</span>
+                        <span className="truncate text-xs text-muted-foreground">{client.notes || 'No account notes recorded.'}</span>
+                        {primaryContact && <span className="truncate text-xs text-muted-foreground xl:hidden">{primaryContact.name} · {primaryContact.email}</span>}
+                        <span className="flex flex-wrap items-center gap-x-3 gap-y-1 pt-1 text-xs text-muted-foreground xl:hidden">
+                          {client.industry && <span>{client.industry}</span>}
+                          <span>{client.projectCount || 0} projects</span>
+                          <span>{client.contactCount || 0} contacts</span>
+                        </span>
                       </span>
-                      <span className="text-muted-foreground truncate max-w-[140px] font-mono text-xs">
-                        {primaryContact.email}
-                      </span>
-                    </div>
-                  )}
-                </CardContent>
-
-                <CardFooter className="p-4 pt-2.5 border-t border-border/60 flex items-center justify-between text-xs text-muted-foreground font-mono">
-                  <span className="text-xs">
-                    Added {new Date(client.createdAt).toLocaleDateString()}
-                  </span>
-                  <span className="inline-flex items-center gap-1 text-xs text-foreground font-medium group-hover:translate-x-0.5 transition-transform">
-                    <span>Manage</span>
-                    <ChevronRight className="size-3" />
-                  </span>
-                </CardFooter>
-              </Card>
-            );
-          })}
+                    </span>
+                    <span className="hidden truncate text-xs text-muted-foreground xl:block">{client.industry || 'No industry'}</span>
+                    <span className="hidden min-w-0 flex-col gap-1 text-xs xl:flex">
+                      <span className="truncate">{primaryContact?.name || 'No primary contact'}</span>
+                      {primaryContact && <span className="truncate text-muted-foreground">{primaryContact.email}</span>}
+                    </span>
+                    <span className="hidden items-center gap-2 text-xs tabular-nums text-muted-foreground xl:flex"><FolderKanban className="size-3.5" />{client.projectCount || 0}<span className="sr-only">projects</span></span>
+                    <span className="hidden items-center gap-2 text-xs tabular-nums text-muted-foreground xl:flex"><Users className="size-3.5" />{client.contactCount || 0}<span className="sr-only">contacts</span></span>
+                    <span className="hidden text-xs text-muted-foreground xl:block">{new Date(client.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                    <ChevronRight className="size-4 text-muted-foreground" />
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
         </div>
       )}
 

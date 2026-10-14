@@ -14,42 +14,28 @@ export interface GithubInstallation {
 
 export const GITHUB_INSTALLATIONS_KEY = ['github-installations'];
 
+export interface GithubWebhookDelivery {
+  id: string; deliveryId: string; event: string; processed: boolean; error: string | null; createdAt: string;
+}
+
+export function useGithubWebhookDeliveries(enabled = true) {
+  return useQuery<GithubWebhookDelivery[]>({
+    queryKey: ['github-webhook-deliveries'], enabled,
+    queryFn: async () => {
+      const response = await fetch('/api/integrations/github/installations/webhook-deliveries');
+      if (!response.ok) throw new Error('Failed to load GitHub webhook delivery status');
+      return response.json();
+    }, refetchInterval: 15000, refetchIntervalInBackground: false,
+  });
+}
+
 export function useGithubInstallations() {
   return useQuery<GithubInstallation[]>({
     queryKey: GITHUB_INSTALLATIONS_KEY,
     queryFn: async () => {
       const res = await fetch('/api/integrations/github/installations');
-      if (!res.ok) return [];
+      if (!res.ok) throw new Error('Failed to load GitHub installations');
       return res.json();
-    },
-  });
-}
-
-export function useConnectGithubOrganization() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (input: { accountLogin: string; accountType?: string }) => {
-      const res = await fetch('/api/integrations/github/installations', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(input),
-      });
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => null);
-        throw new Error(errorData?.message || 'Failed to connect GitHub organization');
-      }
-      return res.json();
-    },
-    onSuccess: (newInst) => {
-      queryClient.invalidateQueries({ queryKey: GITHUB_INSTALLATIONS_KEY });
-      queryClient.invalidateQueries({ queryKey: GITHUB_REPOS_KEY });
-      toast.success(`GitHub organization "${newInst.accountLogin}" connected`);
-    },
-    onError: (err: any) => {
-      toast.error('Failed to connect organization', {
-        description: err.message,
-      });
     },
   });
 }
@@ -106,7 +92,7 @@ export function useGithubRepositories() {
     queryKey: GITHUB_REPOS_KEY,
     queryFn: async () => {
       const res = await fetch('/api/integrations/github/repositories');
-      if (!res.ok) return [];
+      if (!res.ok) throw new Error('Failed to load GitHub repositories');
       return res.json();
     },
   });
@@ -117,7 +103,7 @@ export function useAvailableGithubRepositories() {
     queryKey: ['github-available-repos'],
     queryFn: async () => {
       const res = await fetch('/api/integrations/github/repositories/available');
-      if (!res.ok) return [];
+      if (!res.ok) throw new Error('Failed to load repositories available from GitHub');
       return res.json();
     },
   });

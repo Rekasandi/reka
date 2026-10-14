@@ -6,10 +6,15 @@ import {
   updateTeam,
   addTeamMember,
   removeTeamMember,
+  updateTeamMember,
+  joinTeam,
   deleteTeam,
   type CreateTeamInput,
   type UpdateTeamInput,
   type AddTeamMemberInput,
+  getTeamWorkflowStates,
+  updateTeamWorkflowStates,
+  type TeamWorkflowState,
 } from '../api/teams.api';
 import { toast } from '@reka/ui';
 
@@ -27,6 +32,27 @@ export function useTeam(id?: string) {
     queryKey: ['team', id],
     queryFn: () => (id ? getTeamById(id) : null),
     enabled: !!id,
+  });
+}
+
+export function useTeamWorkflowStates(teamId?: string) {
+  return useQuery({
+    queryKey: ['team-workflow-states', teamId],
+    queryFn: () => teamId ? getTeamWorkflowStates(teamId) : Promise.resolve([]),
+    enabled: !!teamId,
+  });
+}
+
+export function useUpdateTeamWorkflowStates(teamId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (states: Omit<TeamWorkflowState, 'teamId'>[]) => updateTeamWorkflowStates(teamId, states),
+    onSuccess: (states) => {
+      queryClient.setQueryData(['team-workflow-states', teamId], states);
+      queryClient.invalidateQueries({ queryKey: ['issues'] });
+      toast.success('Team workflow updated');
+    },
+    onError: (error) => toast.error('Could not update workflow', { description: (error as Error).message }),
   });
 }
 
@@ -56,6 +82,7 @@ export function useUpdateTeam() {
     onSuccess: (updated) => {
       queryClient.invalidateQueries({ queryKey: TEAMS_QUERY_KEY });
       queryClient.invalidateQueries({ queryKey: ['team', updated.id] });
+      queryClient.invalidateQueries({ queryKey: ['issues'] });
       toast.info(`Team "${updated.name}" updated`);
     },
     onError: (err) => {
@@ -99,6 +126,32 @@ export function useRemoveTeamMember(teamId: string) {
         description: (err as Error).message,
       });
     },
+  });
+}
+
+export function useUpdateTeamMember(teamId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ userId, role }: { userId: string; role: 'lead' | 'member' | 'viewer' }) => updateTeamMember(teamId, userId, role),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: TEAMS_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: ['team', teamId] });
+      toast.success('Team role updated');
+    },
+    onError: (error) => toast.error('Could not update team role', { description: error.message }),
+  });
+}
+
+export function useJoinTeam(teamId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => joinTeam(teamId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: TEAMS_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: ['team', teamId] });
+      toast.success('Joined team');
+    },
+    onError: error => toast.error('Could not join team', { description: error.message }),
   });
 }
 

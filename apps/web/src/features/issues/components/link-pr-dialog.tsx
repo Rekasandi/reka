@@ -1,230 +1,97 @@
 import * as React from 'react';
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-  Button,
-  Field,
-  FieldLabel,
-  Input,
-  Select,
-  SelectTrigger,
-  SelectValue,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
+  Button, Field, FieldLabel, Input, Select, SelectTrigger, SelectValue, SelectContent, SelectGroup, SelectItem,
 } from '@reka/ui';
-import { GitPullRequest, ExternalLink, ShieldCheck, CheckCircle2, AlertCircle } from 'lucide-react';
-import { useLinkPullRequest } from '../hooks/use-github-integration';
+import { GitPullRequest, Lock, RefreshCw } from 'lucide-react';
+import { useIssueGithubRepositories, useLinkPullRequest } from '../hooks/use-github-integration';
 
 interface LinkPullRequestDialogProps {
   issueId: string;
   issueIdentifier: string;
-  branchName: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-export function LinkPullRequestDialog({
-  issueId,
-  issueIdentifier,
-  branchName,
-  open,
-  onOpenChange,
-}: LinkPullRequestDialogProps) {
+export function LinkPullRequestDialog({ issueId, issueIdentifier, open, onOpenChange }: LinkPullRequestDialogProps) {
+  const [repositoryId, setRepositoryId] = React.useState('');
   const [prNumber, setPrNumber] = React.useState('');
-  const [prTitle, setPrTitle] = React.useState('');
-  const [prUrl, setPrUrl] = React.useState('');
-  const [isMerged, setIsMerged] = React.useState(false);
-  const [ciStatus, setCiStatus] = React.useState<'pending' | 'success' | 'failure'>('success');
-  const [reviewStatus, setReviewStatus] = React.useState<'none' | 'changes_requested' | 'approved'>('approved');
-  const [deployEnv, setDeployEnv] = React.useState<'production' | 'preview'>('preview');
-  const [releaseTag, setReleaseTag] = React.useState('');
-
+  const { data: repositories = [], isLoading, isError, refetch } = useIssueGithubRepositories(issueId);
   const linkMutation = useLinkPullRequest(issueId);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const num = parseInt(prNumber.trim(), 10);
-    if (!num || !prTitle.trim()) return;
+  React.useEffect(() => {
+    if (!open) return;
+    setRepositoryId(repositories[0]?.id || '');
+    setPrNumber('');
+  }, [open, repositories]);
 
-    const url = prUrl.trim() || `https://github.com/rekasandi/reka/pull/${num}`;
-
-    linkMutation.mutate(
-      {
-        prNumber: num,
-        title: prTitle.trim(),
-        branchName,
-        htmlUrl: url,
-        merged: isMerged,
-        ciStatus,
-        reviewStatus,
-        deployEnv,
-        deployUrl: deployEnv === 'production' ? 'https://reka.dev' : `https://pr-${num}.reka-preview.app`,
-        releaseTag: releaseTag.trim() || undefined,
+  const handleSubmit = (event: React.FormEvent) => {
+    event.preventDefault();
+    const number = Number(prNumber);
+    if (!repositoryId || !Number.isSafeInteger(number) || number <= 0) return;
+    linkMutation.mutate({ repositoryId, prNumber: number }, {
+      onSuccess: () => {
+        setPrNumber('');
+        onOpenChange(false);
       },
-      {
-        onSuccess: () => {
-          setPrNumber('');
-          setPrTitle('');
-          setPrUrl('');
-          setIsMerged(false);
-          setReleaseTag('');
-          onOpenChange(false);
-        },
-      },
-    );
+    });
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-full sm:max-w-lg max-w-lg">
+      <DialogContent className="w-full sm:max-w-lg">
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <DialogHeader>
             <div className="flex items-center gap-2">
-              <div className="size-6 rounded-[5px] bg-secondary flex items-center justify-center text-foreground shrink-0 border border-border/70">
-                <GitPullRequest className="size-3.5" />
-              </div>
+              <GitPullRequest className="size-4" />
               <DialogTitle className="text-base">Link GitHub Pull Request</DialogTitle>
             </div>
             <DialogDescription>
-              Connect PR & tracking details for <span className="font-mono font-semibold text-foreground">{issueIdentifier}</span>.
+              Verify an existing pull request for <span className="font-mono font-semibold text-foreground">{issueIdentifier}</span>. Title, branch and merge state come from GitHub.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="flex flex-col gap-3 py-1">
-            <div className="grid grid-cols-3 gap-2.5">
+          {isLoading ? (
+            <div className="py-5 text-center text-sm text-muted-foreground" role="status">Loading repositories…</div>
+          ) : isError ? (
+            <div className="flex items-center justify-between gap-3 rounded-md border border-destructive/30 p-3" role="alert">
+              <p className="text-sm text-muted-foreground">Could not load repositories linked to this issue.</p>
+              <Button type="button" variant="outline" size="sm" onClick={() => refetch()}>Retry</Button>
+            </div>
+          ) : repositories.length === 0 ? (
+            <div className="rounded-md border border-border bg-muted/30 p-3 text-sm text-muted-foreground">
+              Link a GitHub repository to this issue&apos;s project before attaching a pull request.
+            </div>
+          ) : (
+            <div className="flex flex-col gap-3">
               <Field>
-                <FieldLabel>PR #</FieldLabel>
+                <FieldLabel>Connected repository</FieldLabel>
+                <Select value={repositoryId} onValueChange={setRepositoryId}>
+                  <SelectTrigger size="compact" className="w-full"><SelectValue placeholder="Choose repository" /></SelectTrigger>
+                  <SelectContent><SelectGroup>
+                    {repositories.map((repository) => <SelectItem key={repository.id} value={repository.id}>
+                      <span className="flex items-center gap-2"><span>{repository.fullName}</span>{repository.isPrivate && <Lock className="size-3" />}</span>
+                    </SelectItem>)}
+                  </SelectGroup></SelectContent>
+                </Select>
+              </Field>
+              <Field>
+                <FieldLabel>Pull request number</FieldLabel>
                 <Input
-                  type="number"
-                  placeholder="e.g. 42"
-                  value={prNumber}
-                  onChange={(e) => setPrNumber(e.target.value)}
-                  autoFocus
-                  required
+                  type="number" min="1" step="1" required autoFocus
+                  placeholder="e.g. 42" value={prNumber}
+                  onChange={(event) => setPrNumber(event.target.value)}
                   className="h-8 text-xs font-mono"
                 />
               </Field>
-
-              <div className="col-span-2">
-                <Field>
-                  <FieldLabel>Pull Request Title</FieldLabel>
-                  <Input
-                    placeholder="feat: implement sync engine"
-                    value={prTitle}
-                    onChange={(e) => setPrTitle(e.target.value)}
-                    required
-                    className="h-8 text-xs"
-                  />
-                </Field>
-              </div>
+              {linkMutation.isError && <p className="text-xs text-destructive" role="alert">{linkMutation.error.message}</p>}
             </div>
-
-            <div className="grid grid-cols-2 gap-2.5">
-              <Field>
-                <FieldLabel>CI/CD Build Checks</FieldLabel>
-                <Select value={ciStatus} onValueChange={(val) => setCiStatus(val as any)}>
-                  <SelectTrigger className="h-8 text-xs w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectGroup>
-                      <SelectItem value="success">All Checks Passing</SelectItem>
-                      <SelectItem value="pending">Building / In Progress</SelectItem>
-                      <SelectItem value="failure">Tests / Checks Failed</SelectItem>
-                    </SelectGroup>
-                  </SelectContent>
-                </Select>
-              </Field>
-
-              <Field>
-                <FieldLabel>Code Review Status</FieldLabel>
-                <Select value={reviewStatus} onValueChange={(val) => setReviewStatus(val as any)}>
-                  <SelectTrigger className="h-8 text-xs w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectGroup>
-                      <SelectItem value="approved">Approved</SelectItem>
-                      <SelectItem value="changes_requested">Changes Requested</SelectItem>
-                      <SelectItem value="none">Review Requested</SelectItem>
-                    </SelectGroup>
-                  </SelectContent>
-                </Select>
-              </Field>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2.5">
-              <Field>
-                <FieldLabel>Deployment Preview</FieldLabel>
-                <Select value={deployEnv} onValueChange={(val) => setDeployEnv(val as any)}>
-                  <SelectTrigger className="h-8 text-xs w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectGroup>
-                      <SelectItem value="preview">Preview / Staging</SelectItem>
-                      <SelectItem value="production">Production</SelectItem>
-                    </SelectGroup>
-                  </SelectContent>
-                </Select>
-              </Field>
-
-              <Field>
-                <FieldLabel>Release Tag (Optional)</FieldLabel>
-                <Input
-                  placeholder="v1.2.0"
-                  value={releaseTag}
-                  onChange={(e) => setReleaseTag(e.target.value)}
-                  className="h-8 text-xs font-mono"
-                />
-              </Field>
-            </div>
-
-            <Field>
-              <FieldLabel className="text-muted-foreground">GitHub PR URL (Optional)</FieldLabel>
-              <Input
-                type="url"
-                placeholder="https://github.com/rekasandi/reka/pull/42"
-                value={prUrl}
-                onChange={(e) => setPrUrl(e.target.value)}
-                className="h-8 text-xs font-mono"
-              />
-            </Field>
-
-            <div className="flex items-center gap-2 pt-1">
-              <input
-                type="checkbox"
-                id="isMerged"
-                checked={isMerged}
-                onChange={(e) => setIsMerged(e.target.checked)}
-                className="size-3.5 rounded border border-border bg-transparent checked:bg-primary accent-primary cursor-pointer"
-              />
-              <label htmlFor="isMerged" className="text-xs text-foreground cursor-pointer select-none">
-                PR is already merged (auto-moves issue to Done)
-              </label>
-            </div>
-          </div>
+          )}
 
           <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => onOpenChange(false)}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              size="sm"
-              disabled={!prNumber.trim() || !prTitle.trim() || linkMutation.isPending}
-            >
-              {linkMutation.isPending ? 'Linking...' : 'Link Pull Request'}
+            <Button type="button" variant="outline" size="sm" onClick={() => onOpenChange(false)}>Cancel</Button>
+            <Button type="submit" size="sm" disabled={!repositoryId || !prNumber.trim() || linkMutation.isPending || isLoading || isError || repositories.length === 0}>
+              {linkMutation.isPending ? <><RefreshCw className="mr-1.5 size-3 animate-spin" /> Verifying…</> : 'Verify and link'}
             </Button>
           </DialogFooter>
         </form>

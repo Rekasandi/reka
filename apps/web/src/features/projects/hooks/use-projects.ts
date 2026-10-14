@@ -51,6 +51,7 @@ export function useUpdateProject() {
       updateProject(id, data),
     onSuccess: (updated) => {
       queryClient.invalidateQueries({ queryKey: PROJECTS_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: ['project', updated.id] });
       toast.info(`Project "${updated.name}" updated`);
     },
     onError: (err) => {

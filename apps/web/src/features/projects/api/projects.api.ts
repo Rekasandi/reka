@@ -1,3 +1,5 @@
+import type { EntityIconName } from '@reka/types';
+
 export interface ProjectRepository {
   id: string;
   repoId?: number;
@@ -15,6 +17,7 @@ export interface Project {
   teamId: string;
   clientId?: string | null;
   name: string;
+  icon?: EntityIconName | null;
   slug: string;
   description?: string | null;
   status: 'planned' | 'in_progress' | 'paused' | 'completed' | 'canceled';
@@ -31,14 +34,28 @@ export interface Project {
   updatedAt: string;
 }
 
+export interface ProjectMilestone {
+  id: string; projectId: string; name: string; description: string | null; targetDate: string | null;
+  position: number; totalIssues: number; completedIssues: number; progress: number; isComplete: boolean;
+}
+export interface ProjectUpdate {
+  id: string; projectId: string; authorId: string; authorName?: string; authorAvatarUrl?: string | null;
+  health: Project['health']; body: string; createdAt: string; updatedAt: string;
+}
+export interface ProjectDependencyItem { id: string; name: string; status: Project['status']; targetDate: string | null }
+export interface ProjectDependencies { dependsOn: ProjectDependencyItem[]; blockedBy: ProjectDependencyItem[] }
+
 export interface CreateProjectInput {
   teamId: string;
   name: string;
+  icon?: EntityIconName | null;
   description?: string;
   status?: string;
   health?: string;
   priority?: string;
-  targetDate?: string;
+  ownerId?: string;
+  startDate?: string | null;
+  targetDate?: string | null;
 }
 
 export async function getProjects(): Promise<Project[]> {
@@ -103,3 +120,24 @@ export async function unlinkProjectRepository(projectId: string, repositoryId: s
   if (!res.ok) throw new Error('Failed to unlink repository from project');
   return res.json();
 }
+
+async function workflowRequest<T>(path: string, method = 'GET', body?: unknown): Promise<T> {
+  const res = await fetch(path, { method, ...(body !== undefined ? { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : {}) });
+  if (!res.ok) throw new Error((await res.json().catch(() => null))?.message || 'Project request failed');
+  return res.json();
+}
+const projectPath = (id: string, suffix: string) => `/api/projects/${encodeURIComponent(id)}/${suffix}`;
+export const getProjectMilestones = (id: string) => workflowRequest<ProjectMilestone[]>(projectPath(id, 'milestones'));
+export const createProjectMilestone = (id: string, input: { name: string; description?: string; targetDate?: string }) => workflowRequest<ProjectMilestone>(projectPath(id, 'milestones'), 'POST', input);
+export const updateProjectMilestone = (id: string, milestoneId: string, input: Partial<{ name: string; description: string | null; targetDate: string | null; position: number }>) => workflowRequest<ProjectMilestone>(projectPath(id, `milestones/${milestoneId}`), 'PATCH', input);
+export const deleteProjectMilestone = (id: string, milestoneId: string) => workflowRequest<{ success: boolean }>(projectPath(id, `milestones/${milestoneId}`), 'DELETE');
+export const assignIssueMilestone = (id: string, milestoneId: string, issueId: string) => workflowRequest('/api/projects/' + encodeURIComponent(id) + `/milestones/${encodeURIComponent(milestoneId)}/issues/${encodeURIComponent(issueId)}`, 'POST');
+export const unassignIssueMilestone = (id: string, milestoneId: string, issueId: string) => workflowRequest('/api/projects/' + encodeURIComponent(id) + `/milestones/${encodeURIComponent(milestoneId)}/issues/${encodeURIComponent(issueId)}`, 'DELETE');
+export const getProjectDependencies = (id: string) => workflowRequest<ProjectDependencies>(projectPath(id, 'dependencies'));
+export const addProjectDependency = (id: string, dependsOnProjectId: string) => workflowRequest(projectPath(id, 'dependencies'), 'POST', { dependsOnProjectId });
+export const removeProjectDependency = (id: string, dependsOnProjectId: string) => workflowRequest<{ success: boolean }>(projectPath(id, `dependencies/${dependsOnProjectId}`), 'DELETE');
+export const getProjectUpdates = (id: string) => workflowRequest<ProjectUpdate[]>(projectPath(id, 'updates'));
+export const getProjectUpdateSubscription = (id: string) => workflowRequest<{ subscribed: boolean }>(projectPath(id, 'update-subscription'));
+export const setProjectUpdateSubscription = (id: string, subscribed: boolean) => workflowRequest<{ subscribed: boolean }>(projectPath(id, 'update-subscription'), subscribed ? 'POST' : 'DELETE');
+export const createProjectUpdate = (id: string, input: { body: string; health: Project['health'] }) => workflowRequest<ProjectUpdate>(projectPath(id, 'updates'), 'POST', input);
+export const updateProjectUpdate = (id: string, updateId: string, input: Partial<{ body: string; health: Project['health'] }>) => workflowRequest<ProjectUpdate>(projectPath(id, `updates/${updateId}`), 'PATCH', input);

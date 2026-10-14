@@ -1,14 +1,67 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getIssues, createIssue, updateIssue, deleteIssue, getSubtasks, type CreateIssueInput } from '../api/issues.api';
-import type { Issue } from '@reka/types';
+import { getIssues, createIssue, updateIssue, updateIssues, deleteIssue, archiveIssue, moveIssueToTop, getSubtasks, type CreateIssueInput, type IssuePatch, type BulkIssueUpdate } from '../api/issues.api';
+import type { Issue, Label } from '@reka/types';
 import { toast } from '@reka/ui';
 
 export const ISSUES_QUERY_KEY = ['issues'];
 
-export function useIssues(status?: string) {
+export function useIssues(status?: string, archived = false) {
   return useQuery({
-    queryKey: status ? [...ISSUES_QUERY_KEY, status] : ISSUES_QUERY_KEY,
-    queryFn: () => getIssues(status),
+    queryKey: [...ISSUES_QUERY_KEY, status ?? 'all', archived ? 'archived' : 'active'],
+    queryFn: () => getIssues(status, archived),
+  });
+}
+
+export function useCreateLabel() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { teamId: string; projectId?: string | null; name: string; color?: string }) => {
+      const response = await fetch('/api/labels', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input) });
+      if (!response.ok) throw new Error((await response.json().catch(() => null))?.message || 'Could not create label');
+      return response.json() as Promise<Label>;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['labels'] });
+      toast.success('Label created');
+    },
+    onError: (error) => toast.error('Could not create label', { description: (error as Error).message }),
+  });
+}
+
+export function useUpdateLabel() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, name, color }: { id: string; name: string; color: string }) => {
+      const response = await fetch(`/api/labels/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, color }) });
+      if (!response.ok) throw new Error((await response.json().catch(() => null))?.message || 'Could not update label');
+      return response.json() as Promise<Label>;
+    },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['labels'] }); queryClient.invalidateQueries({ queryKey: ISSUES_QUERY_KEY }); toast.success('Label updated'); },
+    onError: error => toast.error('Could not update label', { description: (error as Error).message }),
+  });
+}
+
+export function useDeleteLabel() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const response = await fetch(`/api/labels/${id}`, { method: 'DELETE' });
+      if (!response.ok) throw new Error((await response.json().catch(() => null))?.message || 'Could not delete label');
+      return response.json() as Promise<{ id: string; success: boolean }>;
+    },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['labels'] }); queryClient.invalidateQueries({ queryKey: ISSUES_QUERY_KEY }); toast.success('Label deleted'); },
+    onError: error => toast.error('Could not delete label', { description: (error as Error).message }),
+  });
+}
+
+export function useIssueLabels() {
+  return useQuery({
+    queryKey: ['labels'],
+    queryFn: async (): Promise<Label[]> => {
+      const response = await fetch('/api/labels');
+      if (!response.ok) throw new Error('Failed to fetch labels');
+      return response.json();
+    },
   });
 }
 
@@ -35,9 +88,13 @@ export function useUpdateIssue() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: Partial<Issue> }) => updateIssue(id, data),
-    onSuccess: (updated) => {
+    mutationFn: ({ id, data }: { id: string; data: IssuePatch }) => updateIssue(id, data),
+    onSuccess: (updated, { data }) => {
       queryClient.invalidateQueries({ queryKey: ISSUES_QUERY_KEY });
+      if (data.cycleId !== undefined) {
+        queryClient.invalidateQueries({ queryKey: ['cycles'] });
+        queryClient.invalidateQueries({ queryKey: ['cycle'] });
+      }
       toast.info(`Updated ${updated.identifier}`, {
         description: `Status: ${updated.status}`,
       });
@@ -47,6 +104,39 @@ export function useUpdateIssue() {
         description: (err as Error).message,
       });
     },
+  });
+}
+
+export function useBulkUpdateIssues() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: BulkIssueUpdate) => updateIssues(input),
+    onSuccess: (updated) => {
+      queryClient.invalidateQueries({ queryKey: ISSUES_QUERY_KEY });
+      toast.success(`Updated ${updated.length} issues`);
+    },
+    onError: (error) => toast.error('Bulk update failed', { description: (error as Error).message }),
+  });
+}
+
+export function useArchiveIssue() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, restore = false }: { id: string; restore?: boolean }) => archiveIssue(id, restore),
+    onSuccess: (issue, { restore }) => {
+      queryClient.invalidateQueries({ queryKey: ISSUES_QUERY_KEY });
+      toast.success(restore ? `Restored ${issue.identifier}` : `Archived ${issue.identifier}`);
+    },
+    onError: (error) => toast.error('Issue action failed', { description: (error as Error).message }),
+  });
+}
+
+export function useMoveIssueToTop() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => moveIssueToTop(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ISSUES_QUERY_KEY }),
+    onError: (error) => toast.error('Could not reorder issue', { description: (error as Error).message }),
   });
 }
 

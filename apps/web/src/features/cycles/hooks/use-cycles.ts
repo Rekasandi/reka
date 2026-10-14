@@ -6,9 +6,14 @@ import {
   updateCycle,
   completeCycle,
   deleteCycle,
+  reopenCycle,
+  getCycleHistory,
+  getTeamCycleSettings,
+  saveTeamCycleSettings,
   type CreateCycleInput,
   type UpdateCycleInput,
   type CompleteCycleInput,
+  type TeamCycleSettings,
 } from '../api/cycles.api';
 import { toast } from '@reka/ui';
 
@@ -19,6 +24,14 @@ export function useCycles() {
     queryKey: CYCLES_QUERY_KEY,
     queryFn: getCycles,
   });
+}
+
+export function useCycleHistory(id?: string) {
+  return useQuery({ queryKey: ['cycle-history', id], queryFn: () => getCycleHistory(id!), enabled: !!id });
+}
+
+export function useTeamCycleSettings(teamId?: string) {
+  return useQuery({ queryKey: ['cycle-settings', teamId], queryFn: () => getTeamCycleSettings(teamId!), enabled: !!teamId });
 }
 
 export function useCycle(id?: string) {
@@ -54,6 +67,7 @@ export function useUpdateCycle() {
       updateCycle(id, data),
     onSuccess: (updated) => {
       queryClient.invalidateQueries({ queryKey: CYCLES_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: ['cycle', updated.id] });
       toast.info(`Cycle "${updated.name}" updated`);
     },
     onError: (err) => {
@@ -73,6 +87,8 @@ export function useCompleteCycle() {
     onSuccess: (res) => {
       queryClient.invalidateQueries({ queryKey: CYCLES_QUERY_KEY });
       queryClient.invalidateQueries({ queryKey: ['issues'] });
+      queryClient.invalidateQueries({ queryKey: ['cycle'] });
+      queryClient.invalidateQueries({ queryKey: ['cycle-history'] });
       toast.success('Cycle ended', {
         description: `${res.rolledOverCount} incomplete issues moved.`,
       });
@@ -82,6 +98,24 @@ export function useCompleteCycle() {
         description: (err as Error).message,
       });
     },
+  });
+}
+
+export function useReopenCycle() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => reopenCycle(id),
+    onSuccess: (_, id) => { queryClient.invalidateQueries({ queryKey: CYCLES_QUERY_KEY }); queryClient.invalidateQueries({ queryKey: ['cycle', id] }); toast.success('Cycle reopened'); },
+    onError: (err) => toast.error('Failed to reopen cycle', { description: (err as Error).message }),
+  });
+}
+
+export function useSaveTeamCycleSettings(teamId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (settings: Omit<TeamCycleSettings, 'teamId' | 'updatedBy' | 'createdAt' | 'updatedAt'>) => saveTeamCycleSettings(teamId, settings),
+    onSuccess: (settings) => { queryClient.setQueryData(['cycle-settings', teamId], settings); queryClient.invalidateQueries({ queryKey: CYCLES_QUERY_KEY }); toast.success('Cycle schedule saved'); },
+    onError: (err) => toast.error('Failed to save cycle schedule', { description: (err as Error).message }),
   });
 }
 
