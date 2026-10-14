@@ -21,6 +21,7 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { SearchModule } from './search/search.module';
 import { GithubModule } from './github/github.module';
 import { AutomationsModule } from './automations/automations.module';
+import { TriageModule } from './triage/triage.module';
 import { IssueSubscriptionsModule } from './issue-subscriptions/issue-subscriptions.module';
 import { AttachmentsModule } from './attachments/attachments.module';
 
@@ -49,6 +50,7 @@ import { AttachmentsModule } from './attachments/attachments.module';
     SearchModule,
     GithubModule,
     AutomationsModule,
+    TriageModule,
     IssueSubscriptionsModule,
     AttachmentsModule,
   ],
