@@ -1,6 +1,7 @@
 export const QUEUES = {
   GITHUB_WEBHOOKS: 'github-webhooks',
-  NOTIFICATIONS: 'notifications',
   ACTIVITIES: 'activities',
   AUTOMATIONS: 'automations',
+  ISSUE_RECURRENCES: 'issue-recurrences',
+  CYCLE_PLANNING: 'cycle-planning',
 } as const;

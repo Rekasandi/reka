@@ -12,8 +12,9 @@ export function verifyGithubWebhookSignature(
   if (!signature || !secret) return false;
   const hmac = crypto.createHmac('sha256', secret);
   hmac.update(payload);
-  const expectedSignature = `sha256=${hmac.digest('hex')}`;
-  return crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSignature));
+  const expectedSignature = Buffer.from(`sha256=${hmac.digest('hex')}`);
+  const actualSignature = Buffer.from(signature);
+  return actualSignature.length === expectedSignature.length && crypto.timingSafeEqual(actualSignature, expectedSignature);
 }
 
 /**
