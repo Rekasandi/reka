@@ -10,6 +10,7 @@ import { comments, attachments } from './comments';
 import { cycles } from './cycles';
 import { activities } from './activities';
 import { notifications } from './notifications';
+import { issueSubscriptions, notificationPreferences } from './collaboration';
 import {
   githubInstallations,
   githubRepositories,
@@ -18,7 +19,7 @@ import {
   githubBranches,
 } from './github';
 
-export const usersRelations = relations(users, ({ many }) => ({
+export const usersRelations = relations(users, ({ many, one }) => ({
   credentials: many(userCredentials),
   sessions: many(sessions),
   organizationMemberships: many(organizationMembers),
@@ -28,6 +29,8 @@ export const usersRelations = relations(users, ({ many }) => ({
   reportedIssues: many(issues, { relationName: 'reporter' }),
   comments: many(comments),
   notifications: many(notifications),
+  issueSubscriptions: many(issueSubscriptions),
+  notificationPreferences: one(notificationPreferences),
 }));
 
 export const organizationsRelations = relations(organizations, ({ many }) => ({
@@ -107,9 +110,19 @@ export const issuesRelations = relations(issues, ({ one, many }) => ({
   labels: many(issueLabels),
   comments: many(comments),
   attachments: many(attachments),
+  subscriptions: many(issueSubscriptions),
   pullRequests: many(githubPullRequests),
   branches: many(githubBranches),
   activities: many(activities),
+}));
+
+export const issueSubscriptionsRelations = relations(issueSubscriptions, ({ one }) => ({
+  issue: one(issues, { fields: [issueSubscriptions.issueId], references: [issues.id] }),
+  user: one(users, { fields: [issueSubscriptions.userId], references: [users.id] }),
+}));
+
+export const notificationPreferencesRelations = relations(notificationPreferences, ({ one }) => ({
+  user: one(users, { fields: [notificationPreferences.userId], references: [users.id] }),
 }));
 
 export const commentsRelations = relations(comments, ({ one }) => ({

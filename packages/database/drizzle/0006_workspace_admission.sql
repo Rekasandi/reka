@@ -1,0 +1,3 @@
+ALTER TABLE "organization_members" ADD COLUMN "admission" varchar(16) DEFAULT 'legacy' NOT NULL;--> statement-breakpoint
+ALTER TABLE "organization_members" ADD CONSTRAINT "organization_members_admission_check" CHECK ("organization_members"."admission" IN ('legacy', 'pending', 'invited'));--> statement-breakpoint
+ALTER TABLE "organization_members" ADD CONSTRAINT "organization_members_pending_check" CHECK (NOT ("organization_members"."admission" = 'pending' AND "organization_members"."is_active"));

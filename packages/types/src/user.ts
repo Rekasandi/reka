@@ -5,6 +5,7 @@ export interface User {
   email: string;
   name: string;
   avatarUrl?: string | null;
+  githubUsername?: string | null;
   role: UserRole;
   createdAt: Date;
   updatedAt: Date;

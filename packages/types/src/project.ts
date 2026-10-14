@@ -1,4 +1,4 @@
-import type { ProjectStatus, ProjectHealth, IssuePriority } from './common';
+import type { ProjectStatus, ProjectHealth, IssuePriority, EntityIconName } from './common';
 import type { GithubRepository } from './github';
 
 export interface Project {
@@ -7,6 +7,7 @@ export interface Project {
   teamId: string;
   clientId?: string | null;
   name: string;
+  icon?: EntityIconName | null;
   slug: string;
   description?: string | null;
   status: ProjectStatus;

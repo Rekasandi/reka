@@ -15,6 +15,188 @@
       "when": 1790520679813,
       "tag": "0001_brainy_whiplash",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791443567444,
+      "tag": "0002_robust_mole_man",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1791863195382,
+      "tag": "0003_charming_titanium_man",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1791902338953,
+      "tag": "0004_workflow_foundation",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1791909555147,
+      "tag": "0005_workspace_identity",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791911780092,
+      "tag": "0006_workspace_admission",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1791915340837,
+      "tag": "0007_team_lead_guards",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1791949266000,
+      "tag": "0008_webhook_notification_dedup",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1791949907791,
+      "tag": "0009_milky_chronomancer",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1791950180369,
+      "tag": "0010_acoustic_otto_octavius",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1791950629541,
+      "tag": "0011_soft_rattler",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1791951133804,
+      "tag": "0012_loud_maverick",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1791951486252,
+      "tag": "0013_jazzy_tiger_shark",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1791951588702,
+      "tag": "0014_redundant_luckman",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1791952263371,
+      "tag": "0015_worried_black_queen",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1791952703624,
+      "tag": "0016_chief_micromacro",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1791954813919,
+      "tag": "0017_internal_issue_triage",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1791956185380,
+      "tag": "0018_saved_views_favorites",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1791957768375,
+      "tag": "0019_overconfident_thunderbolts",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1791959496056,
+      "tag": "0020_aberrant_kulan_gath",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1791959850478,
+      "tag": "0021_messy_starjammers",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1791960861838,
+      "tag": "0022_brown_violations",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1791962300771,
+      "tag": "0023_good_puck",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1791964167685,
+      "tag": "0024_github_branch_links",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1791964297987,
+      "tag": "0025_github_activity_delivery_idempotency",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1791964927172,
+      "tag": "0026_github_activity_event_scope_idempotency",
+      "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1791966225903,
+      "tag": "0027_insight_status_category_history",
+      "breakpoints": true
     }
   ]
 }

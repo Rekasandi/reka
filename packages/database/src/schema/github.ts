@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, uuid, varchar, integer, boolean, jsonb, bigint, primaryKey } from 'drizzle-orm/pg-core';
+import { pgTable, text, timestamp, uuid, varchar, integer, boolean, jsonb, bigint, primaryKey, uniqueIndex } from 'drizzle-orm/pg-core';
 import { organizations } from './organizations';
 import { projects } from './projects';
 import { issues } from './issues';
@@ -52,7 +52,7 @@ export const githubBranches = pgTable('github_branches', {
   name: varchar('name', { length: 255 }).notNull(),
   sha: varchar('sha', { length: 40 }).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-});
+}, (t) => [uniqueIndex('github_branches_repo_issue_name_unique_idx').on(t.repositoryId, t.issueId, t.name)]);
 
 export const githubPullRequests = pgTable('github_pull_requests', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -73,7 +73,7 @@ export const githubPullRequests = pgTable('github_pull_requests', {
   releaseTag: varchar('release_tag', { length: 64 }), // e.g. 'v1.2.0'
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
-});
+}, (t) => [uniqueIndex('github_pull_requests_repository_pr_unique_idx').on(t.repositoryId, t.prNumber)]);
 
 export const webhookEvents = pgTable('webhook_events', {
   id: uuid('id').primaryKey().defaultRandom(),

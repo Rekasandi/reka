@@ -1,0 +1,1 @@
+ALTER TABLE "issues" ADD COLUMN "archive_batch_id" uuid;

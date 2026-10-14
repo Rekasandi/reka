@@ -14,6 +14,12 @@ export type IssueType = 'task' | 'bug' | 'feature' | 'improvement' | 'chore';
 
 export type IssueRelationType = 'blocks' | 'blocked_by' | 'related_to' | 'duplicate';
 
+export const ENTITY_ICON_NAMES = [
+  'FolderKanban', 'Folder', 'BriefcaseBusiness', 'Rocket', 'Layers3', 'CodeXml',
+  'Users', 'UsersRound', 'Users2', 'Zap', 'Target', 'Boxes', 'Workflow', 'Building2',
+] as const;
+export type EntityIconName = (typeof ENTITY_ICON_NAMES)[number];
+
 export type ProjectStatus =
   | 'planned'
   | 'backlog'
@@ -33,6 +39,10 @@ export type NotificationType =
   | 'comment'
   | 'pr_review_requested'
   | 'pr_approved'
+  | 'pr_changes_requested'
+  | 'pr_closed'
   | 'pr_merged'
   | 'deadline_approaching'
-  | 'issue_blocked';
+  | 'issue_blocked'
+  | 'team_invite'
+  | 'project_invite';

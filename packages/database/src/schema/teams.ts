@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, uuid, varchar, primaryKey } from 'drizzle-orm/pg-core';
+import { pgTable, text, timestamp, uuid, varchar, primaryKey, boolean, integer } from 'drizzle-orm/pg-core';
 import { organizations } from './organizations';
 import { users } from './users';
 
@@ -9,7 +9,10 @@ export const teams = pgTable('teams', {
     .references(() => organizations.id, { onDelete: 'cascade' }),
   name: varchar('name', { length: 255 }).notNull(),
   key: varchar('key', { length: 10 }).notNull(), // e.g. "RS"
+  icon: varchar('icon', { length: 64 }),
   description: text('description'),
+  isPrivate: boolean('is_private').notNull().default(false),
+  issueCounter: integer('issue_counter').notNull().default(0),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });

@@ -1,6 +1,8 @@
-import { pgTable, text, timestamp, uuid, varchar, integer } from 'drizzle-orm/pg-core';
+import { customType, pgTable, text, timestamp, uuid, varchar, integer } from 'drizzle-orm/pg-core';
 import { issues } from './issues';
 import { users } from './users';
+
+const bytea = customType<{ data: Buffer; driverData: Buffer }>({ dataType: () => 'bytea' });
 
 export const comments = pgTable('comments', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -25,5 +27,6 @@ export const attachments = pgTable('attachments', {
   fileSize: integer('file_size').notNull(),
   mimeType: varchar('mime_type', { length: 100 }).notNull(),
   url: text('url').notNull(),
+  content: bytea('content'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });

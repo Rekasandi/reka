@@ -1,9 +1,10 @@
-import { pgTable, text, timestamp, uuid, varchar, integer, primaryKey } from 'drizzle-orm/pg-core';
+import { pgTable, text, timestamp, uuid, varchar, integer, primaryKey, uniqueIndex } from 'drizzle-orm/pg-core';
 import { teams } from './teams';
 import { projects } from './projects';
 import { cycles } from './cycles';
 import { users } from './users';
 import { labels } from './labels';
+import { milestones } from './projects';
 
 export const issues = pgTable('issues', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -18,6 +19,7 @@ export const issues = pgTable('issues', {
     .notNull()
     .references(() => teams.id, { onDelete: 'cascade' }),
   projectId: uuid('project_id').references(() => projects.id, { onDelete: 'set null' }),
+  milestoneId: uuid('milestone_id').references(() => milestones.id, { onDelete: 'set null' }),
   cycleId: uuid('cycle_id').references(() => cycles.id, { onDelete: 'set null' }),
   assigneeId: uuid('assignee_id').references(() => users.id, { onDelete: 'set null' }),
   reporterId: uuid('reporter_id')
@@ -26,12 +28,14 @@ export const issues = pgTable('issues', {
   parentId: uuid('parent_id'),
   estimate: integer('estimate'),
   dueDate: timestamp('due_date', { withTimezone: true }),
+  archivedAt: timestamp('archived_at', { withTimezone: true }),
+  archiveBatchId: uuid('archive_batch_id'),
   githubIssueNumber: integer('github_issue_number'),
   githubIssueUrl: text('github_issue_url'),
   sortOrder: integer('sort_order').notNull().default(0),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
-});
+}, (t) => [uniqueIndex('issues_team_number_unique_idx').on(t.teamId, t.number)]);
 
 export const issueLabels = pgTable(
   'issue_labels',
@@ -55,6 +59,7 @@ export const issueRelations = pgTable(
     relatedIssueId: uuid('related_issue_id')
       .notNull()
       .references(() => issues.id, { onDelete: 'cascade' }),
+    duplicateSourceIssueId: uuid('duplicate_source_issue_id').references(() => issues.id, { onDelete: 'cascade' }),
     type: varchar('type', { length: 32 }).notNull(), // 'blocks' | 'blocked_by' | 'related_to' | 'duplicate'
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
