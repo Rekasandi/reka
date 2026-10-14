@@ -3,6 +3,10 @@
 > Operating system for how Rekasandi plans, builds, and ships software.
 > From Client → Project → Issue → GitHub → Pull Request → Review → Deployment.
 
+## Panduan Pengguna
+
+Lihat [Panduan REKA](docs/PANDUAN_REKA.md) untuk workflow, cara kerja aplikasi, penggunaan fitur, serta role dan hak akses workspace/tim/project. Skenario data contoh dan titik mulai eksplorasi tersedia di [Data Demo](docs/DEMO_DATA.md).
+
 ## Monorepo Architecture
 
 ```text
@@ -60,7 +64,4 @@ pnpm db:migrate
 
 # Push schema directly (dev)
 pnpm db:push
-
-# Seed database
-pnpm db:seed
 ```
