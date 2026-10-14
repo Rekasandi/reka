@@ -45,6 +45,7 @@ export function CreateCycleDialog({ open, onOpenChange, defaultTeamId }: CreateC
       description: '',
       startDate: defaultStart.toISOString(),
       endDate: defaultEnd.toISOString(),
+      capacity: '',
     },
     onSubmit: async ({ value }) => {
       createMutation.mutate(
@@ -54,6 +55,7 @@ export function CreateCycleDialog({ open, onOpenChange, defaultTeamId }: CreateC
           description: value.description?.trim() || undefined,
           startDate: value.startDate,
           endDate: value.endDate,
+          capacity: value.capacity === '' ? null : Number(value.capacity),
         },
         {
           onSuccess: () => {
@@ -184,6 +186,7 @@ export function CreateCycleDialog({ open, onOpenChange, defaultTeamId }: CreateC
                 }}
               />
             </div>
+            <form.Field name="capacity" children={(field) => <Field><FieldLabel htmlFor={field.name}>Capacity (estimate points, optional)</FieldLabel><Input id={field.name} name={field.name} type="number" min={0} max={10000} step={1} value={field.state.value} onChange={event => field.handleChange(event.target.value)} placeholder="No capacity set" /></Field>} />
           </FieldGroup>
 
           <DialogFooter>

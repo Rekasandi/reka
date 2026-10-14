@@ -33,12 +33,13 @@ export function CompleteCycleDialog({ cycle, open, onOpenChange }: CompleteCycle
   const { data: cycles = [] } = useCycles();
   const completeMutation = useCompleteCycle();
 
-  const incompleteCount = (cycle?.totalIssues || 0) - (cycle?.completedIssues || 0);
-
-  // Available upcoming cycles
-  const upcomingCycles = React.useMemo(() => {
-    return cycles.filter((c) => !c.isCompleted && c.id !== cycle?.id);
-  }, [cycles, cycle]);
+  const incompleteCount = cycle?.remainingIssues ?? Math.max((cycle?.totalIssues || 0) - (cycle?.completedIssues || 0), 0);
+  const upcomingCycles = React.useMemo(() => cycles
+    .filter(c => c.teamId === cycle?.teamId && !c.isCompleted && c.id !== cycle?.id && new Date(c.startDate) >= new Date(cycle?.endDate ?? 0))
+    .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime()), [cycles, cycle?.teamId, cycle?.id, cycle?.endDate]);
+  React.useEffect(() => {
+    if (open) { setAction(upcomingCycles.length ? 'next_cycle' : 'backlog'); setNextCycleId('auto'); }
+  }, [open, cycle?.id, upcomingCycles.length]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -89,26 +90,28 @@ export function CompleteCycleDialog({ cycle, open, onOpenChange }: CompleteCycle
                     Choose where to move issues that were not marked as done in this cycle.
                   </FieldDescription>
                   <Select
-                    value={action}
+                    value={upcomingCycles.length ? action : 'backlog'}
                     onValueChange={(val) => setAction(val as 'backlog' | 'next_cycle')}
+                    disabled={!upcomingCycles.length}
                   >
-                    <SelectTrigger className="h-8 text-xs w-full mt-1.5">
+                    <SelectTrigger size="compact" className="w-full mt-1.5">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectGroup>
-                        <SelectItem value="next_cycle">Move to next cycle</SelectItem>
+                        {upcomingCycles.length > 0 && <SelectItem value="next_cycle">Move to next cycle</SelectItem>}
                         <SelectItem value="backlog">Move back to Backlog</SelectItem>
                       </SelectGroup>
                     </SelectContent>
                   </Select>
                 </Field>
 
+                {!upcomingCycles.length && <p className="text-xs text-muted-foreground">No later open cycle exists. Incomplete work will return to Backlog.</p>}
                 {action === 'next_cycle' && upcomingCycles.length > 0 && (
                   <Field>
                     <FieldLabel className="text-muted-foreground">Target Cycle</FieldLabel>
                     <Select value={nextCycleId} onValueChange={setNextCycleId}>
-                      <SelectTrigger className="h-8 text-xs w-full mt-1">
+                      <SelectTrigger size="compact" className="w-full mt-1">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>

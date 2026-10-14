@@ -1,12 +1,6 @@
 import * as React from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardContent,
-  Badge,
   Button,
   Skeleton,
   Select,
@@ -24,51 +18,24 @@ import {
   CheckCircle2,
   Trash2,
   RefreshCw,
-  Clock,
-  Check,
 } from 'lucide-react';
-import { useCycle, useUpdateCycle, useDeleteCycle } from '../hooks/use-cycles';
+import { useCycle, useCycleHistory, useDeleteCycle, useReopenCycle } from '../hooks/use-cycles';
 import { useIssues, useUpdateIssue } from '../../issues/hooks/use-issues';
 import { IssueListView } from '../../issues/components/issue-list-view';
 import { CreateIssueDialog } from '../../issues/components/create-issue-dialog';
 import { IssueDetailSheet } from '../../issues/components/issue-detail-sheet';
 import { CompleteCycleDialog } from './complete-cycle-dialog';
 import { BurndownChart } from './burndown-chart';
+import { CycleStatusBadge } from './cycle-status-badge';
 import { ConfirmDeleteDialog } from '../../../components/common/confirm-delete-dialog';
-import type { Issue } from '@reka/types';
-import type { Cycle } from '../api/cycles.api';
-
-function CycleStatusBadge({ status }: { status: Cycle['status'] }) {
-  if (status === 'active') {
-    return (
-      <Badge className="bg-emerald-500/15 border-emerald-500/30 text-emerald-500 text-xs font-normal gap-1 h-5">
-        <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
-        <span>Active</span>
-      </Badge>
-    );
-  }
-  if (status === 'completed') {
-    return (
-      <Badge variant="outline" className="border-border/60 bg-muted/40 text-muted-foreground text-xs font-normal gap-1 h-5">
-        <Check className="size-3" />
-        <span>Completed</span>
-      </Badge>
-    );
-  }
-  return (
-    <Badge variant="secondary" className="text-xs font-normal gap-1 h-5">
-      <Clock className="size-3 text-muted-foreground" />
-      <span>Upcoming</span>
-    </Badge>
-  );
-}
+import { getIssueStatusCategory, isIssueClosed, type Issue } from '@reka/types';
 
 function formatDateRange(start: string, end: string) {
   const s = new Date(start);
   const e = new Date(end);
   const sStr = s.toLocaleDateString([], { month: 'short', day: 'numeric' });
   const eStr = e.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
-  return `${sStr} — ${eStr}`;
+  return `${sStr} - ${eStr}`;
 }
 
 export function CycleDetailPage() {
@@ -82,9 +49,11 @@ export function CycleDetailPage() {
   const [issueFilterTab, setIssueFilterTab] = React.useState('all');
 
   const { data: cycle, isLoading, isError, refetch } = useCycle(id);
+  const { data: history, isLoading: historyLoading, isError: historyError, refetch: refetchHistory } = useCycleHistory(id);
   const { data: allIssues = [] } = useIssues();
   const updateIssueMutation = useUpdateIssue();
   const deleteMutation = useDeleteCycle();
+  const reopenMutation = useReopenCycle();
 
   // Filter issues belonging to this cycle
   const cycleIssues = React.useMemo(() => {
@@ -95,24 +64,24 @@ export function CycleDetailPage() {
     () => allIssues.filter((issue) =>
       issue.teamId === cycle?.teamId &&
       !issue.cycleId &&
-      issue.status !== 'done' &&
-      issue.status !== 'canceled',
+      !isIssueClosed(issue),
     ),
     [allIssues, cycle?.teamId],
   );
 
   const filteredIssues = React.useMemo(() => {
     if (issueFilterTab === 'active') {
-      return cycleIssues.filter((i) => i.status === 'todo' || i.status === 'in_progress' || i.status === 'in_review');
+      return cycleIssues.filter((issue) => ['unstarted', 'started'].includes(getIssueStatusCategory(issue)));
     }
     if (issueFilterTab === 'done') {
-      return cycleIssues.filter((i) => i.status === 'done' || i.status === 'canceled');
+      return cycleIssues.filter((issue) => ['completed', 'canceled'].includes(getIssueStatusCategory(issue)));
     }
     return cycleIssues;
   }, [cycleIssues, issueFilterTab]);
 
-  const completedCount = cycleIssues.filter((i) => i.status === 'done').length;
-  const progressPercent = cycleIssues.length > 0 ? Math.round((completedCount / cycleIssues.length) * 100) : 0;
+  const completedCount = cycle?.completedIssues ?? cycleIssues.filter((issue) => getIssueStatusCategory(issue) === 'completed').length;
+  const progressPercent = cycle?.progress ?? (cycle?.totalIssues ? Math.round(completedCount / cycle.totalIssues * 100) : 0);
+  const remainingCount = cycle?.remainingIssues ?? Math.max((cycle?.totalIssues ?? cycleIssues.length) - completedCount, 0);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = React.useState(false);
 
   const handleDelete = () => {
@@ -127,7 +96,7 @@ export function CycleDetailPage() {
 
   if (isLoading) {
     return (
-      <div className="flex flex-col gap-5 max-w-7xl mx-auto">
+      <div className="flex flex-col gap-5 max-w-none mx-auto">
         <Skeleton className="h-8 w-40 rounded-[6px]" />
         <Skeleton className="h-32 w-full rounded-lg" />
         <Skeleton className="h-64 w-full rounded-lg" />
@@ -148,7 +117,7 @@ export function CycleDetailPage() {
   }
 
   return (
-    <div className="flex flex-col gap-6 max-w-7xl mx-auto selection:bg-foreground selection:text-background pb-10">
+    <div className="flex flex-col gap-5 max-w-none mx-auto selection:bg-foreground selection:text-background pb-10">
       {/* Top back navigation */}
       <div className="flex items-center justify-between">
         <Link
@@ -160,7 +129,7 @@ export function CycleDetailPage() {
         </Link>
 
         <div className="flex items-center gap-2">
-          {!cycle.isCompleted && (
+          {cycle.isCompleted ? <Button variant="outline" size="sm" disabled={reopenMutation.isPending} onClick={() => reopenMutation.mutate(cycle.id)} className="h-8 text-xs rounded-[6px]">Reopen cycle</Button> : (
             <Button
               variant="outline"
               size="sm"
@@ -186,7 +155,7 @@ export function CycleDetailPage() {
       </div>
 
       {/* Cycle Header Spotlight */}
-      <div className="rounded-lg border border-border/80 bg-card/40 p-6 flex flex-col gap-5 shadow-2xs">
+      <div className="flex flex-col gap-5 border-b border-border pb-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="size-9 rounded-lg bg-secondary flex items-center justify-center text-foreground shrink-0 border border-border/70">
@@ -214,34 +183,16 @@ export function CycleDetailPage() {
           </p>
         )}
 
-        {/* Progress bar */}
-        <div className="flex flex-col gap-1.5 pt-2 border-t border-border/50">
-          <div className="flex items-center justify-between text-xs font-mono text-muted-foreground">
-            <span>{completedCount} of {cycleIssues.length} issues completed</span>
-            <span className="font-semibold text-foreground">{progressPercent}%</span>
-          </div>
-          <div className="h-2 w-full bg-secondary rounded-full overflow-hidden">
-            <div
-              className="h-full bg-emerald-500 transition-all duration-300"
-              style={{ width: `${progressPercent}%` }}
-            />
-          </div>
-        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className="flex min-w-0 flex-col gap-6">
       {/* Burndown Chart Component */}
-      <BurndownChart
-        startDate={cycle.startDate}
-        endDate={cycle.endDate}
-        totalIssues={cycleIssues.length}
-        completedIssues={completedCount}
-      />
+      <BurndownChart snapshots={history?.snapshots ?? []} isLoading={historyLoading} isError={historyError} onRetry={() => void refetchHistory()} />
 
       {/* Issues in Cycle Section */}
       <div className="flex flex-col gap-3">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <h2 className="text-base font-semibold tracking-[-0.02em] text-foreground">Cycle Issues</h2>
             <span className="font-mono text-xs text-muted-foreground bg-secondary/80 border border-border/60 px-2 py-0.5 rounded-[5px]">
@@ -249,14 +200,14 @@ export function CycleDetailPage() {
             </span>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Select
               onValueChange={(issueId) => updateIssueMutation.mutate({
                 id: issueId,
                 data: { cycleId: cycle.id },
               })}
             >
-              <SelectTrigger disabled={!backlogIssues.length} className="h-7 w-52 rounded-[6px] text-xs">
+              <SelectTrigger aria-label="Plan backlog issue" size="compact" disabled={!backlogIssues.length} className="w-52">
                 <SelectValue placeholder={backlogIssues.length ? 'Plan backlog issue…' : 'No backlog issues'} />
               </SelectTrigger>
               <SelectContent>
@@ -283,25 +234,13 @@ export function CycleDetailPage() {
         {/* Filter sub-tabs */}
         <div className="flex items-center gap-1 border-b border-border/60 pb-2">
           {[
-            { id: 'all', label: 'All', count: cycleIssues.length },
-            { id: 'active', label: 'Active', count: cycleIssues.filter((i) => i.status !== 'done' && i.status !== 'canceled').length },
-            { id: 'done', label: 'Done', count: completedCount },
+            { id: 'all', label: 'All' },
+            { id: 'active', label: 'Active' },
+            { id: 'done', label: 'Done' },
           ].map((tab) => {
             const isSelected = issueFilterTab === tab.id;
             return (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setIssueFilterTab(tab.id)}
-                className={`h-6 px-2 text-xs rounded-[5px] font-medium transition-colors flex items-center gap-1.5 ${
-                  isSelected
-                    ? 'bg-secondary text-foreground shadow-2xs border border-border/60'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                <span>{tab.label}</span>
-                <span className="font-mono text-xs text-muted-foreground">{tab.count}</span>
-              </button>
+              <Button key={tab.id} variant="category" size="sm" aria-pressed={isSelected} onClick={() => setIssueFilterTab(tab.id)}>{tab.label}</Button>
             );
           })}
         </div>
@@ -327,12 +266,23 @@ export function CycleDetailPage() {
             <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-secondary"><div className="h-full bg-primary" style={{ width: `${progressPercent}%` }} /></div>
             <div className="mt-3 grid grid-cols-2 gap-3 text-xs">
               <div><p className="text-muted-foreground">Completed</p><p className="mt-0.5 font-mono text-foreground">{completedCount}</p></div>
-              <div><p className="text-muted-foreground">Remaining</p><p className="mt-0.5 font-mono text-foreground">{cycleIssues.length - completedCount}</p></div>
+              <div><p className="text-muted-foreground">Remaining</p><p className="mt-0.5 font-mono text-foreground">{remainingCount}</p></div>
             </div>
           </div>
           <div className="mt-4">
             <p className="text-xs text-muted-foreground">Schedule</p>
             <p className="mt-1 font-mono text-xs text-foreground">{formatDateRange(cycle.startDate, cycle.endDate)}</p>
+          </div>
+          <div className="mt-4 border-t border-border/60 pt-4">
+            <p className="text-xs font-semibold text-foreground">Capacity & estimates</p>
+            <div className="mt-2 grid grid-cols-2 gap-3 text-xs">
+              <div><p className="text-muted-foreground">Planned</p><p className="mt-0.5 font-mono text-foreground">{cycle.plannedEstimate ?? 0} pts</p></div>
+              <div><p className="text-muted-foreground">Capacity</p><p className="mt-0.5 font-mono text-foreground">{cycle.capacity === null || cycle.capacity === undefined ? 'Not set' : `${cycle.capacity} pts`}</p></div>
+              <div><p className="text-muted-foreground">Completed</p><p className="mt-0.5 font-mono text-foreground">{cycle.completedEstimate ?? 0} pts</p></div>
+              <div><p className="text-muted-foreground">Remaining estimate</p><p className="mt-0.5 font-mono text-foreground">{cycle.remainingEstimate ?? 0} pts</p></div>
+            </div>
+            {cycle.capacity !== null && cycle.capacity !== undefined && <p className="mt-2 text-xs text-muted-foreground">{cycle.remainingCapacity! < 0 ? `${Math.abs(cycle.remainingCapacity!)} pts over capacity` : `${cycle.remainingCapacity} pts capacity remaining`}</p>}
+            {!!cycle.missingEstimateCount && <p className="mt-2 text-xs text-amber-700 dark:text-amber-400">{cycle.missingEstimateCount} planned issue{cycle.missingEstimateCount === 1 ? '' : 's'} missing an estimate.</p>}
           </div>
         </aside>
       </div>
