@@ -1,4 +1,5 @@
 import * as React from 'react';
+import type { IssueType } from '@reka/types';
 import { useForm } from '@tanstack/react-form';
 import {
   Dialog,
@@ -22,11 +23,13 @@ import {
   FieldGroup,
 } from '@reka/ui';
 import { useCreateIssue } from '../hooks/use-issues';
-import { useProjects } from '../../projects/hooks/use-projects';
-import { STATUS_CONFIG } from './status-picker';
-import { PriorityIcon } from './issue-list-view';
+import { ProjectPicker } from './project-picker';
+import { CyclePicker } from './cycle-picker';
+import { StatusPicker } from './status-picker';
+import { PriorityPicker } from './priority-picker';
+import { IssueTypePicker } from './issue-type-picker';
+import { IssueLabelsPicker } from './issue-labels-picker';
 
-import { useCycles } from '../../cycles/hooks/use-cycles';
 import { useTeams } from '../../teams/hooks/use-teams';
 import { useUsers } from '../../users/hooks/use-users';
 
@@ -37,19 +40,11 @@ interface CreateIssueDialogProps {
   defaultCycleId?: string;
   defaultTeamId?: string;
   defaultStatus?: string;
+  defaultParentId?: string;
+  defaultParentIdentifier?: string;
 }
 
-const PRIORITY_OPTIONS = [
-  { value: 'urgent', label: 'Urgent' },
-  { value: 'high', label: 'High' },
-  { value: 'medium', label: 'Medium' },
-  { value: 'low', label: 'Low' },
-  { value: 'no_priority', label: 'None' },
-] as const;
-
-export function CreateIssueDialog({ open, onOpenChange, defaultProjectId, defaultCycleId, defaultTeamId, defaultStatus }: CreateIssueDialogProps) {
-  const { data: projects = [] } = useProjects();
-  const { data: cycles = [] } = useCycles();
+export function CreateIssueDialog({ open, onOpenChange, defaultProjectId, defaultCycleId, defaultTeamId, defaultStatus, defaultParentId, defaultParentIdentifier }: CreateIssueDialogProps) {
   const { data: teams = [] } = useTeams();
   const { data: users = [] } = useUsers();
   const createMutation = useCreateIssue();
@@ -60,11 +55,15 @@ export function CreateIssueDialog({ open, onOpenChange, defaultProjectId, defaul
       description: '',
       status: defaultStatus || 'todo',
       priority: 'medium',
-      type: 'task',
+      type: 'task' as IssueType,
       assigneeId: 'none',
       projectId: defaultProjectId || 'none',
       cycleId: defaultCycleId || 'none',
       teamId: defaultTeamId || '',
+      parentId: defaultParentId || '',
+      estimate: '',
+      dueDate: '',
+      labelIds: [] as string[],
     },
     onSubmit: async ({ value }) => {
       createMutation.mutate(
@@ -74,10 +73,14 @@ export function CreateIssueDialog({ open, onOpenChange, defaultProjectId, defaul
           status: value.status,
           priority: value.priority,
           type: value.type,
-          assigneeId: value.assigneeId === 'none' ? undefined : value.assigneeId,
+          assigneeId: value.assigneeId === 'none' ? null : value.assigneeId,
           projectId: value.projectId === 'none' ? undefined : value.projectId,
           cycleId: value.cycleId === 'none' ? undefined : value.cycleId,
           teamId: value.teamId,
+          parentId: value.parentId || undefined,
+          estimate: value.estimate === '' ? null : Number(value.estimate),
+          dueDate: value.dueDate || null,
+          labelIds: value.labelIds,
         },
         {
           onSuccess: () => {
@@ -104,7 +107,10 @@ export function CreateIssueDialog({ open, onOpenChange, defaultProjectId, defaul
     } else if (!form.state.values.teamId && teams[0]) {
       form.setFieldValue('teamId', teams[0].id);
     }
-  }, [defaultProjectId, defaultCycleId, defaultTeamId, form, teams]);
+    if (defaultParentId) {
+      form.setFieldValue('parentId', defaultParentId);
+    }
+  }, [open, defaultStatus, defaultProjectId, defaultCycleId, defaultTeamId, defaultParentId, form, teams]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -118,9 +124,11 @@ export function CreateIssueDialog({ open, onOpenChange, defaultProjectId, defaul
           className="flex flex-col gap-4"
         >
           <DialogHeader>
-            <DialogTitle>New Issue</DialogTitle>
+            <DialogTitle>{defaultParentId ? 'New Sub-issue' : 'New Issue'}</DialogTitle>
             <DialogDescription>
-              Start in the team backlog, then optionally link this issue to a project or cycle.
+              {defaultParentId
+                ? `Add a child issue to ${defaultParentIdentifier ?? 'this issue'}.`
+                : 'Start in the team backlog, then optionally link this issue to a project or cycle.'}
             </DialogDescription>
           </DialogHeader>
 
@@ -184,9 +192,12 @@ export function CreateIssueDialog({ open, onOpenChange, defaultProjectId, defaul
                     <Select
                       name={field.name}
                       value={field.state.value}
-                      onValueChange={field.handleChange}
+                      onValueChange={teamId => {
+                        if (teamId !== field.state.value) form.setFieldValue('cycleId', 'none');
+                        field.handleChange(teamId);
+                      }}
                     >
-                      <SelectTrigger id={field.name} className="h-8 text-xs w-full">
+                      <SelectTrigger id={field.name} size="compact" className="w-full">
                         <SelectValue placeholder="Team" />
                       </SelectTrigger>
                       <SelectContent>
@@ -209,25 +220,7 @@ export function CreateIssueDialog({ open, onOpenChange, defaultProjectId, defaul
                 children={(field) => (
                   <Field>
                     <FieldLabel htmlFor={field.name} className="text-muted-foreground">Project</FieldLabel>
-                    <Select
-                      name={field.name}
-                      value={field.state.value}
-                      onValueChange={field.handleChange}
-                    >
-                      <SelectTrigger id={field.name} className="h-8 text-xs w-full">
-                        <SelectValue placeholder="Project" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectGroup>
-                          <SelectItem value="none">No Project</SelectItem>
-                          {projects.map((p) => (
-                            <SelectItem key={p.id} value={p.id}>
-                              {p.name}
-                            </SelectItem>
-                          ))}
-                        </SelectGroup>
-                      </SelectContent>
-                    </Select>
+                    <ProjectPicker id={field.name} projectId={field.state.value === 'none' ? null : field.state.value} className="h-8 w-full justify-start" onProjectChange={projectId => field.handleChange(projectId ?? 'none')} />
                   </Field>
                 )}
               />
@@ -238,25 +231,9 @@ export function CreateIssueDialog({ open, onOpenChange, defaultProjectId, defaul
                 children={(field) => (
                   <Field>
                     <FieldLabel htmlFor={field.name} className="text-muted-foreground">Cycle</FieldLabel>
-                    <Select
-                      name={field.name}
-                      value={field.state.value}
-                      onValueChange={field.handleChange}
-                    >
-                      <SelectTrigger id={field.name} className="h-8 text-xs w-full">
-                        <SelectValue placeholder="Cycle" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectGroup>
-                          <SelectItem value="none">No Cycle</SelectItem>
-                          {cycles.map((c) => (
-                            <SelectItem key={c.id} value={c.id}>
-                              {c.name || `Cycle ${c.number}`} {c.status === 'active' ? '(Active)' : ''}
-                            </SelectItem>
-                          ))}
-                        </SelectGroup>
-                      </SelectContent>
-                    </Select>
+                    <form.Subscribe selector={state => state.values.teamId} children={teamId => (
+                      <CyclePicker id={field.name} cycleId={field.state.value === 'none' ? null : field.state.value} teamId={teamId} className="h-8 w-full justify-start" onCycleChange={cycleId => field.handleChange(cycleId ?? 'none')} />
+                    )} />
                   </Field>
                 )}
               />
@@ -267,27 +244,7 @@ export function CreateIssueDialog({ open, onOpenChange, defaultProjectId, defaul
                 children={(field) => (
                   <Field>
                     <FieldLabel htmlFor={field.name} className="text-muted-foreground">Status</FieldLabel>
-                    <Select
-                      name={field.name}
-                      value={field.state.value}
-                      onValueChange={field.handleChange}
-                    >
-                      <SelectTrigger id={field.name} className="h-8 text-xs w-full">
-                        <SelectValue placeholder="Status" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectGroup>
-                          {Object.entries(STATUS_CONFIG).map(([key, cfg]) => (
-                            <SelectItem key={key} value={key}>
-                              <div className="flex items-center gap-2">
-                                <div className="shrink-0">{cfg.renderIcon()}</div>
-                                <span>{cfg.label}</span>
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </SelectGroup>
-                      </SelectContent>
-                    </Select>
+                    <form.Subscribe selector={state => state.values.teamId} children={teamId => <StatusPicker id={field.name} teamId={teamId} status={field.state.value} appearance="badge" className="h-8 w-full justify-start" onStatusChange={field.handleChange} />} />
                   </Field>
                 )}
               />
@@ -298,27 +255,7 @@ export function CreateIssueDialog({ open, onOpenChange, defaultProjectId, defaul
                 children={(field) => (
                   <Field>
                     <FieldLabel htmlFor={field.name} className="text-muted-foreground">Priority</FieldLabel>
-                    <Select
-                      name={field.name}
-                      value={field.state.value}
-                      onValueChange={field.handleChange}
-                    >
-                      <SelectTrigger id={field.name} className="h-8 text-xs w-full">
-                        <SelectValue placeholder="Priority" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectGroup>
-                          {PRIORITY_OPTIONS.map((opt) => (
-                            <SelectItem key={opt.value} value={opt.value}>
-                              <div className="flex items-center gap-2">
-                                <PriorityIcon priority={opt.value} />
-                                <span>{opt.label}</span>
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </SelectGroup>
-                      </SelectContent>
-                    </Select>
+                    <PriorityPicker id={field.name} priority={field.state.value} appearance="badge" className="h-8 w-full justify-start" onPriorityChange={field.handleChange} />
                   </Field>
                 )}
               />
@@ -329,24 +266,7 @@ export function CreateIssueDialog({ open, onOpenChange, defaultProjectId, defaul
                 children={(field) => (
                   <Field>
                     <FieldLabel htmlFor={field.name} className="text-muted-foreground">Type</FieldLabel>
-                    <Select
-                      name={field.name}
-                      value={field.state.value}
-                      onValueChange={field.handleChange}
-                    >
-                      <SelectTrigger id={field.name} className="h-8 text-xs w-full capitalize">
-                        <SelectValue placeholder="Type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectGroup>
-                          <SelectItem value="feature">Feature</SelectItem>
-                          <SelectItem value="task">Task</SelectItem>
-                          <SelectItem value="bug">Bug</SelectItem>
-                          <SelectItem value="improvement">Improvement</SelectItem>
-                          <SelectItem value="chore">Chore</SelectItem>
-                        </SelectGroup>
-                      </SelectContent>
-                    </Select>
+                    <IssueTypePicker id={field.name} type={field.state.value} className="h-8 w-full justify-start" onTypeChange={field.handleChange} />
                   </Field>
                 )}
               />
@@ -361,7 +281,7 @@ export function CreateIssueDialog({ open, onOpenChange, defaultProjectId, defaul
                       value={field.state.value}
                       onValueChange={field.handleChange}
                     >
-                      <SelectTrigger id={field.name} className="h-8 text-xs w-full">
+                      <SelectTrigger id={field.name} size="compact" className="w-full">
                         <SelectValue placeholder="Assignee" />
                       </SelectTrigger>
                       <SelectContent>
@@ -378,7 +298,29 @@ export function CreateIssueDialog({ open, onOpenChange, defaultProjectId, defaul
                   </Field>
                 )}
               />
+              <form.Field
+                name="estimate"
+                validators={{ onChange: ({ value }) => value !== '' && (!Number.isInteger(Number(value)) || Number(value) < 0 || Number(value) > 100) ? 'Use a whole number from 0 to 100' : undefined }}
+                children={(field) => (
+                  <Field>
+                    <FieldLabel htmlFor={field.name} className="text-muted-foreground">Estimate</FieldLabel>
+                    <Input id={field.name} name={field.name} type="number" min={0} max={100} step={1} value={field.state.value} onBlur={field.handleBlur} onChange={(event) => field.handleChange(event.target.value)} placeholder="Points" />
+                  </Field>
+                )}
+              />
+              <form.Field
+                name="dueDate"
+                children={(field) => (
+                  <Field>
+                    <FieldLabel htmlFor={field.name} className="text-muted-foreground">Due date</FieldLabel>
+                    <Input id={field.name} name={field.name} type="date" value={field.state.value} onChange={(event) => field.handleChange(event.target.value)} />
+                  </Field>
+                )}
+              />
             </div>
+            <form.Subscribe selector={state => ({ teamId: state.values.teamId, projectId: state.values.projectId, labelIds: state.values.labelIds })}>
+              {({ teamId, projectId, labelIds }) => teamId ? <IssueLabelsPicker teamId={teamId} projectId={projectId === 'none' ? null : projectId} value={labelIds} onChange={ids => form.setFieldValue('labelIds', ids)} /> : null}
+            </form.Subscribe>
           </FieldGroup>
 
           <DialogFooter>
@@ -398,7 +340,7 @@ export function CreateIssueDialog({ open, onOpenChange, defaultProjectId, defaul
                   size="sm"
                   disabled={!canSubmit || createMutation.isPending || isSubmitting}
                 >
-                  {createMutation.isPending || isSubmitting ? 'Creating...' : 'Create Issue'}
+                  {createMutation.isPending || isSubmitting ? 'Creating...' : defaultParentId ? 'Create Sub-issue' : 'Create Issue'}
                 </Button>
               )}
             />

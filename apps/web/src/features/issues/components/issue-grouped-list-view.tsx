@@ -1,30 +1,18 @@
 import * as React from 'react';
-import type { Issue } from '@reka/types';
-import {
-  Badge,
-  Checkbox,
-  Button,
-} from '@reka/ui';
-import { useUpdateIssue, useDeleteIssue } from '../hooks/use-issues';
-import { useProjects } from '../../projects/hooks/use-projects';
-import { useUsers } from '../../users/hooks/use-users';
+import { getIssueStatusCategory, type Issue } from '@reka/types';
+import { Checkbox } from '@reka/ui';
+import { useUpdateIssue, useDeleteIssue, useArchiveIssue, useMoveIssueToTop } from '../hooks/use-issues';
 import {
   Plus,
   ChevronDown,
   Trash2,
-  FolderKanban,
-  AlertCircle,
-  SignalHigh,
-  SignalMedium,
-  SignalLow,
-  Minus,
-  CornerDownRight,
   ChevronRight,
-  Layers,
 } from 'lucide-react';
 import { StatusPicker, StatusIconOnly, STATUS_CONFIG } from './status-picker';
-import { PriorityPicker } from './issue-list-view';
-import { AssigneePicker } from './assignee-picker';
+import { PriorityPicker } from './priority-picker';
+import { IssueRowProperties } from './issue-row-properties';
+import { IssueContextMenu } from './issue-context-menu';
+import { CreateIssueDialog } from './create-issue-dialog';
 import { ConfirmDeleteDialog } from '../../../components/common/confirm-delete-dialog';
 
 interface IssueGroupedListViewProps {
@@ -33,6 +21,7 @@ interface IssueGroupedListViewProps {
   onCreateWithStatus?: (status: string) => void;
   focusedIndex?: number;
   onFocusIndex?: (index: number) => void;
+  showSubtasks?: boolean;
 }
 
 // Order of status sections matching Linear flow
@@ -59,51 +48,24 @@ function formatDate(dateInput: Date | string | null | undefined): string {
   return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
 }
 
-function getInitials(name: string): string {
-  if (!name) return '??';
-  const parts = name.trim().split(/\s+/);
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-}
-
-// Consistent avatar background colors based on name string
-function getAvatarColor(name: string): string {
-  const colors = [
-    'bg-emerald-600 text-white',
-    'bg-blue-600 text-white',
-    'bg-indigo-600 text-white',
-    'bg-violet-600 text-white',
-    'bg-amber-600 text-white',
-    'bg-rose-600 text-white',
-    'bg-teal-600 text-white',
-  ];
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) {
-    hash = name.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  return colors[Math.abs(hash) % colors.length];
-}
-
 export function IssueGroupedListView({
   issues,
   onSelectIssue,
   onCreateWithStatus,
   focusedIndex = -1,
   onFocusIndex,
+  showSubtasks = true,
 }: IssueGroupedListViewProps) {
   const updateMutation = useUpdateIssue();
   const deleteMutation = useDeleteIssue();
-  const { data: projects = [] } = useProjects();
-  const { data: users = [] } = useUsers();
+  const archiveMutation = useArchiveIssue();
+  const moveMutation = useMoveIssueToTop();
 
   const [collapsedGroups, setCollapsedGroups] = React.useState<Record<string, boolean>>({});
   const [expandedSubtasks, setExpandedSubtasks] = React.useState<Record<string, boolean>>({});
   const [selectedIds, setSelectedIds] = React.useState<Set<string>>(new Set());
   const [deleteTargetId, setDeleteTargetId] = React.useState<string | null>(null);
-
-  // Quick lookup maps
-  const projectMap = React.useMemo(() => new Map(projects.map((p) => [p.id, p])), [projects]);
-  const userMap = React.useMemo(() => new Map(users.map((u) => [u.id, u])), [users]);
+  const [subIssueParent, setSubIssueParent] = React.useState<Issue | null>(null);
 
   // Separate root issues and subtasks
   const { rootIssues, subtaskMap } = React.useMemo(() => {
@@ -141,12 +103,14 @@ export function IssueGroupedListView({
       }
     }
 
-    // Filter to only groups that have issues (or all known active groups if issues exist)
-    return STATUS_ORDER.map((item) => ({
-      key: item.key,
-      label: item.label,
-      issues: groups.get(item.key) || [],
-    })).filter((g) => g.issues.length > 0);
+    // Preserve system ordering and surface team-configured states after built-ins.
+    const known = STATUS_ORDER.map((item) => ({ key: item.key, label: item.label, issues: groups.get(item.key) || [] }));
+    const custom = [...groups.keys()].filter((key) => !STATUS_ORDER.some((item) => item.key === key))
+      .map((key) => {
+        const items = groups.get(key) || [];
+        return { key, label: items[0]?.statusLabel || key.replaceAll('_', ' '), issues: items };
+      }).sort((a, b) => (a.issues[0]?.statusPosition ?? 99) - (b.issues[0]?.statusPosition ?? 99));
+    return [...known, ...custom].filter((group) => group.issues.length > 0);
   }, [rootIssues]);
 
   const toggleGroupCollapse = (key: string) => {
@@ -168,6 +132,69 @@ export function IssueGroupedListView({
     });
   };
 
+  const renderSubtasks = (parent: Issue, depth = 0): React.ReactNode => {
+    const children = subtaskMap[parent.id] ?? [];
+    if (!children.length || !expandedSubtasks[parent.id]) return null;
+
+    return (
+      <div className="bg-secondary/10 divide-y divide-border/30">
+        {children.map((subtask) => {
+          const nested = (subtaskMap[subtask.id] ?? []).length > 0;
+          const selected = selectedIds.has(subtask.id);
+          const expanded = !!expandedSubtasks[subtask.id];
+          return (
+            <React.Fragment key={subtask.id}>
+              <IssueContextMenu issue={subtask} onOpen={onSelectIssue ? () => onSelectIssue(subtask) : undefined}
+                onAddSubIssue={() => setSubIssueParent(subtask)} onUpdate={data => updateMutation.mutate({ id: subtask.id, data })} onDelete={() => setDeleteTargetId(subtask.id)} onArchive={() => archiveMutation.mutate({ id: subtask.id, restore: !!subtask.archivedAt })} onMoveToTop={() => moveMutation.mutate(subtask.id)}>
+              <div
+                onClick={() => onSelectIssue?.(subtask)}
+                className={`issue-work-row group/sub flex min-w-0 items-center justify-between gap-3 px-2 py-1.5 text-xs transition-colors hover:bg-secondary/40 ${selected ? 'bg-secondary/40' : ''}`}
+
+              >
+                <div className="flex min-w-0 flex-1 items-center gap-2">
+                  <Checkbox
+                    aria-label={`Select issue ${subtask.identifier}`}
+                    checked={selected}
+                    onClick={(event) => handleToggleSelect(subtask.id, event)}
+                    className="size-4 shrink-0 rounded-[4px] opacity-0 transition-opacity group-hover/sub:opacity-100 focus-visible:opacity-100 data-[state=checked]:opacity-100 [@media(hover:none)]:opacity-100"
+                  />
+                  <div className="issue-row-main flex min-w-0 flex-1 items-center gap-2" style={{ marginLeft: `${36 + depth * 16}px` }}>
+                  {nested ? (
+                    <button type="button" onClick={(event) => toggleSubtasks(subtask.id, event)}
+                      className="flex size-5 shrink-0 items-center justify-center rounded-[4px] text-muted-foreground/70 transition-colors hover:bg-secondary hover:text-foreground"
+                      aria-label={`${expanded ? 'Collapse' : 'Expand'} sub-issues for ${subtask.identifier}`}
+                      aria-expanded={expanded}>
+                      <ChevronRight className={`size-3.5 transition-transform ${expanded ? 'rotate-90' : ''}`} />
+                    </button>
+                  ) : <span className="size-5 shrink-0" aria-hidden="true" />}
+                  <PriorityPicker priority={subtask.priority} onPriorityChange={(priority) => updateMutation.mutate({ id: subtask.id, data: { priority: priority as any } })} />
+                  <span className="shrink-0 font-mono text-xs font-medium text-muted-foreground">{subtask.identifier}</span>
+                  <StatusPicker teamId={subtask.teamId} status={subtask.status} appearance="badge" onStatusChange={(status) => updateMutation.mutate({ id: subtask.id, data: { status: status as any } })} />
+                  <button type="button" className="issue-row-title min-w-0 truncate rounded-sm text-left text-muted-foreground group-hover/sub:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label={`Open issue ${subtask.identifier}: ${subtask.title}`} title={subtask.title}>{subtask.title}</button>
+                  {nested && <span className="shrink-0 rounded-[4px] border border-border/50 bg-secondary/60 px-1.5 py-0.2 font-mono text-xs text-muted-foreground">{childrenDoneCount(subtask)}/{subtaskMap[subtask.id].length}</span>}
+                  </div>
+                </div>
+                <div className="issue-row-meta flex shrink-0 items-center gap-1.5 sm:gap-3">
+                  <IssueRowProperties issue={subtask} onUpdate={(data) => updateMutation.mutate({ id: subtask.id, data })} />
+                  <span className="hidden w-16 shrink-0 text-right font-mono text-xs text-muted-foreground/70 sm:inline">{formatDate(subtask.createdAt)}</span>
+                  <button type="button" onClick={(event) => { event.stopPropagation(); setDeleteTargetId(subtask.id); }}
+                    className="rounded-[4px] p-0.5 text-muted-foreground opacity-0 transition-opacity hover:bg-destructive/10 hover:text-destructive group-hover/sub:opacity-100 focus-visible:opacity-100"
+                    title="Delete sub-issue" aria-label={`Delete sub-issue ${subtask.identifier}`}>
+                    <Trash2 className="size-3.5" />
+                  </button>
+                </div>
+              </div>
+              </IssueContextMenu>
+              {renderSubtasks(subtask, depth + 1)}
+            </React.Fragment>
+          );
+        })}
+      </div>
+    );
+  };
+
+  const childrenDoneCount = (parent: Issue) => (subtaskMap[parent.id] ?? []).filter((item) => getIssueStatusCategory(item) === 'completed').length;
+
   if (issues.length === 0) {
     return (
       <div className="rounded-lg border border-dashed border-border/80 p-14 text-center text-xs text-muted-foreground bg-card/10">
@@ -180,7 +207,7 @@ export function IssueGroupedListView({
   let currentGlobalIndex = 0;
 
   return (
-    <div className="flex flex-col gap-5 select-none pb-12">
+    <div className="issue-work-surface flex flex-col gap-5 select-none pb-12">
       {groupedIssues.map((group) => {
         const isCollapsed = !!collapsedGroups[group.key];
         const statusConfig = STATUS_CONFIG[group.key] || STATUS_CONFIG.backlog;
@@ -193,8 +220,10 @@ export function IssueGroupedListView({
                 <button
                   type="button"
                   onClick={() => toggleGroupCollapse(group.key)}
-                  className="size-5 rounded-[4px] flex items-center justify-center text-muted-foreground/70 hover:text-foreground hover:bg-muted/60 transition-colors"
+                  className="size-5 shrink-0 rounded-[4px] flex items-center justify-center text-muted-foreground/70 hover:text-foreground hover:bg-muted/60 transition-colors"
                   title={isCollapsed ? 'Expand section' : 'Collapse section'}
+                  aria-label={`${isCollapsed ? 'Expand' : 'Collapse'} ${group.label} issues`}
+                  aria-expanded={!isCollapsed}
                 >
                   <ChevronDown
                     className={`size-3.5 transition-transform duration-200 ${isCollapsed ? '-rotate-90' : ''}`}
@@ -221,6 +250,7 @@ export function IssueGroupedListView({
                 onClick={() => onCreateWithStatus?.(group.key)}
                 className="size-6 rounded-[4px] flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
                 title={`New issue in ${group.label}`}
+                aria-label={`New issue in ${group.label}`}
               >
                 <Plus className="size-3.5" />
               </button>
@@ -233,20 +263,21 @@ export function IssueGroupedListView({
                   const globalIdx = currentGlobalIndex++;
                   const isFocused = focusedIndex === globalIdx;
                   const isChecked = selectedIds.has(issue.id);
-                  const subtasks = subtaskMap[issue.id] || [];
+                  const subtasks = showSubtasks ? (subtaskMap[issue.id] || []) : [];
                   const hasSubtasks = subtasks.length > 0;
                   const isSubtasksExpanded = !!expandedSubtasks[issue.id];
-                  const project = issue.projectId ? projectMap.get(issue.projectId) : null;
-                  const assignee = issue.assigneeId ? userMap.get(issue.assigneeId) : null;
 
                   return (
                     <React.Fragment key={issue.id}>
+                      <IssueContextMenu issue={issue} onOpen={onSelectIssue ? () => onSelectIssue(issue) : undefined}
+                        onAddSubIssue={() => setSubIssueParent(issue)} onUpdate={data => updateMutation.mutate({ id: issue.id, data })} onDelete={() => setDeleteTargetId(issue.id)} onArchive={() => archiveMutation.mutate({ id: issue.id, restore: !!issue.archivedAt })} onMoveToTop={() => moveMutation.mutate(issue.id)}>
                       <div
                         onClick={() => {
                           onFocusIndex?.(globalIdx);
                           onSelectIssue?.(issue);
                         }}
-                        className={`flex items-center justify-between px-2.5 py-2 transition-colors text-xs gap-3 cursor-pointer group relative ${
+                        data-testid={`issue-row-${issue.id}`}
+                        className={`issue-work-row flex items-center justify-between px-2 py-2 transition-colors text-xs gap-3 cursor-pointer group relative ${
                           isFocused
                             ? 'bg-secondary/70'
                             : isChecked
@@ -260,31 +291,31 @@ export function IssueGroupedListView({
                         )}
 
                         {/* Left: Checkbox, Priority, Identifier, Status Icon, Title */}
-                        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                        <div className="issue-row-main flex items-center gap-2.5 min-w-0 flex-1">
+                          <Checkbox
+                            aria-label={`Select issue ${issue.identifier}`}
+                            checked={isChecked}
+                            onClick={(e) => handleToggleSelect(issue.id, e)}
+                            className="cursor-pointer shrink-0 rounded-[4px] opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 data-[state=checked]:opacity-100 [@media(hover:none)]:opacity-100"
+                          />
+
                           {/* Subtask chevron toggle */}
                           {hasSubtasks ? (
                             <button
                               type="button"
                               onClick={(e) => toggleSubtasks(issue.id, e)}
-                              className="size-4.5 rounded-[4px] flex items-center justify-center text-muted-foreground/60 hover:text-foreground hover:bg-secondary transition-colors"
+                              className="size-5 shrink-0 rounded-[4px] flex items-center justify-center text-muted-foreground/70 hover:text-foreground hover:bg-secondary transition-colors"
                               title={isSubtasksExpanded ? 'Collapse subtasks' : 'Expand subtasks'}
                             >
                               <ChevronRight
-                                className={`size-3 transition-transform duration-150 ${
+                                className={`size-3.5 transition-transform duration-150 ${
                                   isSubtasksExpanded ? 'rotate-90' : ''
                                 }`}
                               />
                             </button>
                           ) : (
-                            <div className="size-4.5 shrink-0" />
+                            <div className="size-5 shrink-0" aria-hidden="true" />
                           )}
-
-                          <Checkbox
-                            aria-label={`Select issue ${issue.identifier}`}
-                            checked={isChecked}
-                            onClick={(e) => handleToggleSelect(issue.id, e)}
-                            className="cursor-pointer shrink-0 rounded-[4px]"
-                          />
 
                           <PriorityPicker
                             priority={issue.priority}
@@ -298,16 +329,17 @@ export function IssueGroupedListView({
                           </span>
 
                           <StatusPicker
+                            teamId={issue.teamId}
                             status={issue.status}
-                            className="size-5"
+                            appearance="badge"
                             onStatusChange={(newStatus) =>
                               updateMutation.mutate({ id: issue.id, data: { status: newStatus as any } })
                             }
                           />
 
-                          <span className="font-medium text-foreground truncate tracking-tight">
+                          <button type="button" className="issue-row-title truncate rounded-sm text-left font-medium tracking-tight text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label={`Open issue ${issue.identifier}: ${issue.title}`} title={issue.title}>
                             {issue.title}
-                          </span>
+                          </button>
 
                           {/* GitHub Issue Tag */}
                           {issue.githubIssueNumber && (
@@ -322,64 +354,23 @@ export function IssueGroupedListView({
                               onClick={(e) => toggleSubtasks(issue.id, e)}
                               className="text-xs font-mono text-muted-foreground/80 bg-secondary/60 hover:bg-secondary border border-border/50 px-1.5 py-0.2 rounded-[4px] shrink-0"
                             >
-                              {subtasks.filter((s) => s.status === 'done').length}/{subtasks.length}
+                              {subtasks.filter((subtask) => getIssueStatusCategory(subtask) === 'completed').length}/{subtasks.length}
                             </span>
                           )}
                         </div>
 
                         {/* Right: Label / Type chip, Project pill, Assignee avatar, Date */}
                         <div
-                          className="flex items-center gap-3 shrink-0"
+                          className="issue-row-meta flex items-center gap-1.5 sm:gap-3 shrink-0"
                           onClick={(e) => e.stopPropagation()}
                         >
-                          {/* Label / Type pill (Linear style: colored dot + label) */}
-                          <div className="hidden sm:flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-secondary/70 border border-border/50 text-xs text-muted-foreground font-normal">
-                            <span
-                              className={`size-1.5 rounded-full ${
-                                issue.type === 'bug'
-                                  ? 'bg-rose-500'
-                                  : issue.type === 'feature'
-                                  ? 'bg-indigo-500'
-                                  : issue.type === 'improvement'
-                                  ? 'bg-cyan-500'
-                                  : 'bg-amber-400'
-                              }`}
-                            />
-                            <span className="capitalize">{issue.type}</span>
-                          </div>
-
-                          {/* Project pill badge */}
-                          {project && (
-                            <div className="hidden md:flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-secondary/50 border border-border/50 text-xs text-muted-foreground max-w-[200px] truncate hover:text-foreground transition-colors">
-                              <FolderKanban className="size-3 text-muted-foreground/80 shrink-0" />
-                              <span className="truncate">{project.name}</span>
-                            </div>
-                          )}
-
-                          {/* Assignee Picker / Avatar */}
-                          <div className="flex items-center">
-                            {assignee ? (
-                              <div
-                                title={`Assigned to ${assignee.name}`}
-                                className={`size-5 rounded-full flex items-center justify-center text-xs font-semibold tracking-tighter ${getAvatarColor(
-                                  assignee.name,
-                                )}`}
-                              >
-                                {getInitials(assignee.name)}
-                              </div>
-                            ) : (
-                              <AssigneePicker
-                                size="icon"
-                                assigneeId={issue.assigneeId}
-                                onAssigneeChange={(userId) =>
-                                  updateMutation.mutate({ id: issue.id, data: { assigneeId: userId } })
-                                }
-                              />
-                            )}
-                          </div>
+                          <IssueRowProperties
+                            issue={issue}
+                            onUpdate={(data) => updateMutation.mutate({ id: issue.id, data })}
+                          />
 
                           {/* Date (e.g. "Dec 2023", "Sep 17") */}
-                          <span className="font-mono text-xs text-muted-foreground/70 w-16 text-right shrink-0">
+                          <span className="hidden sm:inline font-mono text-xs text-muted-foreground/70 w-16 text-right shrink-0">
                             {formatDate(issue.createdAt)}
                           </span>
 
@@ -390,46 +381,16 @@ export function IssueGroupedListView({
                               e.stopPropagation();
                               setDeleteTargetId(issue.id);
                             }}
-                            className="text-muted-foreground/20 hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded hover:bg-destructive/10"
+                            className="text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity p-0.5 rounded hover:bg-destructive/10"
                             title="Delete issue"
                           >
                             <Trash2 className="size-3.5" />
                           </button>
                         </div>
                       </div>
+                      </IssueContextMenu>
 
-                      {/* Sub-tasks rendering if expanded */}
-                      {hasSubtasks && isSubtasksExpanded && (
-                        <div className="ml-5 border-l border-border/50 bg-secondary/15 divide-y divide-border/30">
-                          {subtasks.map((st) => (
-                            <div
-                              key={st.id}
-                              onClick={() => onSelectIssue?.(st)}
-                              className="flex items-center justify-between pl-6 pr-3 py-1.5 hover:bg-secondary/40 transition-colors text-xs gap-3 cursor-pointer group/sub"
-                            >
-                              <div className="flex items-center gap-2 min-w-0 flex-1">
-                                <CornerDownRight className="size-3 text-muted-foreground/40 shrink-0" />
-                                <span className="font-mono text-xs text-muted-foreground font-medium shrink-0">
-                                  {st.identifier}
-                                </span>
-                                <StatusPicker
-                                  status={st.status}
-                                  className="size-4.5"
-                                  onStatusChange={(newStatus) =>
-                                    updateMutation.mutate({ id: st.id, data: { status: newStatus as any } })
-                                  }
-                                />
-                                <span className="truncate text-muted-foreground group-hover/sub:text-foreground">
-                                  {st.title}
-                                </span>
-                              </div>
-                              <span className="font-mono text-xs text-muted-foreground/60">
-                                {formatDate(st.createdAt)}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
+                      {hasSubtasks && isSubtasksExpanded && renderSubtasks(issue)}
                     </React.Fragment>
                   );
                 })}
@@ -438,6 +399,14 @@ export function IssueGroupedListView({
           </div>
         );
       })}
+
+      <CreateIssueDialog
+        open={!!subIssueParent}
+        onOpenChange={open => !open && setSubIssueParent(null)}
+        defaultTeamId={subIssueParent?.teamId}
+        defaultParentId={subIssueParent?.id}
+        defaultParentIdentifier={subIssueParent?.identifier}
+      />
 
       {/* Delete Confirmation Dialog */}
       <ConfirmDeleteDialog

@@ -1,23 +1,17 @@
 import * as React from 'react';
-import type { Issue } from '@reka/types';
+import { useQueries } from '@tanstack/react-query';
+import { getIssueStatusCategory, type Issue } from '@reka/types';
 import {
-  Badge,
   Checkbox,
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
-  DropdownMenuGroup,
   DropdownMenuItem,
   Button,
 } from '@reka/ui';
-import { useUpdateIssue, useDeleteIssue } from '../hooks/use-issues';
+import { useUpdateIssue, useDeleteIssue, useArchiveIssue, useMoveIssueToTop, useBulkUpdateIssues } from '../hooks/use-issues';
 import {
   Trash2,
-  SignalHigh,
-  SignalMedium,
-  SignalLow,
-  Minus,
-  Check,
   ChevronRight,
   CornerDownRight,
   CheckCircle2,
@@ -25,122 +19,21 @@ import {
   Layers,
   ArrowRight,
   X,
-  AlertCircle,
 } from 'lucide-react';
 import { StatusPicker, STATUS_CONFIG } from './status-picker';
-import { AssigneePicker } from './assignee-picker';
+import { IssueRowProperties } from './issue-row-properties';
+import { IssueContextMenu } from './issue-context-menu';
+import { CreateIssueDialog } from './create-issue-dialog';
+import { PriorityIcon, PriorityPicker, PRIORITY_CONFIG } from './priority-picker';
 import { ConfirmDeleteDialog } from '../../../components/common/confirm-delete-dialog';
+import { getTeamWorkflowStates } from '../../teams/api/teams.api';
 
 interface IssueListViewProps {
   issues: Issue[];
   onSelectIssue?: (issue: Issue) => void;
   focusedIndex?: number;
   onFocusIndex?: (index: number) => void;
-}
-
-export function PriorityIcon({ priority }: { priority: string }) {
-  if (priority === 'urgent') {
-    return (
-      <span title="Urgent" className="size-4 shrink-0 flex items-center justify-center text-rose-600 dark:text-rose-400">
-        <AlertCircle className="size-3.5" />
-      </span>
-    );
-  }
-  if (priority === 'high') {
-    return (
-      <span title="High Priority" className="size-4 shrink-0 flex items-center justify-center text-amber-500">
-        <SignalHigh className="size-3.5" />
-      </span>
-    );
-  }
-  if (priority === 'medium') {
-    return (
-      <span title="Medium Priority" className="size-4 shrink-0 flex items-center justify-center text-blue-500">
-        <SignalMedium className="size-3.5" />
-      </span>
-    );
-  }
-  if (priority === 'low') {
-    return (
-      <span title="Low Priority" className="size-4 shrink-0 flex items-center justify-center text-muted-foreground/60">
-        <SignalLow className="size-3.5" />
-      </span>
-    );
-  }
-  return (
-    <span title="No Priority" className="size-4 shrink-0 flex items-center justify-center text-muted-foreground/30">
-      <Minus className="size-3" />
-    </span>
-  );
-}
-
-const PRIORITY_CONFIG = [
-  { key: 'urgent', label: 'Urgent' },
-  { key: 'high', label: 'High' },
-  { key: 'medium', label: 'Medium' },
-  { key: 'low', label: 'Low' },
-  { key: 'no_priority', label: 'None' },
-] as const;
-
-export function PriorityPicker({
-  priority,
-  onPriorityChange,
-  className,
-}: {
-  priority: string;
-  onPriorityChange: (priority: string) => void;
-  className?: string;
-}) {
-  const [open, setOpen] = React.useState(false);
-
-  return (
-    <DropdownMenu open={open} onOpenChange={setOpen}>
-      <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-        <button
-          type="button"
-          className={`flex size-6 items-center justify-center rounded-[5px] hover:bg-secondary/80 transition-colors outline-hidden ${className || ''}`}
-          title="Change priority (P)"
-        >
-          <PriorityIcon priority={priority} />
-        </button>
-      </DropdownMenuTrigger>
-
-      <DropdownMenuContent
-        align="start"
-        className="w-44 p-1 bg-popover border border-border text-foreground shadow-xl rounded-lg"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="px-2 py-1 text-xs font-medium text-muted-foreground border-b border-border/50 mb-1 flex items-center justify-between">
-          <span>Priority</span>
-          <kbd className="font-mono text-xs bg-muted px-1 rounded border border-border">P</kbd>
-        </div>
-
-        <DropdownMenuGroup>
-          {PRIORITY_CONFIG.map((item) => {
-            const isSelected = priority === item.key;
-            return (
-              <DropdownMenuItem
-                key={item.key}
-                onClick={() => {
-                  onPriorityChange(item.key);
-                  setOpen(false);
-                }}
-                className={`flex items-center gap-2 px-2 py-1.5 rounded-[6px] text-xs cursor-pointer select-none transition-colors ${
-                  isSelected ? 'bg-secondary text-foreground font-medium' : 'text-muted-foreground hover:bg-secondary/60 hover:text-foreground'
-                }`}
-              >
-                <div className="shrink-0">
-                  <PriorityIcon priority={item.key} />
-                </div>
-                <span className="flex-1 truncate">{item.label}</span>
-                {isSelected && <Check className="size-3 text-foreground mr-0.5" />}
-              </DropdownMenuItem>
-            );
-          })}
-        </DropdownMenuGroup>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
+  showSubtasks?: boolean;
 }
 
 export function IssueListView({
@@ -148,13 +41,25 @@ export function IssueListView({
   onSelectIssue,
   focusedIndex = -1,
   onFocusIndex,
+  showSubtasks = true,
 }: IssueListViewProps) {
   const updateMutation = useUpdateIssue();
   const deleteMutation = useDeleteIssue();
+  const archiveMutation = useArchiveIssue();
+  const moveMutation = useMoveIssueToTop();
+  const bulkMutation = useBulkUpdateIssues();
   const [expandedIssues, setExpandedIssues] = React.useState<Record<string, boolean>>({});
   const [selectedIds, setSelectedIds] = React.useState<Set<string>>(new Set());
   const [deleteTargetId, setDeleteTargetId] = React.useState<string | null>(null);
   const [isBatchDeleteOpen, setIsBatchDeleteOpen] = React.useState(false);
+  const [subIssueParent, setSubIssueParent] = React.useState<Issue | null>(null);
+  const selectedTeamIds = React.useMemo(() => [...new Set(issues.filter((issue) => selectedIds.has(issue.id)).map((issue) => issue.teamId))], [issues, selectedIds]);
+  const workflowQueries = useQueries({ queries: selectedTeamIds.map((teamId) => ({
+    queryKey: ['team-workflow-states', teamId], queryFn: () => getTeamWorkflowStates(teamId), enabled: !!teamId,
+  })) });
+  const workflowReady = selectedTeamIds.length > 0 && workflowQueries.every((query) => query.isSuccess);
+  const workflows = workflowQueries.map((query) => query.data ?? []);
+  const bulkStatusOptions = workflows[0]?.filter((state) => state.isActive && workflows.slice(1).every((states) => states.some((candidate) => candidate.key === state.key && candidate.isActive))) ?? [];
 
   const toggleExpand = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -195,19 +100,13 @@ export function IssueListView({
     return { rootIssues: roots, subtasksByParent: subtaskMap };
   }, [issues]);
 
-  const handleBatchStatus = (status: any) => {
-    for (const id of selectedIds) {
-      updateMutation.mutate({ id, data: { status } });
-    }
-    setSelectedIds(new Set());
+  const handleBatchStatus = (status: string) => {
+    bulkMutation.mutate({ ids: [...selectedIds], status }, { onSuccess: () => setSelectedIds(new Set()) });
   };
 
-  const handleBatchPriority = (priority: any) => {
-    for (const id of selectedIds) {
-      updateMutation.mutate({ id, data: { priority } });
-    }
-    setSelectedIds(new Set());
-  };
+  const handleBatchPriority = (priority: string) => {
+    bulkMutation.mutate({ ids: [...selectedIds], priority }, { onSuccess: () => setSelectedIds(new Set()) });
+  }
 
   const handleBatchDelete = () => {
     setIsBatchDeleteOpen(true);
@@ -222,25 +121,28 @@ export function IssueListView({
   }
 
   return (
-    <div className="relative">
+    <div className="issue-work-surface relative">
       <div className="flex flex-col gap-px select-none">
         {rootIssues.map((issue, idx) => {
-          const subtasks = subtasksByParent[issue.id] || [];
+          const subtasks = showSubtasks ? (subtasksByParent[issue.id] || []) : [];
           const hasSubtasks = subtasks.length > 0;
           const isExpanded = !!expandedIssues[issue.id];
           const isFocused = focusedIndex === idx;
           const isChecked = selectedIds.has(issue.id);
-          const doneSubtasksCount = subtasks.filter((s) => s.status === 'done').length;
+          const doneSubtasksCount = subtasks.filter((subtask) => getIssueStatusCategory(subtask) === 'completed').length;
 
           return (
             <React.Fragment key={issue.id}>
               {/* Parent Row */}
+              <IssueContextMenu issue={issue} onOpen={onSelectIssue ? () => onSelectIssue(issue) : undefined}
+                onAddSubIssue={() => setSubIssueParent(issue)} onUpdate={data => updateMutation.mutate({ id: issue.id, data })} onDelete={() => setDeleteTargetId(issue.id)} onArchive={() => archiveMutation.mutate({ id: issue.id, restore: !!issue.archivedAt })} onMoveToTop={() => moveMutation.mutate(issue.id)}>
               <div
+                data-testid={`issue-row-${issue.id}`}
                 onClick={() => {
                   onFocusIndex?.(idx);
                   onSelectIssue?.(issue);
                 }}
-                className={`flex items-center justify-between rounded-[6px] px-3.5 py-2.5 transition-colors text-xs gap-3 cursor-pointer group relative ${
+                className={`issue-work-row flex items-center justify-between rounded-[6px] px-3.5 py-2.5 transition-colors text-xs gap-3 cursor-pointer group relative ${
                   isFocused
                     ? 'bg-secondary/70'
                     : isChecked
@@ -253,8 +155,15 @@ export function IssueListView({
                   <div className="absolute left-0 inset-y-0 w-0.5 bg-primary" />
                 )}
 
-                {/* Left section: Expand Toggle, Checkbox, Priority, ID, Status, Title */}
-                <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                {/* Left section: Checkbox, Expand Toggle, Priority, ID, Status, Title */}
+                <div className="issue-row-main flex items-center gap-2.5 min-w-0 flex-1">
+                  <Checkbox
+                    aria-label={`Select issue ${issue.identifier}`}
+                    checked={isChecked}
+                    onClick={(e) => handleToggleSelect(issue.id, e)}
+                    className="cursor-pointer shrink-0 rounded-[4px] opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 data-[state=checked]:opacity-100 [@media(hover:none)]:opacity-100"
+                  />
+
                   {/* Subtask expand chevron */}
                   {hasSubtasks ? (
                     <button
@@ -266,15 +175,8 @@ export function IssueListView({
                       <ChevronRight className={`size-3.5 transition-transform duration-150 ${isExpanded ? 'rotate-90' : ''}`} />
                     </button>
                   ) : (
-                    <div className="size-5 shrink-0" />
+                    <div className="size-5 shrink-0" aria-hidden="true" />
                   )}
-
-                  <Checkbox
-                    aria-label={`Select issue ${issue.identifier}`}
-                    checked={isChecked}
-                    onClick={(e) => handleToggleSelect(issue.id, e)}
-                    className="cursor-pointer shrink-0 rounded-[4px]"
-                  />
 
                   <PriorityPicker
                     priority={issue.priority}
@@ -287,14 +189,15 @@ export function IssueListView({
 
                   {/* Status Picker: Quick compact icon */}
                   <StatusPicker
+                    teamId={issue.teamId}
                     status={issue.status}
-                    className="size-6"
+                    appearance="badge"
                     onStatusChange={(newStatus) => updateMutation.mutate({ id: issue.id, data: { status: newStatus as any } })}
                   />
 
-                  <span className="font-medium text-foreground truncate group-hover:text-foreground transition-colors tracking-tight">
+                  <button type="button" className="issue-row-title truncate rounded-sm text-left font-medium tracking-tight text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label={`Open issue ${issue.identifier}: ${issue.title}`} title={issue.title}>
                     {issue.title}
-                  </span>
+                  </button>
 
                   {/* GitHub Issue Linked Badge */}
                   {issue.githubIssueNumber && (
@@ -316,42 +219,37 @@ export function IssueListView({
                 </div>
 
                 {/* Right section: Assignee, Type, Delete action */}
-                <div className="flex items-center gap-2.5 shrink-0" onClick={(e) => e.stopPropagation()}>
-                  <AssigneePicker
-                    size="icon"
-                    assigneeId={issue.assigneeId}
-                    onAssigneeChange={(userId) =>
-                      updateMutation.mutate({ id: issue.id, data: { assigneeId: userId } })
-                    }
+                <div className="issue-row-meta flex items-center gap-2.5 shrink-0" onClick={(e) => e.stopPropagation()}>
+                  <IssueRowProperties
+                    issue={issue}
+                    onUpdate={(data) => updateMutation.mutate({ id: issue.id, data })}
                   />
-
-                  <Badge variant="outline" className="capitalize text-xs font-mono h-5 px-2 font-normal rounded-[5px] border-border/70 bg-background/50 text-muted-foreground">
-                    {issue.type}
-                  </Badge>
 
                   <button
                     type="button"
                     onClick={(e) => handleDelete(issue.id, e)}
-                    className="text-muted-foreground/30 hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-[4px] hover:bg-destructive/10"
+                    className="text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity p-1 rounded-[4px] hover:bg-destructive/10"
                     title="Delete issue"
                   >
                     <Trash2 className="size-3.5" />
                   </button>
                 </div>
               </div>
+              </IssueContextMenu>
 
               {/* Sub-tasks Nested Sub-list */}
               {hasSubtasks && isExpanded && (
                 <div className="ml-3.5 border-l border-border/50 bg-secondary/15 divide-y divide-border/30">
                   {subtasks.map((st) => {
-                    const isDone = st.status === 'done';
+                    const isDone = getIssueStatusCategory(st) === 'completed';
                     return (
+                      <IssueContextMenu key={st.id} issue={st} onOpen={onSelectIssue ? () => onSelectIssue(st) : undefined}
+                        onAddSubIssue={() => setSubIssueParent(st)} onUpdate={data => updateMutation.mutate({ id: st.id, data })} onDelete={() => setDeleteTargetId(st.id)} onArchive={() => archiveMutation.mutate({ id: st.id, restore: !!st.archivedAt })} onMoveToTop={() => moveMutation.mutate(st.id)}>
                       <div
-                        key={st.id}
                         onClick={() => onSelectIssue?.(st)}
-                        className="flex items-center justify-between pl-8 pr-3.5 py-2 hover:bg-secondary/40 transition-colors text-xs gap-3 cursor-pointer group/sub"
+                        className="issue-work-row flex items-center justify-between pl-8 pr-3.5 py-2 hover:bg-secondary/40 transition-colors text-xs gap-3 cursor-pointer group/sub"
                       >
-                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                        <div className="issue-row-main flex items-center gap-2 min-w-0 flex-1">
                           <CornerDownRight className="size-3 text-muted-foreground/40 shrink-0" />
 
                           <button
@@ -383,27 +281,33 @@ export function IssueListView({
                           </span>
 
                           <StatusPicker
+                            teamId={st.teamId}
                             status={st.status}
-                            className="size-5"
+                            appearance="badge"
                             onStatusChange={(newStatus) => updateMutation.mutate({ id: st.id, data: { status: newStatus as any } })}
                           />
 
-                          <span className={`truncate text-xs ${isDone ? 'line-through text-muted-foreground/70' : 'text-foreground/90 font-normal'}`}>
+                          <button type="button" className={`issue-row-title truncate rounded-sm text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${isDone ? 'line-through text-muted-foreground/70' : 'text-foreground/90'}`} aria-label={`Open issue ${st.identifier}: ${st.title}`} title={st.title}>
                             {st.title}
-                          </span>
+                          </button>
                         </div>
 
-                        <div className="flex items-center gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
+                        <div className="issue-row-meta flex items-center gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
+                          <IssueRowProperties
+                            issue={st}
+                            onUpdate={(data) => updateMutation.mutate({ id: st.id, data })}
+                          />
                           <button
                             type="button"
                             onClick={(e) => handleDelete(st.id, e)}
-                            className="text-muted-foreground/20 hover:text-destructive opacity-0 group-hover/sub:opacity-100 transition-opacity p-1 rounded-[4px]"
+                            className="text-muted-foreground hover:text-destructive opacity-0 group-hover/sub:opacity-100 focus-visible:opacity-100 transition-opacity p-1 rounded-[4px] hover:bg-destructive/10"
                             title="Delete sub-task"
                           >
                             <Trash2 className="size-3" />
                           </button>
                         </div>
                       </div>
+                      </IssueContextMenu>
                     );
                   })}
                 </div>
@@ -415,7 +319,8 @@ export function IssueListView({
 
       {/* Linear Batch Actions Floating Bar */}
       {selectedIds.size > 0 && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 bg-popover/95 backdrop-blur-md border border-border px-4 py-2 rounded-lg shadow-2xl text-xs select-none animate-in fade-in-0 slide-in-from-bottom-4">
+        <div role="toolbar" aria-label="Selected issue actions"
+          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex max-w-[calc(100vw-2rem)] flex-wrap items-center justify-center gap-2 sm:gap-3 bg-popover/95 backdrop-blur-md border border-border px-4 py-2 rounded-lg shadow-2xl text-xs select-none animate-in fade-in-0 slide-in-from-bottom-4">
           <div className="flex items-center gap-2 font-mono font-medium text-foreground">
             <span className="size-5 rounded-[4px] bg-primary text-primary-foreground flex items-center justify-center text-xs">
               {selectedIds.size}
@@ -428,15 +333,15 @@ export function IssueListView({
           {/* Batch Status Dropdown */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="xs" className="h-7 text-xs">
+              <Button variant="ghost" size="sm" disabled={bulkMutation.isPending || !workflowReady || bulkStatusOptions.length === 0}>
                 Status...
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="center" className="w-40 p-1">
-              {Object.entries(STATUS_CONFIG).map(([key, cfg]) => (
-                <DropdownMenuItem key={key} onClick={() => handleBatchStatus(key)} className="text-xs gap-2">
-                  {cfg.renderIcon()}
-                  <span>{cfg.label}</span>
+              {bulkStatusOptions.map((state) => (
+                <DropdownMenuItem key={state.key} onClick={() => handleBatchStatus(state.key)} className="text-xs gap-2">
+                  {STATUS_CONFIG[state.key]?.renderIcon() ?? <span className="size-3 rounded-full border border-current" style={{ color: state.color, backgroundColor: `${state.color}30` }} />}
+                  <span>{state.name}</span>
                 </DropdownMenuItem>
               ))}
             </DropdownMenuContent>
@@ -445,7 +350,7 @@ export function IssueListView({
           {/* Batch Priority Dropdown */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="xs" className="h-7 text-xs">
+              <Button variant="ghost" size="sm" disabled={bulkMutation.isPending}>
                 Priority...
               </Button>
             </DropdownMenuTrigger>
@@ -463,7 +368,7 @@ export function IssueListView({
             variant="ghost"
             size="xs"
             onClick={handleBatchDelete}
-            className="h-7 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
+            className="text-destructive hover:text-destructive hover:bg-destructive/10"
           >
             <Trash2 className="size-3" />
             <span>Delete</span>
@@ -473,12 +378,21 @@ export function IssueListView({
             type="button"
             onClick={() => setSelectedIds(new Set())}
             className="p-1 rounded text-muted-foreground hover:text-foreground"
-            title="Clear selection (Esc)"
+            title="Clear selection"
+            aria-label="Clear selection"
           >
             <X className="size-3.5" />
           </button>
         </div>
       )}
+
+      <CreateIssueDialog
+        open={!!subIssueParent}
+        onOpenChange={open => !open && setSubIssueParent(null)}
+        defaultTeamId={subIssueParent?.teamId}
+        defaultParentId={subIssueParent?.id}
+        defaultParentIdentifier={subIssueParent?.identifier}
+      />
 
       <ConfirmDeleteDialog
         open={!!deleteTargetId}
