@@ -116,11 +116,11 @@ export function Header() {
             <DropdownMenuSeparator />
 
             <DropdownMenuGroup>
-              <DropdownMenuItem onClick={() => navigate('/settings#profile')}>
+              <DropdownMenuItem onClick={() => navigate('/settings/profile')}>
                 <User className="size-3.5" />
                 <span>Profile Settings</span>
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => navigate('/settings#appearance')}>
+              <DropdownMenuItem onClick={() => navigate('/settings/preferences')}>
                 <Settings className="size-3.5" />
                 <span>Preferences</span>
               </DropdownMenuItem>

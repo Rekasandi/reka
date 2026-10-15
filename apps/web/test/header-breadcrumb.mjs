@@ -57,7 +57,7 @@ try {
   const cases = [
     ['/dashboard', 'Dashboard'], ['/inbox', 'Inbox'], ['/my-issues', 'My Issues'],
     ['/issues', 'Issues'], ['/projects', 'Projects'], ['/cycles', 'Cycles'],
-    ['/teams', 'Teams'], ['/users', 'Users'], ['/clients', 'Clients'], ['/settings', 'Settings'],
+    ['/teams', 'Teams'], ['/users', 'Users'], ['/clients', 'Clients'], ['/settings', 'Preferences'], ['/settings/profile', 'Profile'], ['/settings/github', 'GitHub'], ['/settings/workspace', 'Workspace'],
     ['/triage', 'Triage'], ['/favorites', 'Favorites'], ['/documents', 'Documents'], ['/views', 'Views'],
     ['/triage?teamId=t1', 'Triage'], ['/initiatives?teamId=t1', 'Initiatives'], ['/views?teamId=t1', 'Views'],
     ['/initiatives', 'Initiatives'], ['/roadmap', 'Roadmap'], ['/insights', 'Insights'],

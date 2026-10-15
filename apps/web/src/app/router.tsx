@@ -98,7 +98,7 @@ export const router = createBrowserRouter([
       { path: 'teams/:id/issues', element: <TeamIssuesPage /> },
       { path: 'users', element: <UsersPage /> },
       { path: 'clients', element: <ClientsPage /> },
-      { path: 'settings', element: <SettingsPage /> },
+      { path: 'settings/:section?', element: <SettingsPage /> },
     ],
   },
   {

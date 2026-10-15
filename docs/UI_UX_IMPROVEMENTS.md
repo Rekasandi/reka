@@ -96,6 +96,16 @@ Verifikasi: web build dan web/API type-check lulus; `pnpm test:issues` **5/5** t
 
 Evidence lokal: `/tmp/reka-issue-detail/`, `/tmp/reka-issue-ui-audit/results.json`. Panduan alur: `docs/ISSUES_WORKFLOWS.md`.
 
+## Settings sebagai ruang pengaturan tersendiri
+
+`/settings` membuka Preferences dan mengganti sidebar workspace dengan sidebar Settings. Kategori: Personal (Preferences/Profile/Connected accounts), Issues (Workflows/Labels), Projects (Project settings), Integrations (GitHub), serta Administrations (Workspace/Members, owner/admin). Setiap menu memiliki route `/settings/:section`; Back to workspace mengembalikan navigasi normal. Breadcrumb, document title, menu profil dan tautan hash/callback lama mengikuti tujuan baru.
+
+Tidak ada konfigurasi palsu atau dependency baru. Theme dan notifikasi menggunakan penyimpanan existing; profil/identitas tetap read-only; workflow dan labels membuka editor tim existing; project settings mengarahkan ke konfigurasi per-project. GitHub UI dipisahkan dari pengaturan pribadi, sehingga Preferences tidak mengambil data instalasi/repository. Otorisasi API tidak berubah.
+
+Verifikasi: web build/type-check, `pnpm test:web:settings`, `header-breadcrumb.mjs`, dan `pnpm test:web:collaboration-real-api` lulus. Audit `all-pages-ui.mjs`: **35 routes × 4 variants = 140 renders**, tanpa exception/overflow/clipped control. Suite Settings memakai router aplikasi nyata dengan API terkontrol: sidebar berganti, semua kategori, tema persisten, penyimpanan preferensi notifikasi, workflow/label dialogs, direct/reload/back/forward, legacy links, mobile/light/dark, guest denial dan retry. Collaboration tetap memakai API/PostgreSQL disposable; provider live dan deployment tidak diverifikasi.
+
+Evidence lokal: `/tmp/reka-settings/`, `/tmp/reka-settings-audit/results.json`. Chip status, priority, type, assignee, project dan cycle di issue detail juga kembali memakai background/border existing, bukan override transparan.
+
 ## Batasan
 
 - Vite masih memberi warning chunk besar (main sekitar 1.87 MB; editor sekitar 800 KB). Build berhasil; route-level bundle optimization bukan bagian perubahan ini.

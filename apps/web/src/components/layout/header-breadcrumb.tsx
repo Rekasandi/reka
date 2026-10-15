@@ -14,6 +14,7 @@ import { useCycle } from '../../features/cycles/hooks/use-cycles';
 import { useDocument } from '../../features/projects/hooks/use-documents';
 import { useInitiative } from '../../features/initiatives/hooks/use-initiatives';
 import { useIssue } from '../../features/issues/hooks/use-issues';
+import { getSettingsSection, SETTINGS_ITEMS } from '../../features/settings/lib/settings-navigation';
 
 const PAGE_LABELS: Record<string, string> = {
   dashboard: 'Dashboard',
@@ -49,7 +50,7 @@ export function HeaderBreadcrumb() {
   const { data: initiative } = useInitiative(section === 'initiatives' ? resourceId : undefined);
   const { data: issue } = useIssue(section === 'issues' ? resourceId : undefined);
 
-  const items = [{ label: 'Dashboard', to: '/dashboard' }];
+  const items = section === 'settings' ? [{ label: 'Settings', to: '/settings' }] : [{ label: 'Dashboard', to: '/dashboard' }];
   if (section !== 'dashboard') {
     if (teamId && isTeamScopedSection) {
       items.push(
@@ -57,8 +58,11 @@ export function HeaderBreadcrumb() {
         { label: team?.name || 'Team', to: `/teams/${teamId}` },
       );
     }
-    items.push({ label: PAGE_LABELS[section] || 'Page', to: `/${section}${isTeamScopedSection ? search : ''}` });
-    if (resourceId) {
+    if (section !== 'settings') items.push({ label: PAGE_LABELS[section] || 'Page', to: `/${section}${isTeamScopedSection ? search : ''}` });
+    if (section === 'settings') {
+      const settingsSection = getSettingsSection(pathname);
+      items.push({ label: SETTINGS_ITEMS.find(item => item.id === settingsSection)?.label || 'Settings', to: `/settings/${settingsSection}` });
+    } else if (resourceId) {
       const label = section === 'teams' ? team?.name || 'Team'
         : section === 'projects' ? project?.name || 'Project'
         : section === 'cycles' ? cycle?.name || (cycle ? `Cycle ${cycle.number}` : 'Cycle')

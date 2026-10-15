@@ -99,12 +99,12 @@ try {
         ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(TooltipProvider, null,
           React.createElement(ThemeProvider, { defaultTheme: new URLSearchParams(location.search).get('theme') || 'light', storageKey: 'collaboration-e2e' },
             React.createElement(QueryClientProvider, { client: new QueryClient({ defaultOptions: { queries: { retry: false } } }) },
-              React.createElement(MemoryRouter, { initialEntries: [new URLSearchParams(location.search).get('page') === 'inbox' ? '/inbox' : new URLSearchParams(location.search).get('page') === 'github-settings' ? '/settings' : '/issue'] },
+              React.createElement(MemoryRouter, { initialEntries: [new URLSearchParams(location.search).get('page') === 'inbox' ? '/inbox' : new URLSearchParams(location.search).get('page') === 'github-settings' ? '/settings/github' : '/issue'] },
                 React.createElement(Routes, null,
                   React.createElement(Route, { path: '/issue', element: React.createElement(IssueRoute) }),
                   React.createElement(Route, { path: '/issues/:id', element: React.createElement(IssueDetailPage) }),
                   React.createElement(Route, { path: '/inbox', element: React.createElement(InboxPage) }),
-                  React.createElement(Route, { path: '/settings', element: React.createElement(SettingsPage) })))))));
+                  React.createElement(Route, { path: '/settings/:section?', element: React.createElement(SettingsPage) })))))));
       ` });
     });
     return page;

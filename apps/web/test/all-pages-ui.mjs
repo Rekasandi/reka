@@ -33,7 +33,7 @@ const components = [
   ['InitiativesPage', 'initiatives'], ['InitiativeDetailPage', 'initiatives'], ['RoadmapPage', 'initiatives'], ['InsightsPage', 'insights'],
 ];
 const routes = ['/dashboard', '/inbox', '/my-issues', '/issues', '/projects', '/projects/p1', '/cycles', '/cycles/cy1', '/teams', '/teams/t1', '/teams/t1/issues', '/users', '/clients', '/settings', '/triage', '/favorites', '/documents', '/documents/d1', '/initiatives', '/initiatives/in1', '/roadmap', '/insights', '/login', '/missing'];
-const config = [['/dashboard','DashboardPage'], ['/inbox','InboxPage'], ['/my-issues','IssuesPage'], ['/issues','IssuesPage'], ['/projects','ProjectsPage'], ['/projects/:id','ProjectDetailPage'], ['/cycles','CyclesPage'], ['/cycles/:id','CycleDetailPage'], ['/teams','TeamsPage'], ['/teams/:id','TeamDetailPage'], ['/teams/:id/issues','TeamIssuesPage'], ['/users','UsersPage'], ['/clients','ClientsPage'], ['/settings','SettingsPage'], ['/triage','TriagePage'], ['/favorites','FavoritesPage'], ['/documents','DocumentsPage'], ['/documents/:id','DocumentDetailPage'], ['/initiatives','InitiativesPage'], ['/initiatives/:id','InitiativeDetailPage'], ['/roadmap','RoadmapPage'], ['/insights','InsightsPage']];
+const config = [['/dashboard','DashboardPage'], ['/inbox','InboxPage'], ['/my-issues','IssuesPage'], ['/issues','IssuesPage'], ['/projects','ProjectsPage'], ['/projects/:id','ProjectDetailPage'], ['/cycles','CyclesPage'], ['/cycles/:id','CycleDetailPage'], ['/teams','TeamsPage'], ['/teams/:id','TeamDetailPage'], ['/teams/:id/issues','TeamIssuesPage'], ['/users','UsersPage'], ['/clients','ClientsPage'], ['/settings/:section?','SettingsPage'], ['/triage','TriagePage'], ['/favorites','FavoritesPage'], ['/documents','DocumentsPage'], ['/documents/:id','DocumentDetailPage'], ['/initiatives','InitiativesPage'], ['/initiatives/:id','InitiativeDetailPage'], ['/roadmap','RoadmapPage'], ['/insights','InsightsPage']];
 const findings = [];
 let teamsMode = 'populated';
 let favoritesMode = 'populated';
@@ -45,7 +45,7 @@ cycles.push({ ...cycles[0], id: 'cy2', teamId: 't2', name: 'Design current cycle
 initiatives.push({ ...initiatives[0], id: 'in2', name: 'Design foundation initiative', projects: [projects[1]] });
 teams[1].isPrivate = true;
 components.push(['ViewsPage', 'views']);
-routes.push('/views', '/issues/i0');
+routes.push('/views', '/issues/i0', ...['preferences', 'profile', 'accounts', 'workflows', 'labels', 'projects', 'github', 'workspace', 'members'].map(section => `/settings/${section}`));
 config.push(['/views', 'ViewsPage'], ['/issues/:id', 'IssueDetailPage']);
 try {
   const page = await browser.newPage();
@@ -283,7 +283,8 @@ try {
   await page.getByRole('button', { name: 'Open profile menu', exact: true }).click();
   assert.equal(await page.getByText(/github\.com\//).count(), 0, 'Email is not used as a fake GitHub identity');
   await page.getByRole('menuitem', { name: 'Preferences', exact: true }).click();
-  await page.getByLabel('Theme', { exact: true }).selectOption('light');
+  await page.getByRole('combobox', { name: 'Theme', exact: true }).click();
+  await page.getByRole('option', { name: 'Light', exact: true }).click();
   await page.waitForFunction(() => document.documentElement.classList.contains('light'));
   assert.equal(await page.evaluate(() => localStorage.getItem('audit-theme')), 'light');
 

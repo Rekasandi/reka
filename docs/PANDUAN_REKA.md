@@ -174,6 +174,20 @@ Buka nama tim untuk mengakses Home, Triage, Issues, Cycles (Current/Upcoming), I
 | **Views** | Mencari saved views dan membuka issue dengan filter/layout tersimpan. |
 | **Teams / Users / Clients / Settings** | Struktur tim, anggota, catatan pelanggan, dan konfigurasi sesuai izin. |
 
+### 4.4 Settings dengan sidebar khusus
+
+Klik **Settings** untuk masuk ke halaman pengaturan. Sidebar workspace diganti sidebar Settings; **Back to workspace** kembali ke Dashboard.
+
+| Kategori | Menu dan fungsi |
+|---|---|
+| **Personal** | **Preferences**: tema browser dan notifikasi Inbox. **Profile**: identitas akun yang sedang masuk. **Connected accounts**: identitas GitHub terverifikasi, bukan instalasi GitHub App workspace. |
+| **Issues** | **Workflows** dan **Labels**: pilih tim, lalu gunakan pengaturan workflow atau label existing. Hanya pengelola tim yang dapat mengubahnya. |
+| **Projects** | **Project settings**: pilih project untuk membuka konfigurasi properti, milestone, anggota, atau repository pada halaman project tersebut. Tidak ada default global project yang dipalsukan. |
+| **Integrations** | **GitHub**: instalasi organisasi, repository workspace, aturan workflow yang didukung dan status webhook. Tindakan pengelolaan mengikuti izin owner/admin. |
+| **Administrations** | **Workspace** dan **Members**, khusus owner/admin. Nama workspace, undangan, dan pengelolaan anggota memakai API yang sama seperti sebelumnya. |
+
+Setiap menu memiliki URL `/settings/...` yang bisa dibuka langsung atau di-reload. Tautan lama seperti `/settings#profile`, `/settings#appearance`, serta callback instalasi GitHub tetap diarahkan ke halaman yang sesuai. Di mobile, buka sidebar melalui tombol di header; sidebar menutup setelah memilih menu. Data profil tidak diedit melalui form palsu: identitas ditampilkan dari akun login yang sebenarnya.
+
 ## 5. Workflow pekerjaan dari awal hingga selesai
 
 Alur yang direkomendasikan:
