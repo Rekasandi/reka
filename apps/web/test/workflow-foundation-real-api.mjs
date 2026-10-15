@@ -76,6 +76,7 @@ try {
       import { TooltipProvider } from '/@fs${ui}';
       import { ThemeProvider } from '/src/components/theme/theme-provider.tsx';
       import { IssuesPage } from '/src/features/issues/components/issues-page.tsx';
+      import { IssueDetailPage } from '/src/features/issues/components/issue-detail-page.tsx';
       import { TriagePage } from '/src/features/issues/components/triage-page.tsx';
       import { ProjectDetailPage } from '/src/features/projects/components/project-detail-page.tsx';
       import { DocumentsPage } from '/src/features/projects/components/documents-page.tsx';
@@ -99,6 +100,7 @@ try {
           React.createElement(RouteProbe),
           React.createElement(Routes, null,
             React.createElement(Route, { path: '/issues', element: React.createElement(IssuesPage) }),
+            React.createElement(Route, { path: '/issues/:id', element: React.createElement(IssueDetailPage) }),
             React.createElement(Route, { path: '/projects/:id', element: React.createElement(ProjectDetailPage) }),
             React.createElement(Route, { path: '/documents', element: React.createElement(DocumentsPage) }),
             React.createElement(Route, { path: '/documents/:id', element: React.createElement(DocumentDetailPage) }),
@@ -227,9 +229,11 @@ try {
   assert.ok(secondIssue);
   await page.getByText('Second browser issue', { exact: true }).click();
   const recurrenceDetail = page.getByRole('dialog', { name: `Issue ${secondIssue.identifier}` });
+  await recurrenceDetail.getByRole('button', { name: 'Recurrence', exact: true }).click();
   const recurrenceSection = recurrenceDetail.locator('section[aria-label="Issue recurrence"]');
   await recurrenceSection.getByLabel('Recurrence interval').fill('2');
-  await recurrenceSection.getByLabel('Recurrence cadence').selectOption('month');
+  await recurrenceSection.getByRole('combobox', { name: 'Recurrence cadence' }).click();
+  await page.getByRole('option', { name: 'Month(s)', exact: true }).click();
   await recurrenceSection.getByLabel('Recurrence timezone').fill('America/Los_Angeles');
   await recurrenceSection.getByLabel('Next occurrence').fill('2099-03-01T09:00');
   await recurrenceSection.getByLabel('Due date offset').fill('3');
@@ -249,8 +253,9 @@ try {
   await page.getByText('Real API browser foundation', { exact: true }).click();
   const detail = page.getByRole('dialog', { name: `Issue ${persisted.identifier}` });
   await detail.waitFor();
-  await detail.getByLabel('Relation type').selectOption('blocks');
-  await detail.getByLabel('Related issue').selectOption(secondIssue.id);
+  await detail.getByRole('button', { name: 'Relations (0)', exact: true }).click();
+  await detail.getByRole('combobox', { name: 'Related issue' }).click();
+  await page.getByRole('option', { name: new RegExp(secondIssue.identifier) }).click();
   await detail.getByRole('button', { name: 'Add relation' }).click();
   await detail.locator('section[aria-label="Issue relations"]').getByText(secondIssue.identifier, { exact: true }).waitFor();
   assert.equal((await postgres.db.select().from(require('@reka/database').issueRelations).where(eq(require('@reka/database').issueRelations.issueId, persisted.id))).length, 1);
@@ -260,6 +265,9 @@ try {
   await detail.getByText('Browser verified sub-issue', { exact: true }).waitFor();
   const subIssue = (await postgres.db.select().from(issues)).find((row) => row.title === 'Browser verified sub-issue');
   assert.ok(subIssue?.parentId === persisted.id, 'sub-issue persists with its parent relation');
+  await detail.getByRole('button', { name: `Complete ${subIssue.identifier}`, exact: true }).click();
+  await detail.getByRole('button', { name: `Reopen ${subIssue.identifier}`, exact: true }).waitFor();
+  assert.equal((await postgres.db.select().from(issues).where(eq(issues.id, subIssue.id)))[0].status, 'done', 'sub-task completion refreshes in the shared detail');
   const estimateUpdate = page.waitForResponse(response => response.request().method() === 'PATCH' && new URL(response.url()).pathname === `/api/issues/${persisted.id}`);
   await detail.getByLabel('Issue estimate').fill('3');
   await detail.getByLabel('Issue estimate').blur();
@@ -268,12 +276,14 @@ try {
   await detail.getByLabel('Issue due date').fill('2026-12-01');
   await detail.getByLabel('Issue due date').blur();
   assert.equal((await dueDateUpdate).status(), 200);
-  await page.getByLabel('Archive issue').click();
+  await detail.getByRole('button', { name: 'Issue actions' }).click();
+  await page.getByRole('menuitem', { name: 'Archive issue', exact: true }).click();
   await detail.waitFor({ state: 'hidden' });
   await page.getByRole('button', { name: 'Archived', exact: true }).click();
   await page.getByText('Real API browser foundation', { exact: true }).waitFor();
   await page.getByText('Real API browser foundation', { exact: true }).click();
-  await page.getByLabel('Restore issue').click();
+  await page.getByRole('button', { name: 'Issue actions' }).click();
+  await page.getByRole('menuitem', { name: 'Restore issue', exact: true }).click();
   await page.getByRole('dialog', { name: `Issue ${persisted.identifier}` }).waitFor({ state: 'hidden' });
   await page.getByRole('button', { name: 'All', exact: true }).click();
   await page.getByText('Real API browser foundation', { exact: true }).waitFor();
@@ -340,7 +350,7 @@ try {
   const commandInput = page.getByPlaceholder('Search issues, projects, and documents…');
   await commandInput.fill(persisted.identifier);
   await page.getByRole('option', { name: new RegExp(persisted.identifier) }).click();
-  const searchedIssue = page.getByRole('dialog', { name: `Issue ${persisted.identifier}` });
+  const searchedIssue = page.locator('[data-issue-detail="page"]');
   await searchedIssue.waitFor();
   await searchedIssue.getByLabel('Add issue to favorites').click();
   await page.waitForResponse(response => response.request().method() === 'POST' && new URL(response.url()).pathname === '/api/favorites');

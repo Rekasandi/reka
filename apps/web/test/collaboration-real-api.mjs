@@ -8,7 +8,7 @@ const { createPersistentPostgres } = require('./persistent-postgres.cjs');
 const { createIsolatedApi } = require('./isolated-api.cjs');
 const { organizations, organizationMembers, users, teams, teamMembers, teamWorkflowStates, sessions, issues, comments, notifications, issueSubscriptions, notificationPreferences, attachments, githubInstallations, githubRepositories, githubBranches, githubPullRequests, webhookEvents } = require('@reka/database');
 const { eq } = require('drizzle-orm');
-const modules = ['activities', 'attachments', 'comments', 'cycles', 'github', 'issues', 'issue-subscriptions', 'labels', 'notifications', 'projects', 'teams', 'users', 'workspace'].map(name => Object.values(require(`../../dist/${name}/${name}.module`))[0]);
+const modules = ['activities', 'attachments', 'comments', 'cycles', 'github', 'issues', 'issue-subscriptions', 'labels', 'notifications', 'projects', 'teams', 'users', 'views', 'workspace'].map(name => Object.values(require(`../../dist/${name}/${name}.module`))[0]);
 modules.push(Object.values(require('../../dist/common/redis/redis.module'))[0]);
 const { RedisService } = require('../../dist/common/redis/redis.service');
 const ui = fileURLToPath(new URL('../../../packages/ui/src/index.ts', import.meta.url));
@@ -88,6 +88,7 @@ try {
         import { TooltipProvider } from '/@fs${ui}';
         import { ThemeProvider } from '/src/components/theme/theme-provider.tsx';
         import { IssueDetailSheet } from '/src/features/issues/components/issue-detail-sheet.tsx';
+        import { IssueDetailPage } from '/src/features/issues/components/issue-detail-page.tsx';
         import { InboxPage } from '/src/features/notifications/components/inbox-page.tsx';
         import { SettingsPage } from '/src/features/settings/components/settings-page.tsx';
         import { useAuthStore } from '/src/stores/auth.store.ts';
@@ -101,6 +102,7 @@ try {
               React.createElement(MemoryRouter, { initialEntries: [new URLSearchParams(location.search).get('page') === 'inbox' ? '/inbox' : new URLSearchParams(location.search).get('page') === 'github-settings' ? '/settings' : '/issue'] },
                 React.createElement(Routes, null,
                   React.createElement(Route, { path: '/issue', element: React.createElement(IssueRoute) }),
+                  React.createElement(Route, { path: '/issues/:id', element: React.createElement(IssueDetailPage) }),
                   React.createElement(Route, { path: '/inbox', element: React.createElement(InboxPage) }),
                   React.createElement(Route, { path: '/settings', element: React.createElement(SettingsPage) })))))));
       ` });
@@ -112,6 +114,7 @@ try {
   try { await ownerIssuePage.getByRole('heading', { name: `Issue ${issue.identifier}` }).waitFor({ timeout: 12000 }); }
   catch (error) { console.error('Issue page body:', (await ownerIssuePage.locator('body').innerText()).slice(0, 1500)); console.error('Issue page errors:', errors, 'API failures:', apiFailures); throw error; }
   await ownerIssuePage.getByRole('textbox', { name: 'Write a comment' }).waitFor();
+  await ownerIssuePage.getByRole('button', { name: /GitHub \(/ }).click();
   await ownerIssuePage.getByText('GitHub Pull Requests & CI', { exact: true }).waitFor();
   await ownerIssuePage.getByText('Browser-verified PR', { exact: true }).waitFor();
   await ownerIssuePage.getByText(`branch: feature/${issue.identifier}-browser`, { exact: true }).waitFor();
@@ -188,6 +191,8 @@ try {
   await memberIssuePage.getByText('A team note after preferences are changed', { exact: true }).waitFor({ timeout: 12000 });
   assert.equal((await postgres.db.select().from(notifications).where(eq(notifications.userId, member.id))).length, beforeCommentNotifications, 'notification preference suppresses new subscriber comment notices');
 
+  await ownerIssuePage.getByRole('button', { name: /Attachments \(/ }).click();
+  await memberIssuePage.getByRole('button', { name: /Attachments \(/ }).click();
   const fileInput = ownerIssuePage.getByLabel('Choose issue attachment');
   const uploadResponse = ownerIssuePage.waitForResponse(response => response.request().method() === 'POST' && new URL(response.url()).pathname === `/api/attachments/by-issue/${issue.id}`);
   await fileInput.setInputFiles({ name: 'shared-note.png', mimeType: 'image/png', buffer: png });
@@ -226,7 +231,7 @@ try {
   for (const theme of ['light', 'dark']) for (const width of [1440, 390]) {
     await ownerIssuePage.setViewportSize({ width, height: 900 });
     await ownerIssuePage.goto(`${url}?page=issue&theme=${theme}`);
-    await ownerIssuePage.getByRole('heading', { name: `Issue ${issue.identifier}` }).waitFor();
+    await ownerIssuePage.locator('[data-issue-detail]').waitFor();
     await ownerIssuePage.waitForTimeout(150);
     assert.equal(await ownerIssuePage.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, `issue ${theme} ${width}px has no horizontal overflow`);
     await ownerIssuePage.screenshot({ path: `/tmp/reka-collaboration-issue-${theme}-${width}.png` });

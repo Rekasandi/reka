@@ -25,7 +25,7 @@ const sample = { averageHours: 8, medianHours: 6, sampleSize: 1, missingHistoryC
 const overview = { history: { hasHistory: true, baselineIssueCount: 0 }, throughput: { total: 1, repeatedCompletionEvents: 0, baselineCompletionCount: 0, points: [{ date: '2026-10-13', count: 1 }] }, leadTime: sample, cycleTime: sample, completions: { page: 1, totalPages: 1, total: 1, rows: [{ issueId: 'i2', identifier: 'ENG-3', title: issues[2].title, completedAt: '2026-10-13T08:00:00Z' }] }, quality: { explanation: 'Measured workflow history only.' } };
 const favorites = [{ resourceType: 'project', resourceId: 'p1', name: projects[0].name, href: '/projects/p1' }, { resourceType: 'document', resourceId: 'd1', name: documents[0].title, href: '/documents/d1' }];
 const components = [
-  ['DashboardPage', 'dashboard'], ['InboxPage', 'notifications', 'inbox'], ['IssuesPage', 'issues'],
+  ['DashboardPage', 'dashboard'], ['InboxPage', 'notifications', 'inbox'], ['IssuesPage', 'issues'], ['IssueDetailPage', 'issues'],
   ['ProjectsPage', 'projects'], ['ProjectDetailPage', 'projects'], ['CyclesPage', 'cycles'], ['CycleDetailPage', 'cycles'],
   ['TeamsPage', 'teams'], ['TeamDetailPage', 'teams'], ['TeamIssuesPage', 'teams'], ['UsersPage', 'users'],
   ['ClientsPage', 'clients'], ['SettingsPage', 'settings'], ['LoginPage', 'auth'], ['NotFoundPage', 'common'],
@@ -45,8 +45,8 @@ cycles.push({ ...cycles[0], id: 'cy2', teamId: 't2', name: 'Design current cycle
 initiatives.push({ ...initiatives[0], id: 'in2', name: 'Design foundation initiative', projects: [projects[1]] });
 teams[1].isPrivate = true;
 components.push(['ViewsPage', 'views']);
-routes.push('/views');
-config.push(['/views', 'ViewsPage']);
+routes.push('/views', '/issues/i0');
+config.push(['/views', 'ViewsPage'], ['/issues/:id', 'IssueDetailPage']);
 try {
   const page = await browser.newPage();
   let errors = [];
@@ -234,11 +234,10 @@ try {
   assert.ok(await issueTitle.evaluate(el => el.getBoundingClientRect().width > 150), 'Mobile issue title gets a usable full row');
   await issueTitle.focus();
   await page.keyboard.press('Enter');
-  await page.getByRole('dialog').waitFor();
-  // Wait for the mobile drawer's entry animation before sending its dismissal key.
-  await page.waitForTimeout(250);
-  await page.keyboard.press('Escape');
-  await page.getByRole('dialog').waitFor({ state: 'hidden' });
+  await page.locator('[data-issue-detail="page"]').waitFor();
+  assert.equal(await page.getByRole('dialog', { name: 'Issue ENG-1' }).count(), 0, 'Mobile uses the full issue page');
+  await page.getByRole('button', { name: 'Back to issues' }).click();
+  await page.getByRole('heading', { name: 'Issues', exact: true }).waitFor();
   await page.getByRole('link', { name: 'Skip to content', exact: true }).focus();
   await page.keyboard.press('Enter');
   assert.equal(await page.evaluate(() => document.activeElement.id), 'workspace-content');

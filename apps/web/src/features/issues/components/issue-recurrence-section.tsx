@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Alert, AlertDescription, Button, Input } from '@reka/ui';
+import { Alert, AlertDescription, Button, Input, Select, SelectTrigger, SelectValue, SelectContent, SelectGroup, SelectItem } from '@reka/ui';
 import { Repeat2 } from 'lucide-react';
 import { useConfigureIssueRecurrence, useIssueRecurrence, useStopIssueRecurrence } from '../hooks/use-issue-recurrence';
 import { formatDateTimeInZone, parseDateTimeInZone } from '../lib/recurrence-date';
@@ -43,7 +43,7 @@ export function IssueRecurrenceSection({ issueId, archived = false }: { issueId:
     } catch (error) { setDateError((error as Error).message); }
   };
 
-  return <section aria-label="Issue recurrence" className="flex flex-col gap-3 rounded-lg border border-border/70 bg-card/20 p-4">
+  return <section aria-label="Issue recurrence" className="flex min-w-0 flex-col gap-3">
     <div className="flex items-center gap-2"><Repeat2 className="size-3.5 text-muted-foreground" /><h3 className="text-xs font-medium">Recurring issue</h3></div>
     {query.isLoading ? <p role="status" className="text-xs text-muted-foreground">Loading recurrence…</p> : null}
     {query.isError ? <Alert variant="destructive"><AlertDescription className="flex items-center justify-between gap-2">Could not load recurrence: {query.error.message}<Button type="button" size="xs" variant="outline" onClick={() => void query.refetch()}>Retry</Button></AlertDescription></Alert> : null}
@@ -55,9 +55,10 @@ export function IssueRecurrenceSection({ issueId, archived = false }: { issueId:
           <Input aria-label="Recurrence interval" type="number" min={1} max={52} step={1} required value={intervalCount} onChange={event => setIntervalCount(event.target.value)} disabled={archived || configure.isPending} />
         </label>
         <label className="flex flex-col gap-1 text-xs text-muted-foreground">Cadence
-          <select aria-label="Recurrence cadence" className="h-8 rounded-md border border-input bg-background px-2 text-xs text-foreground" value={unit} onChange={event => setUnit(event.target.value as typeof unit)} disabled={archived || configure.isPending}>
-            <option value="day">Day(s)</option><option value="week">Week(s)</option><option value="month">Month(s)</option>
-          </select>
+          <Select value={unit} onValueChange={value => setUnit(value as typeof unit)} disabled={archived || configure.isPending}>
+            <SelectTrigger aria-label="Recurrence cadence" className="w-full"><SelectValue /></SelectTrigger>
+            <SelectContent><SelectGroup><SelectItem value="day">Day(s)</SelectItem><SelectItem value="week">Week(s)</SelectItem><SelectItem value="month">Month(s)</SelectItem></SelectGroup></SelectContent>
+          </Select>
         </label>
         <label className="col-span-2 flex flex-col gap-1 text-xs text-muted-foreground">Timezone
           <Input aria-label="Recurrence timezone" value={timezone} onChange={event => setTimezone(event.target.value)} required maxLength={64} disabled={archived || configure.isPending} />

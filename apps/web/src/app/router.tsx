@@ -6,6 +6,7 @@ import { AlertCircle, RotateCcw } from 'lucide-react';
 import { AppLayout } from '../components/layout/app-layout';
 import { DashboardPage } from '../features/dashboard/components/dashboard-page';
 import { IssuesPage } from '../features/issues/components/issues-page';
+import { IssueDetailPage } from '../features/issues/components/issue-detail-page';
 import { TriagePage } from '../features/issues/components/triage-page';
 import { ProjectsPage } from '../features/projects/components/projects-page';
 import { ProjectDetailPage } from '../features/projects/components/project-detail-page';
@@ -81,6 +82,7 @@ export const router = createBrowserRouter([
       { path: 'views', element: <ViewsPage /> },
       { path: 'my-issues', element: <IssuesPage /> },
       { path: 'issues', element: <IssuesPage /> },
+      { path: 'issues/:id', element: <IssueDetailPage /> },
       { path: 'projects', element: <ProjectsPage /> },
       { path: 'initiatives', element: <InitiativesPage /> },
       { path: 'initiatives/:id', element: <InitiativeDetailPage /> },

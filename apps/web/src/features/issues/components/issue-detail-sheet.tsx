@@ -1,14 +1,34 @@
 import * as React from 'react';
 import { getIssueStatusCategory, type Issue } from '@reka/types';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   Sheet,
   SheetContent,
   SheetTitle,
   SheetDescription,
-  Drawer,
-  DrawerContent,
-  DrawerTitle,
-  DrawerDescription,
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  Input,
+  Field,
+  FieldLabel,
+  FieldGroup,
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  Skeleton,
+  Alert,
+  AlertDescription,
+  AvatarImage,
   Badge,
   Button,
   Textarea,
@@ -23,13 +43,9 @@ import {
 } from '@reka/ui';
 import {
   GitBranch,
-  Copy,
-  Check,
   MessageSquare,
   Activity,
   Trash2,
-  Calendar,
-  User,
   Plus,
   CheckCircle2,
   GitPullRequest,
@@ -44,8 +60,12 @@ import {
   Star,
   Bell,
   Paperclip,
-  Download,
-  Pencil,
+  ArrowLeft,
+  ArrowUpRight,
+  ChevronRight,
+  MoreHorizontal,
+  Link as LinkIcon,
+  X,
 } from 'lucide-react';
 import { useUpdateIssue, useDeleteIssue, useSubtasks, useCreateSubtask, useArchiveIssue, useIssues } from '../hooks/use-issues';
 import { useIssueComments, useCreateComment, useUpdateComment, useDeleteComment, useIssueActivities, useIssueRelations, useIssueRelationMutations, useIssueSubscription, useIssueAttachments, useIssueAttachmentMutations } from '../hooks/use-issue-details';
@@ -59,7 +79,7 @@ import { CyclePicker } from './cycle-picker';
 import { LinkPullRequestDialog } from './link-pr-dialog';
 import { IssueLabelsPicker } from './issue-labels-picker';
 import { IssueRecurrenceSection } from './issue-recurrence-section';
-import { useTeamWorkflowStates } from '../../teams/hooks/use-teams';
+import { useTeam, useTeamWorkflowStates } from '../../teams/hooks/use-teams';
 import { ConfirmDeleteDialog } from '../../../components/common/confirm-delete-dialog';
 import { useUsers } from '../../users/hooks/use-users';
 import { useAuthStore } from '../../../stores/auth.store';
@@ -105,10 +125,51 @@ function formatDateTime(value: string) {
   });
 }
 
-export function IssueDetailSheet({ issue, open, onOpenChange, isFavorite = false, canFavorite = true, onToggleFavorite }: IssueDetailSheetProps) {
-  if (!issue) return null;
-
+export function IssueDetailSheet({ issue, open, onOpenChange, ...favorites }: IssueDetailSheetProps) {
   const isMobile = useIsMobile();
+  const navigate = useNavigate();
+  const location = useLocation();
+  React.useEffect(() => {
+    if (!isMobile || !open || !issue) return;
+    const search = new URLSearchParams(location.search);
+    search.delete('issueId');
+    const returnTo = location.pathname + (search.size ? `?${search}` : '');
+    onOpenChange(false);
+    navigate(`/issues/${issue.id}`, { state: { returnTo } });
+  }, [isMobile, open, issue?.id]);
+  if (!issue || !open || isMobile) return null;
+  return <Sheet open={open} onOpenChange={onOpenChange}>
+    <SheetContent showCloseButton={false} className="data-[side=right]:w-full data-[side=right]:sm:max-w-3xl gap-0 p-0">
+      <SheetTitle className="sr-only">Issue {issue.identifier}</SheetTitle>
+      <SheetDescription className="sr-only">Issue details and discussion</SheetDescription>
+      <IssueDetailContent key={issue.id} issue={issue} onClose={() => onOpenChange(false)} {...favorites} />
+    </SheetContent>
+  </Sheet>;
+}
+
+function DetailSection({ title, children }: React.PropsWithChildren<{ title: string }>) {
+  return <Collapsible className="order-1 min-w-0 border-t border-border pt-3">
+    <CollapsibleTrigger asChild><Button type="button" variant="ghost" className="group w-full justify-start"><ChevronRight className="transition-transform group-data-[state=open]:rotate-90" /><span>{title}</span></Button></CollapsibleTrigger>
+    <CollapsibleContent className="pt-3 pb-5">{children}</CollapsibleContent>
+  </Collapsible>;
+}
+
+function PendingRows({ label }: { label: string }) {
+  return <div role="status" aria-label={label} className="flex flex-col gap-2 py-2"><Skeleton className="h-4 w-3/4" /><Skeleton className="h-4 w-1/2" /></div>;
+}
+
+function LoadError({ label, retry }: { label: string; retry: () => void }) {
+  return <Alert variant="destructive"><AlertDescription className="flex items-center justify-between gap-2">Could not load {label}.<Button type="button" variant="outline" size="xs" onClick={retry}>Retry</Button></AlertDescription></Alert>;
+}
+
+type IssueDetailContentProps = Omit<IssueDetailSheetProps, 'issue' | 'open' | 'onOpenChange'> & {
+  issue: Issue;
+  presentation?: 'sheet' | 'page';
+  onClose: () => void;
+};
+
+export function IssueDetailContent({ issue, presentation = 'sheet', onClose, isFavorite = false, canFavorite = true, onToggleFavorite }: IssueDetailContentProps) {
+  const location = useLocation();
   const [title, setTitle] = React.useState(issue.title);
   const [description, setDescription] = React.useState(issue.description || '');
   const [estimate, setEstimate] = React.useState(issue.estimate == null ? '' : String(issue.estimate));
@@ -129,13 +190,17 @@ export function IssueDetailSheet({ issue, open, onOpenChange, isFavorite = false
   const [isAddingSubtask, setIsAddingSubtask] = React.useState(false);
   const [isLinkPrOpen, setIsLinkPrOpen] = React.useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = React.useState(false);
+  const [deleteTarget, setDeleteTarget] = React.useState<{ title: string; confirm: () => void } | null>(null);
   const currentUser = useAuthStore(state => state.user);
+  const { data: team } = useTeam(issue.teamId);
+  const canEdit = !!currentUser && !['guest', 'client'].includes(currentUser.role) && team?.canWrite !== false;
+  const readOnly = !canEdit || !!issue.archivedAt;
 
+  React.useEffect(() => { setTitle(issue.title); }, [issue.title]);
+  React.useEffect(() => { setDescription(issue.description || ''); }, [issue.description]);
+  React.useEffect(() => { setEstimate(issue.estimate == null ? '' : String(issue.estimate)); }, [issue.estimate]);
+  React.useEffect(() => { setDueDate(issue.dueDate ? new Date(issue.dueDate).toISOString().slice(0, 10) : ''); }, [issue.dueDate]);
   React.useEffect(() => {
-    setTitle(issue.title);
-    setDescription(issue.description || '');
-    setEstimate(issue.estimate == null ? '' : String(issue.estimate));
-    setDueDate(issue.dueDate ? new Date(issue.dueDate).toISOString().slice(0, 10) : '');
     setRelationTargetId('');
     setCommentText('');
     setMentionToken(null);
@@ -144,8 +209,9 @@ export function IssueDetailSheet({ issue, open, onOpenChange, isFavorite = false
     setNewSubtaskTitle('');
     setIsAddingSubtask(false);
     setIsLinkPrOpen(false);
+    setDeleteTarget(null);
     setActiveTab('comments');
-  }, [issue]);
+  }, [issue.id]);
 
   const updateMutation = useUpdateIssue();
   const deleteMutation = useDeleteIssue();
@@ -162,7 +228,7 @@ export function IssueDetailSheet({ issue, open, onOpenChange, isFavorite = false
   const attachmentMutations = useIssueAttachmentMutations(issue.id);
   const updateCommentMutation = useUpdateComment(issue.id);
   const deleteCommentMutation = useDeleteComment(issue.id);
-  const { data: subtasks = [] } = useSubtasks(issue.id);
+  const { data: subtasks = [], isLoading: subtasksLoading, isError: subtasksError, refetch: refetchSubtasks } = useSubtasks(issue.id);
   const { data: pullRequests = [], isLoading: pullRequestsLoading, isError: pullRequestsError, refetch: refetchPullRequests } = useIssuePullRequests(issue.id);
   const { data: linkedBranches = [], isLoading: branchesLoading, isError: branchesError, refetch: refetchBranches } = useIssueBranches(issue.id);
   const commentMutation = useCreateComment(issue.id);
@@ -215,7 +281,8 @@ export function IssueDetailSheet({ issue, open, onOpenChange, isFavorite = false
 
   const handleSaveTitle = () => {
     const nextTitle = title.trim();
-    if (!nextTitle || nextTitle === issue.title) return;
+    if (!nextTitle) { setTitle(issue.title); toast.error('Issue title cannot be empty'); return; }
+    if (nextTitle === issue.title) return;
     updateMutation.mutate({ id: issue.id, data: { title: nextTitle } });
   };
 
@@ -223,7 +290,7 @@ export function IssueDetailSheet({ issue, open, onOpenChange, isFavorite = false
     const current = (issue.description || '').trim();
     const next = description.trim();
     if (next === current) return;
-    updateMutation.mutate({ id: issue.id, data: { description: next || undefined } });
+    updateMutation.mutate({ id: issue.id, data: { description: next } });
   };
 
   const handleSaveEstimate = () => {
@@ -296,172 +363,118 @@ export function IssueDetailSheet({ issue, open, onOpenChange, isFavorite = false
   const doneSubtasksCount = subtasks.filter((subtask) => getIssueStatusCategory(subtask) === 'completed').length;
 
   const renderPanel = () => (
-    <div className="flex min-h-0 flex-1 flex-col bg-background font-sans selection:bg-foreground selection:text-background">
-      {/* Header bar: Hairline border, precise Geist typography, minimal controls */}
-      <div className="border-b border-border/80 bg-background/95 backdrop-blur-xs px-6 py-3 pr-14 flex items-center justify-between gap-4">
+    <div data-issue-detail={presentation} className="flex min-h-0 flex-1 flex-col bg-background">
+      <header className="flex shrink-0 items-center justify-between gap-2 border-b border-border px-4 py-3 sm:px-6">
         <div className="flex min-w-0 items-center gap-2">
-          <span className="h-6 rounded-[6px] border border-border bg-card/60 px-2 font-mono text-xs font-semibold text-foreground flex items-center">
-            {issue.identifier}
-          </span>
-
-          {/* Quick Copy Branch */}
-          <button
-            type="button"
-            onClick={handleCopyBranch}
-            className="flex h-6 min-w-0 items-center gap-1.5 rounded-[6px] border border-border/70 bg-card/40 px-2 text-xs font-mono text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground active:scale-[0.98]"
-            title="Copy Git Branch Name"
-          >
-            <GitBranch className="size-3 text-muted-foreground" />
-            <span className="truncate max-w-[160px]">{branchName}</span>
-            {copiedBranch ? <Check className="size-3 text-emerald-500" /> : <Copy className="size-3" />}
-          </button>
-
-          {/* Quick Copy Git Checkout Command */}
-          <button
-            type="button"
-            onClick={handleCopyCommand}
-            className="hidden sm:flex h-6 items-center gap-1.5 rounded-[6px] border border-border/70 bg-card/40 px-2 text-xs font-mono text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground active:scale-[0.98]"
-            title="Copy 'git checkout -b' command"
-          >
-            <Terminal className="size-3 text-muted-foreground" />
-            <span>git checkout</span>
-            {copiedCommand ? <Check className="size-3 text-emerald-500" /> : <Copy className="size-3" />}
-          </button>
-
-          {/* GitHub Issue Sync Link */}
-          {issue.githubIssueNumber && issue.githubIssueUrl && (
-            <a
-              href={issue.githubIssueUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex h-6 items-center gap-1.5 rounded-[6px] border border-emerald-500/30 bg-emerald-500/10 px-2 text-xs font-mono text-emerald-500 transition-colors hover:bg-emerald-500/20"
-              title="Open GitHub Issue"
-            >
-              <span>GH #{issue.githubIssueNumber}</span>
-              <ExternalLink className="size-2.5" />
-            </a>
-          )}
+          {presentation === 'page' && <Button type="button" variant="ghost" size="icon-sm" aria-label="Back to issues" onClick={onClose}><ArrowLeft /></Button>}
+          <span className="truncate font-mono text-xs text-muted-foreground">{issue.identifier}</span>
+          {issue.archivedAt && <Badge variant="secondary">Archived</Badge>}
         </div>
-
-        <div className="flex items-center gap-2">
-          <Button type="button" variant="ghost" size="icon-xs" aria-label={subscriptionError ? 'Retry follow status' : subscription?.subscribed ? 'Unfollow issue' : 'Follow issue'} title={subscriptionError ? 'Could not load follow status; retry' : subscription?.subscribed ? 'Unfollow issue' : 'Follow issue'} disabled={subscriptionLoading || subscriptionMutation.isPending} onClick={() => subscriptionError ? void refetchSubscription() : subscriptionMutation.mutate(!subscription?.subscribed)}><Bell className={subscription?.subscribed ? 'fill-current text-primary' : ''} /></Button>
-          <Button type="button" variant="ghost" size="icon-xs" aria-label={isFavorite ? 'Remove issue from favorites' : 'Add issue to favorites'} title={isFavorite ? 'Remove from favorites' : 'Add to favorites'} disabled={!canFavorite} onClick={onToggleFavorite}><Star className={isFavorite ? 'fill-current text-amber-500' : ''} /></Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-xs"
-            aria-label={issue.archivedAt ? 'Restore issue' : 'Archive issue'}
-            title={issue.archivedAt ? 'Restore issue' : 'Archive issue'}
-            onClick={() => archiveMutation.mutate({ id: issue.id, restore: !!issue.archivedAt }, { onSuccess: () => onOpenChange(false) })}
-          >
-            {issue.archivedAt ? <RotateCcw className="size-3.5" /> : <Archive className="size-3.5" />}
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-xs"
-            onClick={handleDelete}
-            className="text-muted-foreground/60 hover:text-destructive hover:bg-destructive/10"
-            title="Delete issue"
-          >
-            <Trash2 className="size-3.5" />
-          </Button>
+        <div className="flex shrink-0 items-center gap-1">
+          <Button type="button" variant="ghost" size="icon-sm" aria-label={subscriptionError ? 'Retry follow status' : subscription?.subscribed ? 'Unfollow issue' : 'Follow issue'} title={subscription?.subscribed ? 'Unfollow issue' : 'Follow issue'} disabled={subscriptionLoading || subscriptionMutation.isPending} onClick={() => subscriptionError ? void refetchSubscription() : subscriptionMutation.mutate(!subscription?.subscribed)}><Bell className={subscription?.subscribed ? 'fill-current' : ''} /></Button>
+          <Button type="button" variant="ghost" size="icon-sm" aria-label={isFavorite ? 'Remove issue from favorites' : 'Add issue to favorites'} title="Favorite" disabled={!canFavorite || !onToggleFavorite} onClick={onToggleFavorite}><Star className={isFavorite ? 'fill-current' : ''} /></Button>
+          {presentation === 'sheet' && <Button variant="ghost" size="icon-sm" asChild><Link to={`/issues/${issue.id}`} state={{ returnTo: location.pathname + location.search }} aria-label="Open full page" title="Open full page"><ArrowUpRight /></Link></Button>}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild><Button type="button" variant="ghost" size="icon-sm" aria-label="Issue actions"><MoreHorizontal /></Button></DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuGroup>
+                <DropdownMenuItem onSelect={() => { void navigator.clipboard.writeText(`${window.location.origin}/issues/${issue.id}`).then(() => toast.success('Issue link copied')).catch(() => toast.error('Could not copy link')); }}><LinkIcon />Copy issue link</DropdownMenuItem>
+                <DropdownMenuItem onSelect={handleCopyBranch}><GitBranch />{copiedBranch ? 'Copied branch name' : 'Copy branch name'}</DropdownMenuItem>
+                <DropdownMenuItem onSelect={handleCopyCommand}><Terminal />{copiedCommand ? 'Copied command' : 'Copy git command'}</DropdownMenuItem>
+                {issue.githubIssueUrl && <DropdownMenuItem asChild><a href={issue.githubIssueUrl} target="_blank" rel="noopener noreferrer"><ExternalLink />Open GitHub issue</a></DropdownMenuItem>}
+              </DropdownMenuGroup>
+              <DropdownMenuSeparator />
+              <DropdownMenuGroup>
+                <DropdownMenuItem disabled={!canEdit || archiveMutation.isPending} onSelect={() => archiveMutation.mutate({ id: issue.id, restore: !!issue.archivedAt }, { onSuccess: onClose })}>{issue.archivedAt ? <RotateCcw /> : <Archive />}{issue.archivedAt ? 'Restore issue' : 'Archive issue'}</DropdownMenuItem>
+                <DropdownMenuItem variant="destructive" disabled={!canEdit} onSelect={handleDelete}><Trash2 />Delete issue</DropdownMenuItem>
+              </DropdownMenuGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          {presentation === 'sheet' && <Button type="button" variant="ghost" size="icon-sm" aria-label="Close" onClick={onClose}><X /></Button>}
         </div>
-      </div>
+      </header>
 
       {/* Main Content Area */}
-      <div className="flex-1 overflow-y-auto px-6 py-6 sm:px-8">
-        <div className="mx-auto flex w-full max-w-4xl flex-col gap-6">
+      <div className={presentation === 'sheet' ? 'min-h-0 flex-1 overflow-y-auto px-5 py-6 sm:px-8' : 'px-1 py-6 sm:px-6 sm:py-8'}>
+        <div className={presentation === 'page' ? 'mx-auto grid w-full max-w-6xl grid-cols-1 gap-x-12 gap-y-7 lg:grid-cols-[minmax(0,1fr)_260px] [&>*:not(.issue-properties)]:min-w-0 [&>*:not(.issue-properties)]:lg:col-start-1' : 'mx-auto flex w-full max-w-2xl flex-col gap-6'}>
           {/* Title: Geist display style with tight negative tracking, borderless default */}
-          <div className="flex flex-col gap-1.5">
-            <input
-              type="text"
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <h1 className="sr-only">{issue.title}</h1>
+            <Textarea
+              aria-label="Issue title"
+              readOnly={readOnly}
+              rows={1}
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               onBlur={handleSaveTitle}
               spellCheck={false}
-              className="w-full bg-transparent px-0 py-1 text-xl sm:text-2xl font-semibold tracking-[-0.03em] text-foreground outline-hidden transition-colors border-b border-transparent hover:border-border/50 focus:border-border"
+              className="issue-detail-title min-h-0 resize-none rounded-none border-0 px-0 py-0 shadow-none focus-visible:ring-1"
               placeholder="Issue title"
             />
           </div>
 
-          {/* Properties: Clean Linear-style metadata panel adhering to Geist tokens */}
-          <div className="rounded-lg border border-border/70 bg-card/20 p-3 grid grid-cols-2 sm:grid-cols-6 gap-2.5">
-            {/* Status Select */}
-            <div className="flex flex-col gap-1">
-              <span className="text-xs font-medium text-muted-foreground">Status</span>
-              <StatusPicker teamId={issue.teamId} status={issue.status} appearance="badge" className="h-8 w-full justify-start" onStatusChange={(status) => updateMutation.mutate({ id: issue.id, data: { status: status as Issue['status'] } })} />
-            </div>
-
-            {/* Priority */}
-            <div className="flex flex-col gap-1">
-              <span className="text-xs font-medium text-muted-foreground">Priority</span>
-              <PriorityPicker priority={issue.priority} appearance="badge" className="h-8 w-full justify-start" onPriorityChange={(priority) => updateMutation.mutate({ id: issue.id, data: { priority: priority as Issue['priority'] } })} />
-            </div>
-
-            {/* Assignee */}
-            <div className="flex flex-col gap-1">
-              <span className="text-xs font-medium text-muted-foreground">Assignee</span>
-              <AssigneePicker
-                assigneeId={issue.assigneeId}
-                onAssigneeChange={(userId) =>
-                  updateMutation.mutate({ id: issue.id, data: { assigneeId: userId } })
-                }
-              />
-            </div>
-
-            {/* Project Select */}
-            <div className="flex flex-col gap-1">
-              <span className="text-xs font-medium text-muted-foreground">Project</span>
-              <ProjectPicker projectId={issue.projectId ?? null} identifier={issue.identifier} className="h-8 w-full justify-start" onProjectChange={projectId => updateMutation.mutate({ id: issue.id, data: { projectId } })} />
-            </div>
-
-            {/* Cycle Select */}
-            <div className="flex flex-col gap-1">
-              <span className="text-xs font-medium text-muted-foreground">Cycle</span>
-              <CyclePicker cycleId={issue.cycleId ?? null} teamId={issue.teamId} identifier={issue.identifier} className="h-8 w-full justify-start" onCycleChange={cycleId => updateMutation.mutate({ id: issue.id, data: { cycleId } })} />
-            </div>
-
-            {/* Type */}
-            <div className="flex flex-col gap-1">
-              <span className="text-xs font-medium text-muted-foreground">Type</span>
-              <IssueTypePicker type={issue.type} identifier={issue.identifier} className="h-8 w-full justify-start" onTypeChange={(type) => updateMutation.mutate({ id: issue.id, data: { type } })} />
-            </div>
-            <div className="flex flex-col gap-1">
-              <label htmlFor="issue-estimate" className="text-xs font-medium text-muted-foreground">Estimate</label>
-              <input id="issue-estimate" type="number" min={0} max={100} step={1} value={estimate} onChange={(event) => setEstimate(event.target.value)} onBlur={handleSaveEstimate} className="h-8 w-full rounded-md border border-border bg-background px-2 text-xs" aria-label="Issue estimate" />
-            </div>
-            <div className="flex flex-col gap-1">
-              <label htmlFor="issue-due-date" className="text-xs font-medium text-muted-foreground">Due date</label>
-              <input id="issue-due-date" type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} onBlur={handleSaveDueDate} className="h-8 w-full rounded-md border border-border bg-background px-2 text-xs" aria-label="Issue due date" />
-            </div>
-          </div>
-          <IssueLabelsPicker teamId={issue.teamId} projectId={issue.projectId} value={(issue.labels || []).map((label) => label.id)} onChange={(labelIds) => updateMutation.mutate({ id: issue.id, data: { labelIds } })} />
+          {/* Properties are moved to a side column on the full page. */}
+          <aside aria-label="Issue properties" className={presentation === 'page' ? 'issue-properties min-w-0 lg:col-start-2 lg:row-start-1 lg:row-span-6 lg:border-l lg:border-border lg:pl-8' : 'min-w-0'}>
+          <h2 className="mb-4 text-sm font-medium">Properties</h2>
+          <fieldset disabled={readOnly} className="issue-detail-properties min-w-0">
+          <FieldGroup className={presentation === 'page' ? 'grid grid-cols-2 gap-3 lg:grid-cols-1' : 'grid grid-cols-2 gap-3 sm:grid-cols-3'}>
+            <Field><FieldLabel htmlFor="detail-status">Status</FieldLabel>
+              <StatusPicker id="detail-status" teamId={issue.teamId} status={issue.status} appearance="badge" className="h-8 w-full justify-start" onStatusChange={status => updateMutation.mutate({ id: issue.id, data: { status } })} />
+            </Field>
+            <Field><FieldLabel htmlFor="detail-priority">Priority</FieldLabel>
+              <PriorityPicker id="detail-priority" priority={issue.priority} appearance="badge" className="h-8 w-full justify-start" onPriorityChange={priority => updateMutation.mutate({ id: issue.id, data: { priority: priority as Issue['priority'] } })} />
+            </Field>
+            <Field><FieldLabel htmlFor="detail-assignee">Assignee</FieldLabel>
+              <AssigneePicker id="detail-assignee" assigneeId={issue.assigneeId} onAssigneeChange={assigneeId => updateMutation.mutate({ id: issue.id, data: { assigneeId } })} />
+            </Field>
+            <Field><FieldLabel htmlFor="detail-project">Project</FieldLabel>
+              <ProjectPicker id="detail-project" projectId={issue.projectId ?? null} identifier={issue.identifier} className="h-8 w-full justify-start" onProjectChange={projectId => updateMutation.mutate({ id: issue.id, data: { projectId } })} />
+            </Field>
+            <Field><FieldLabel htmlFor="detail-cycle">Cycle</FieldLabel>
+              <CyclePicker id="detail-cycle" cycleId={issue.cycleId ?? null} teamId={issue.teamId} identifier={issue.identifier} className="h-8 w-full justify-start" onCycleChange={cycleId => updateMutation.mutate({ id: issue.id, data: { cycleId } })} />
+            </Field>
+            <Field><FieldLabel htmlFor="detail-type">Type</FieldLabel>
+              <IssueTypePicker id="detail-type" type={issue.type} identifier={issue.identifier} className="h-8 w-full justify-start" onTypeChange={type => updateMutation.mutate({ id: issue.id, data: { type } })} />
+            </Field>
+            <Field><FieldLabel htmlFor="issue-estimate">Estimate</FieldLabel>
+              <Input id="issue-estimate" type="number" min={0} max={100} step={1} value={estimate} onChange={event => setEstimate(event.target.value)} onBlur={handleSaveEstimate} aria-label="Issue estimate" />
+            </Field>
+            <Field><FieldLabel htmlFor="issue-due-date">Due date</FieldLabel>
+              <Input id="issue-due-date" type="date" value={dueDate} onChange={event => setDueDate(event.target.value)} onBlur={handleSaveDueDate} aria-label="Issue due date" />
+            </Field>
+          </FieldGroup>
+          <div className="mt-4"><IssueLabelsPicker teamId={issue.teamId} projectId={issue.projectId} value={(issue.labels || []).map((label) => label.id)} onChange={(labelIds) => updateMutation.mutate({ id: issue.id, data: { labelIds } })} /></div>
+          </fieldset>
+          </aside>
 
           {/* Description Section */}
           <div className="flex flex-col gap-1.5">
-            <span className="text-xs font-medium text-muted-foreground">Description</span>
+            <label htmlFor="issue-description" className="text-xs text-muted-foreground">Description</label>
             <Textarea
+              id="issue-description"
+              readOnly={readOnly}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               onBlur={handleSaveDescription}
               placeholder="Add description, acceptance criteria, or context..."
               rows={5}
-              className="min-h-[140px] resize-y rounded-lg border border-border/70 bg-card/20 p-3 text-sm leading-relaxed text-foreground placeholder:text-muted-foreground/60 focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring"
+              className="min-h-32 resize-y leading-relaxed"
             />
           </div>
 
-          <section aria-label="Issue attachments" className="rounded-lg border border-border/70 bg-card/20 p-4 flex flex-col gap-3">
-            <div className="flex flex-wrap items-center justify-between gap-2"><div className="flex items-center gap-2"><Paperclip className="size-3.5 text-muted-foreground" /><span className="text-xs font-medium">Attachments</span><Badge variant="outline">{attachments.length}</Badge></div><div className="flex items-center gap-2"><input ref={attachmentInputRef} type="file" aria-label="Choose issue attachment" accept="image/png,image/jpeg,image/gif,image/webp,application/pdf,text/plain,text/markdown" className="sr-only" onChange={handleUploadAttachment} /><Button type="button" size="xs" variant="outline" disabled={attachmentMutations.upload.isPending || Boolean(issue.archivedAt)} onClick={() => attachmentInputRef.current?.click()}>{attachmentMutations.upload.isPending ? 'Uploading…' : 'Upload file'}</Button></div></div>
+          <DetailSection title={`Attachments (${attachments.length})`}>
+          <section aria-label="Issue attachments" className="flex min-w-0 flex-col gap-3">
+            <div className="flex flex-wrap items-center justify-between gap-2"><div className="flex items-center gap-2"><Paperclip className="size-3.5 text-muted-foreground" /><span className="text-xs font-medium">Attachments</span><Badge variant="outline">{attachments.length}</Badge></div><div className="flex items-center gap-2"><input ref={attachmentInputRef} type="file" aria-label="Choose issue attachment" accept="image/png,image/jpeg,image/gif,image/webp,application/pdf,text/plain,text/markdown" className="sr-only" onChange={handleUploadAttachment} /><Button type="button" size="xs" variant="outline" disabled={attachmentMutations.upload.isPending || readOnly} onClick={() => attachmentInputRef.current?.click()}>{attachmentMutations.upload.isPending ? 'Uploading…' : 'Upload file'}</Button></div></div>
             <p className="text-xs text-muted-foreground">PNG, JPEG, GIF, WebP, PDF or UTF-8 text · up to 5 MiB. Files are private to people who can read this issue.</p>
             {attachmentsLoading && <p role="status" className="text-xs text-muted-foreground">Loading attachments…</p>}
             {attachmentsError && <div role="alert" className="flex items-center gap-2 text-xs text-destructive">Could not load attachments.<Button type="button" size="xs" variant="ghost" onClick={() => void refetchAttachments()}>Retry</Button></div>}
             {!attachmentsLoading && !attachmentsError && attachments.length === 0 && <p className="text-xs text-muted-foreground">No attachments yet.</p>}
-            {attachments.map(file => <div key={file.id} className="flex min-w-0 items-center gap-2 border-t border-border/50 pt-2 text-xs"><Paperclip className="size-3 shrink-0 text-muted-foreground" /><a className="min-w-0 flex-1 truncate hover:underline" href={file.url} download={file.fileName} aria-label={`Download ${file.fileName}`}>{file.fileName}</a><span className="shrink-0 text-muted-foreground">{Math.max(1, Math.ceil(file.fileSize / 1024))} KB</span>{file.canDelete && <Button type="button" variant="ghost" size="icon-xs" aria-label={`Delete attachment ${file.fileName}`} disabled={attachmentMutations.remove.isPending} onClick={() => { if (window.confirm(`Delete ${file.fileName}?`)) attachmentMutations.remove.mutate(file.id); }}><Trash2 className="size-3" /></Button>}</div>)}
+            {attachments.map(file => <div key={file.id} className="flex min-w-0 items-center gap-2 border-t border-border/50 pt-2 text-xs"><Paperclip className="size-3 shrink-0 text-muted-foreground" /><a className="min-w-0 flex-1 truncate hover:underline" href={file.url} download={file.fileName} aria-label={`Download ${file.fileName}`}>{file.fileName}</a><span className="shrink-0 text-muted-foreground">{Math.max(1, Math.ceil(file.fileSize / 1024))} KB</span>{file.canDelete && <Button type="button" variant="ghost" size="icon-xs" aria-label={`Delete attachment ${file.fileName}`} disabled={attachmentMutations.remove.isPending} onClick={() => setDeleteTarget({ title: `Delete ${file.fileName}?`, confirm: () => attachmentMutations.remove.mutate(file.id) })}><Trash2 className="size-3" /></Button>}</div>)}
           </section>
+          </DetailSection>
 
-          {/* Relations */}
-          <section aria-label="Issue relations" className="rounded-lg border border-border/70 bg-card/20 p-4 flex flex-col gap-3">
+          <DetailSection title={`Relations (${relations.length})`}>
+          <section aria-label="Issue relations" className="flex min-w-0 flex-col gap-3">
             <div className="flex items-center justify-between"><span className="text-xs font-medium">Relations & dependencies</span><span className="font-mono text-xs text-muted-foreground">{relations.length}</span></div>
             {relationsLoading ? <p className="text-xs text-muted-foreground">Loading relations…</p> : null}
             {relationsError ? <Button type="button" variant="ghost" size="xs" onClick={() => void refetchRelations()}>Retry relations</Button> : null}
@@ -475,26 +488,26 @@ export function IssueDetailSheet({ issue, open, onOpenChange, isFavorite = false
               </div>;
             })}
             <div className="flex flex-col gap-2 sm:flex-row">
-              <label className="sr-only" htmlFor="issue-relation-type">Relation type</label>
-              <select id="issue-relation-type" value={relationType} onChange={(event) => setRelationType(event.target.value as typeof relationType)} className="h-8 rounded-md border border-border bg-background px-2 text-xs">
-                <option value="blocks">Blocks</option><option value="blocked_by">Blocked by</option><option value="related_to">Related to</option><option value="duplicate">Duplicate of</option>
-              </select>
-              <label className="sr-only" htmlFor="issue-relation-target">Related issue</label>
-              <select id="issue-relation-target" value={relationTargetId} onChange={(event) => setRelationTargetId(event.target.value)} className="h-8 min-w-0 flex-1 rounded-md border border-border bg-background px-2 text-xs">
-                <option value="">Select same-team issue…</option>
-                {visibleIssues.filter((candidate) => candidate.teamId === issue.teamId && candidate.id !== issue.id).map((candidate) => <option key={candidate.id} value={candidate.id}>{candidate.identifier} — {candidate.title}</option>)}
-              </select>
-              <Button type="button" size="sm" disabled={!relationTargetId || relationMutations.add.isPending} onClick={() => relationMutations.add.mutate({ relatedIssueId: relationTargetId, type: relationType }, { onSuccess: () => setRelationTargetId('') })}>Add relation</Button>
+              <Select disabled={readOnly} value={relationType} onValueChange={value => setRelationType(value as typeof relationType)}>
+                <SelectTrigger id="issue-relation-type" aria-label="Relation type"><SelectValue /></SelectTrigger>
+                <SelectContent><SelectGroup><SelectItem value="blocks">Blocks</SelectItem><SelectItem value="blocked_by">Blocked by</SelectItem><SelectItem value="related_to">Related to</SelectItem><SelectItem value="duplicate">Duplicate of</SelectItem></SelectGroup></SelectContent>
+              </Select>
+              <Select disabled={readOnly} value={relationTargetId} onValueChange={setRelationTargetId}>
+                <SelectTrigger id="issue-relation-target" aria-label="Related issue" className="min-w-0 flex-1"><SelectValue placeholder="Select same-team issue…" /></SelectTrigger>
+                <SelectContent><SelectGroup>{visibleIssues.filter(candidate => candidate.teamId === issue.teamId && candidate.id !== issue.id).map(candidate => <SelectItem key={candidate.id} value={candidate.id}>{candidate.identifier} - {candidate.title}</SelectItem>)}</SelectGroup></SelectContent>
+              </Select>
+              <Button type="button" size="sm" disabled={readOnly || !relationTargetId || relationMutations.add.isPending} onClick={() => relationMutations.add.mutate({ relatedIssueId: relationTargetId, type: relationType }, { onSuccess: () => setRelationTargetId('') })}>Add relation</Button>
             </div>
           </section>
+          </DetailSection>
 
-          <IssueRecurrenceSection issueId={issue.id} archived={Boolean(issue.archivedAt)} />
+          <DetailSection title="Recurrence"><IssueRecurrenceSection issueId={issue.id} archived={readOnly} /></DetailSection>
 
           {/* Sub-tasks Section: Linear style sub-issue tracker */}
-          <div className="rounded-lg border border-border/70 bg-card/20 p-4 flex flex-col gap-3">
+          <section aria-label="Sub-tasks" className="flex min-w-0 flex-col gap-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span className="text-xs font-medium text-foreground">Sub-tasks</span>
+                <h2 className="text-sm font-medium">Sub-tasks</h2>
                 {subtasks.length > 0 && (
                   <span className="font-mono text-xs text-muted-foreground bg-secondary/80 px-1.5 py-0.5 rounded border border-border/50">
                     {doneSubtasksCount}/{subtasks.length}
@@ -507,6 +520,7 @@ export function IssueDetailSheet({ issue, open, onOpenChange, isFavorite = false
                   type="button"
                   variant="ghost"
                   size="xs"
+                  disabled={readOnly}
                   onClick={() => setIsAddingSubtask(true)}
                   className="text-muted-foreground hover:text-foreground"
                 >
@@ -516,7 +530,8 @@ export function IssueDetailSheet({ issue, open, onOpenChange, isFavorite = false
               )}
             </div>
 
-            {/* Sub-tasks List */}
+            {subtasksLoading && <PendingRows label="Loading sub-tasks" />}
+            {subtasksError && <LoadError label="sub-tasks" retry={() => void refetchSubtasks()} />}
             {subtasks.length > 0 && (
               <div className="rounded-[6px] border border-border/70 divide-y divide-border/50 bg-background/60 overflow-hidden">
                 {subtasks.map((st) => {
@@ -527,10 +542,11 @@ export function IssueDetailSheet({ issue, open, onOpenChange, isFavorite = false
                       className="flex items-center justify-between px-3 py-2 text-xs gap-3 hover:bg-secondary/40 transition-colors group"
                     >
                       <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                        <button
-                          type="button"
+                        <Button
+                          type="button" variant="ghost" size="icon-xs"
+                          disabled={readOnly || updateMutation.isPending}
                           onClick={() => handleToggleSubtask(st)}
-                          className="shrink-0 text-muted-foreground hover:text-foreground transition-colors"
+                          aria-label={`${isDone ? 'Reopen' : 'Complete'} ${st.identifier}`}
                           title={isDone ? 'Mark as todo' : 'Mark as done'}
                         >
                           <CheckCircle2
@@ -538,13 +554,11 @@ export function IssueDetailSheet({ issue, open, onOpenChange, isFavorite = false
                               isDone ? 'text-primary fill-primary/20' : 'text-muted-foreground/50 hover:text-muted-foreground'
                             }`}
                           />
-                        </button>
+                        </Button>
                         <span className="font-mono text-xs text-muted-foreground font-semibold shrink-0">
                           {st.identifier}
                         </span>
-                        <span className={`truncate text-xs ${isDone ? 'line-through text-muted-foreground' : 'text-foreground font-medium'}`}>
-                          {st.title}
-                        </span>
+                        <Link to={`/issues/${st.id}`} className={`min-w-0 truncate text-xs hover:underline ${isDone ? 'line-through text-muted-foreground' : 'text-foreground font-medium'}`}>{st.title}</Link>
                       </div>
 
                       <div className="flex items-center gap-2 shrink-0">
@@ -553,7 +567,8 @@ export function IssueDetailSheet({ issue, open, onOpenChange, isFavorite = false
                           type="button"
                           variant="ghost"
                           size="icon-xs"
-                          onClick={() => deleteMutation.mutate(st.id)}
+                          disabled={readOnly || deleteMutation.isPending}
+                          onClick={() => setDeleteTarget({ title: `Delete sub-task ${st.identifier}?`, confirm: () => deleteMutation.mutate(st.id) })}
                           className="opacity-0 group-hover:opacity-100 text-muted-foreground/40 hover:text-destructive size-5 p-0"
                           title="Delete sub-task"
                         >
@@ -569,7 +584,8 @@ export function IssueDetailSheet({ issue, open, onOpenChange, isFavorite = false
             {/* Inline Add Sub-task Form */}
             {isAddingSubtask && (
               <form onSubmit={handleAddSubtask} className="flex items-center gap-2 mt-1">
-                <input
+                <Input
+                  aria-label="Sub-task title"
                   type="text"
                   autoFocus
                   value={newSubtaskTitle}
@@ -600,15 +616,15 @@ export function IssueDetailSheet({ issue, open, onOpenChange, isFavorite = false
               </form>
             )}
 
-            {subtasks.length === 0 && !isAddingSubtask && (
-              <p className="text-xs text-muted-foreground/60 italic py-1">
+            {!subtasksLoading && !subtasksError && subtasks.length === 0 && !isAddingSubtask && (
+              <p className="py-1 text-xs text-muted-foreground">
                 No sub-tasks yet. Break this issue down into smaller steps.
               </p>
             )}
-          </div>
+          </section>
 
-          {/* GitHub Integration Section (Linear PR Workflow, CI Checks & Review Status) */}
-          <div className="rounded-lg border border-border/70 bg-card/20 p-4 flex flex-col gap-3">
+          <DetailSection title={`GitHub (${pullRequests.length} pull requests)`}>
+          <div className="flex min-w-0 flex-col gap-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className="text-xs font-medium text-foreground">
@@ -625,6 +641,7 @@ export function IssueDetailSheet({ issue, open, onOpenChange, isFavorite = false
                 type="button"
                 variant="ghost"
                 size="xs"
+                disabled={readOnly}
                 onClick={() => setIsLinkPrOpen(true)}
                 className="h-6 text-xs text-muted-foreground hover:text-foreground gap-1.5 px-2 rounded-[5px]"
               >
@@ -748,7 +765,7 @@ export function IssueDetailSheet({ issue, open, onOpenChange, isFavorite = false
                 <Button type="button" size="xs" variant="outline" onClick={() => void refetchPullRequests()}>Retry</Button>
               </div>
             ) : (
-              <div className="flex items-center justify-between p-2.5 rounded-[6px] border border-dashed border-border/60 text-xs text-muted-foreground">
+              <div className="flex flex-col gap-1 py-2 text-xs text-muted-foreground">
                 <span>No pull request linked yet.</span>
                 <span className="font-mono text-xs text-muted-foreground/80">Links update when GitHub events arrive.</span>
               </div>
@@ -758,13 +775,14 @@ export function IssueDetailSheet({ issue, open, onOpenChange, isFavorite = false
               <span className="text-xs font-medium text-foreground">Linked branches</span>
               {branchesLoading ? <p role="status" className="text-xs text-muted-foreground">Loading branches…</p>
                 : branchesError ? <div className="flex items-center justify-between gap-2 text-xs text-destructive"><span>Could not load branches.</span><Button type="button" size="xs" variant="outline" onClick={() => void refetchBranches()}>Retry</Button></div>
-                : linkedBranches.length ? <ul className="space-y-1.5">{linkedBranches.map(branch => <li key={branch.id} className="flex min-w-0 items-center justify-between gap-2 text-xs"><a className="flex min-w-0 items-center gap-2 truncate text-muted-foreground hover:text-foreground hover:underline" href={`https://github.com/${branch.repositoryName}/tree/${encodeURIComponent(branch.name)}`} target="_blank" rel="noopener noreferrer"><GitBranch className="size-3 shrink-0" /><span className="truncate">{branch.name}</span></a><span className="shrink-0 font-mono text-[10px] text-muted-foreground">{branch.sha.slice(0, 7)}</span></li>)}</ul>
+                : linkedBranches.length ? <ul className="flex flex-col gap-1.5">{linkedBranches.map(branch => <li key={branch.id} className="flex min-w-0 items-center justify-between gap-2 text-xs"><a className="flex min-w-0 items-center gap-2 truncate text-muted-foreground hover:text-foreground hover:underline" href={`https://github.com/${branch.repositoryName}/tree/${encodeURIComponent(branch.name)}`} target="_blank" rel="noopener noreferrer"><GitBranch className="size-3 shrink-0" /><span className="truncate">{branch.name}</span></a><span className="shrink-0 font-mono text-[10px] text-muted-foreground">{branch.sha.slice(0, 7)}</span></li>)}</ul>
                 : <p className="text-xs text-muted-foreground">No linked branches yet.</p>}
             </div>
           </div>
 
-          {/* Discussion & Activity Section: Clean Tabs adhering to shadcn line variant */}
-          <div className="rounded-lg border border-border/70 bg-card/20 p-4 sm:p-5 flex flex-col gap-4">
+          </DetailSection>
+
+          <section aria-label="Discussion" className="flex min-w-0 flex-col gap-4 border-t border-border pt-5">
             <Tabs
               value={activeTab}
               onValueChange={(val) => setActiveTab(val as 'comments' | 'activity')}
@@ -788,12 +806,12 @@ export function IssueDetailSheet({ issue, open, onOpenChange, isFavorite = false
               </TabsList>
 
               {/* Comments Tab Content */}
-              <TabsContent value="comments" className="mt-0 w-full space-y-4">
+              <TabsContent value="comments" className="mt-0 flex w-full flex-col gap-5">
                 {/* New Comment Box */}
                 <form onSubmit={handlePostComment} className="rounded-lg border border-border/70 bg-background/90 p-3 shadow-2xs focus-within:border-ring transition-colors">
                   <div className="flex items-start gap-2.5">
                     <Avatar className="mt-0.5 size-5 shrink-0 rounded-full">
-                      <AvatarFallback className="text-xs font-medium bg-secondary text-foreground">G</AvatarFallback>
+                      {currentUser?.avatarUrl && <AvatarImage src={currentUser.avatarUrl} alt={currentUser.name} />}<AvatarFallback>{currentUser?.name?.[0]?.toUpperCase() ?? '?'}</AvatarFallback>
                     </Avatar>
                     <div className="min-w-0 flex-1">
                       <Textarea
@@ -802,20 +820,20 @@ export function IssueDetailSheet({ issue, open, onOpenChange, isFavorite = false
                         placeholder="Leave a comment or review note..."
                         rows={3}
                         value={commentText}
-                        disabled={Boolean(issue.archivedAt)}
+                        disabled={readOnly}
                         onChange={(e) => { setCommentText(e.target.value); updateMentionToken(e.target.value, e.target.selectionStart); }}
                         className="min-h-[80px] w-full resize-none border-0 bg-transparent px-1 py-0.5 text-sm shadow-none focus-visible:ring-0 placeholder:text-muted-foreground/60 leading-relaxed"
                       />
                       {mentionToken && candidatesLoading && <p role="status" className="mt-1 text-xs text-muted-foreground">Loading workspace members…</p>}
                       {mentionToken && candidatesError && <Button type="button" size="xs" variant="ghost" className="mt-1" onClick={() => void refetchCandidates()}>Retry member search</Button>}
-                      {mentionToken && !candidatesLoading && !candidatesError && mentionSuggestions.length > 0 && <div role="listbox" aria-label="Mention a workspace member" className="mt-1 max-h-40 overflow-y-auto rounded-md border border-border bg-popover p-1 shadow-md">{mentionSuggestions.map(user => { const handle = user.githubUsername || user.email.split('@')[0]; return <button key={user.id} type="button" role="option" aria-selected="false" onMouseDown={event => event.preventDefault()} onClick={() => insertMention(user)} className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><span className="font-medium">{user.name}</span><span className="font-mono text-muted-foreground">@{handle}</span></button>; })}</div>}
+                      {mentionToken && !candidatesLoading && !candidatesError && mentionSuggestions.length > 0 && <div role="listbox" aria-label="Mention a workspace member" className="mt-1 max-h-40 overflow-y-auto rounded-md border border-border bg-popover p-1 shadow-md">{mentionSuggestions.map(user => { const handle = user.githubUsername || user.email.split('@')[0]; return <Button key={user.id} variant="ghost" type="button" role="option" aria-selected="false" onMouseDown={event => event.preventDefault()} onClick={() => insertMention(user)} className="w-full justify-start"><span>{user.name}</span><span className="font-mono text-muted-foreground">@{handle}</span></Button>; })}</div>}
                     </div>
                   </div>
                   <div className="mt-2.5 pt-2 border-t border-border/40 flex justify-end">
                     <Button
                       type="submit"
                       size="sm"
-                      disabled={!commentText.trim() || commentMutation.isPending}
+                      disabled={readOnly || !commentText.trim() || commentMutation.isPending}
                       className="px-3 font-medium"
                     >
                       {commentMutation.isPending ? 'Posting...' : 'Comment'}
@@ -824,27 +842,27 @@ export function IssueDetailSheet({ issue, open, onOpenChange, isFavorite = false
                 </form>
 
                 {/* Comments List */}
-                <div className="space-y-2.5">
-                  {commentsLoading && <p role="status" className="text-xs text-muted-foreground">Loading comments…</p>}
-                  {commentsError && <div role="alert" className="flex items-center gap-2 text-xs text-destructive">Could not load comments.<Button type="button" size="xs" variant="ghost" onClick={() => void refetchComments()}>Retry</Button></div>}
-                  {comments.map(comment => <article key={comment.id} className="rounded-lg border border-border/70 bg-background/60 p-3.5 transition-colors hover:border-border">
+                <div className="flex flex-col gap-5">
+                  {commentsLoading && <PendingRows label="Loading comments" />}
+                  {commentsError && <LoadError label="comments" retry={() => void refetchComments()} />}
+                  {comments.map(comment => <article key={comment.id} className="min-w-0 py-2">
                     <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
-                      <div className="flex items-center gap-2"><Avatar className="size-5 rounded-full"><AvatarFallback className="text-xs bg-secondary text-foreground font-medium">{(comment.authorName || 'G')[0]}</AvatarFallback></Avatar><span className="font-semibold text-foreground text-xs">{comment.authorName || 'Unknown author'}</span><span className="font-mono text-xs text-muted-foreground/70">{formatDateTime(comment.createdAt)}</span>{comment.updatedAt && comment.updatedAt !== comment.createdAt && <span className="text-xs text-muted-foreground">Edited</span>}</div>
-                      {comment.canEdit && <div className="flex items-center gap-1"><Button type="button" size="xs" variant="ghost" aria-label={`Edit comment by ${comment.authorName || 'author'}`} onClick={() => { setEditingCommentId(comment.id); setEditCommentBody(comment.body); }}>Edit</Button><Button type="button" size="xs" variant="ghost" aria-label={`Delete comment by ${comment.authorName || 'author'}`} disabled={deleteCommentMutation.isPending} onClick={() => { if (window.confirm('Delete this comment?')) deleteCommentMutation.mutate(comment.id); }}>Delete</Button></div>}
+                      <div className="flex items-center gap-2"><Avatar className="size-5 rounded-full"><AvatarFallback className="text-xs bg-secondary text-foreground font-medium">{(comment.authorName || '?')[0]}</AvatarFallback></Avatar><span className="font-semibold text-foreground text-xs">{comment.authorName || 'Unknown author'}</span><span className="font-mono text-xs text-muted-foreground/70">{formatDateTime(comment.createdAt)}</span>{comment.updatedAt && comment.updatedAt !== comment.createdAt && <span className="text-xs text-muted-foreground">Edited</span>}</div>
+                      {comment.canEdit && <div className="flex items-center gap-1"><Button type="button" size="xs" variant="ghost" aria-label={`Edit comment by ${comment.authorName || 'author'}`} onClick={() => { setEditingCommentId(comment.id); setEditCommentBody(comment.body); }}>Edit</Button><Button type="button" size="xs" variant="ghost" aria-label={`Delete comment by ${comment.authorName || 'author'}`} disabled={deleteCommentMutation.isPending} onClick={() => setDeleteTarget({ title: 'Delete this comment?', confirm: () => deleteCommentMutation.mutate(comment.id) })}>Delete</Button></div>}
                     </div>
                     {editingCommentId === comment.id ? <form className="flex flex-col gap-2 pl-7" onSubmit={event => { event.preventDefault(); updateCommentMutation.mutate({ id: comment.id, body: editCommentBody }, { onSuccess: () => { setEditingCommentId(null); setEditCommentBody(''); } }); }}><Textarea aria-label="Edit comment" value={editCommentBody} onChange={event => setEditCommentBody(event.target.value)} maxLength={50000} /><div className="flex justify-end gap-2"><Button type="button" size="xs" variant="ghost" onClick={() => setEditingCommentId(null)}>Cancel</Button><Button type="submit" size="xs" disabled={!editCommentBody.trim() || updateCommentMutation.isPending}>{updateCommentMutation.isPending ? 'Saving…' : 'Save'}</Button></div></form> : <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-foreground/90 pl-7">{comment.body}</p>}
                   </article>)}
-                  {!commentsLoading && !commentsError && comments.length === 0 && <div className="rounded-lg border border-dashed border-border/60 bg-background/40 py-8 text-center text-xs text-muted-foreground">No comments yet. Leave a note or update.</div>}
+                  {!commentsLoading && !commentsError && comments.length === 0 && <p className="py-2 text-sm text-muted-foreground">No comments yet.</p>}
                 </div>
               </TabsContent>
 
               {/* Activity Tab Content */}
               <TabsContent value="activity" className="mt-0 w-full">
-                <div className="space-y-2">
-                  {activitiesLoading && <p role="status" className="text-xs text-muted-foreground">Loading activity…</p>}
-                  {activitiesError && <div role="alert" className="flex items-center gap-2 text-xs text-destructive">Could not load activity.<Button type="button" size="xs" variant="ghost" onClick={() => void refetchActivities()}>Retry</Button></div>}
+                <div className="flex flex-col gap-2">
+                  {activitiesLoading && <PendingRows label="Loading activity" />}
+                  {activitiesError && <LoadError label="activity" retry={() => void refetchActivities()} />}
                   {activities.map((item) => (
-                    <div key={item.id} className="flex items-start gap-2.5 rounded-lg border border-border/60 bg-background/40 p-3 text-xs">
+                    <div key={item.id} className="flex items-start gap-2.5 py-3 text-xs">
                       <div className="mt-1 size-1.5 shrink-0 rounded-full bg-foreground/60" />
                       <div className="min-w-0 flex-1">
                         <p className="leading-relaxed text-foreground">
@@ -857,38 +875,22 @@ export function IssueDetailSheet({ issue, open, onOpenChange, isFavorite = false
                   ))}
 
                   {!activitiesLoading && !activitiesError && activities.length === 0 && (
-                    <div className="rounded-lg border border-dashed border-border/60 bg-background/40 py-8 text-center text-xs text-muted-foreground">
+                    <div className="py-4 text-sm text-muted-foreground">
                       No activity recorded yet.
                     </div>
                   )}
                 </div>
               </TabsContent>
             </Tabs>
-          </div>
+          </section>
         </div>
       </div>
     </div>
   );
 
-  if (isMobile) {
-    return (
-      <Drawer open={open} onOpenChange={onOpenChange}>
-        <DrawerContent className="max-h-[92vh] gap-0 border-t border-border bg-background p-0">
-          <DrawerTitle className="sr-only">Issue {issue.identifier}</DrawerTitle>
-          <DrawerDescription className="sr-only">Issue details and discussion</DrawerDescription>
-          {renderPanel()}
-        </DrawerContent>
-      </Drawer>
-    );
-  }
-
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full data-[side=right]:sm:max-w-3xl gap-0 border-l border-border bg-background p-0 shadow-2xl">
-        <SheetTitle className="sr-only">Issue {issue.identifier}</SheetTitle>
-        <SheetDescription className="sr-only">Issue details and discussion</SheetDescription>
-        {renderPanel()}
-      </SheetContent>
+    <>
+      {renderPanel()}
 
       {/* Link PR Dialog */}
       <LinkPullRequestDialog
@@ -898,7 +900,8 @@ export function IssueDetailSheet({ issue, open, onOpenChange, isFavorite = false
         onOpenChange={setIsLinkPrOpen}
       />
 
-      {/* Delete Confirmation Alert Dialog */}
+      <ConfirmDeleteDialog open={!!deleteTarget} onOpenChange={open => { if (!open) setDeleteTarget(null); }} title={deleteTarget?.title ?? 'Delete item?'} onConfirm={() => deleteTarget?.confirm()} />
+
       <ConfirmDeleteDialog
         open={isDeleteDialogOpen}
         onOpenChange={setIsDeleteDialogOpen}
@@ -906,10 +909,10 @@ export function IssueDetailSheet({ issue, open, onOpenChange, isFavorite = false
         description={`This will permanently delete "${issue.title}" and remove all subtasks and activity records.`}
         onConfirm={() => {
           deleteMutation.mutate(issue.id, {
-            onSuccess: () => onOpenChange(false),
+            onSuccess: onClose,
           });
         }}
       />
-    </Sheet>
+    </>
   );
 }

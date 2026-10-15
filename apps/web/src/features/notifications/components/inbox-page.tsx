@@ -37,7 +37,7 @@ import {
 } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
-import type { Notification, NotificationType, Issue } from '@reka/types';
+import type { Notification, NotificationType } from '@reka/types';
 import {
   useNotifications,
   useUnreadCount,
@@ -49,7 +49,6 @@ import {
 import { useIssues } from '../../issues/hooks/use-issues';
 import { useCreateComment } from '../../issues/hooks/use-issue-details';
 import { getIssueByIdentifier } from '../../issues/api/issues.api';
-import { IssueDetailSheet } from '../../issues/components/issue-detail-sheet';
 import { STATUS_CONFIG } from '../../issues/components/status-picker';
 import { PriorityIcon } from '../../issues/components/priority-picker';
 import { NotificationPreferencesDialog } from './notification-preferences-dialog';
@@ -64,10 +63,6 @@ export function InboxPage() {
   const [replyText, setReplyText] = React.useState('');
   const [isSubmittingReply, setIsSubmittingReply] = React.useState(false);
   const [isPreferencesOpen, setIsPreferencesOpen] = React.useState(false);
-
-  // Issue detail sheet integration
-  const [inspectingIssue, setInspectingIssue] = React.useState<Issue | null>(null);
-  const [isIssueSheetOpen, setIsIssueSheetOpen] = React.useState(false);
 
   const searchInputRef = React.useRef<HTMLInputElement>(null);
 
@@ -159,22 +154,16 @@ export function InboxPage() {
   // Quick reply comment mutation
   const commentMutation = useCreateComment(linkedIssue?.id);
 
-  // Handle open issue sheet
+  // Inbox links open the canonical, shareable issue page.
   const handleOpenIssue = async () => {
-    if (linkedIssue) {
-      setInspectingIssue(linkedIssue);
-      setIsIssueSheetOpen(true);
-      return;
-    }
-
+    const issueId = linkedIssue?.id ?? selectedNotification?.metadata?.issueId;
+    const state = { returnTo: '/inbox' };
+    if (typeof issueId === 'string') { navigate(`/issues/${encodeURIComponent(issueId)}`, { state }); return; }
     if (linkedIssueIdentifier) {
       try {
         const fetched = await getIssueByIdentifier(String(linkedIssueIdentifier));
-        setInspectingIssue(fetched);
-        setIsIssueSheetOpen(true);
-      } catch {
-        toast.error(`Could not load issue ${linkedIssueIdentifier}`);
-      }
+        navigate(`/issues/${fetched.id}`, { state });
+      } catch { toast.error(`Could not load issue ${linkedIssueIdentifier}`); }
     }
   };
 
@@ -812,12 +801,6 @@ export function InboxPage() {
 
       <NotificationPreferencesDialog open={isPreferencesOpen} onOpenChange={setIsPreferencesOpen} />
 
-      {/* Embedded Issue Detail Sheet for seamless triage */}
-      <IssueDetailSheet
-        issue={inspectingIssue}
-        open={isIssueSheetOpen}
-        onOpenChange={setIsIssueSheetOpen}
-      />
     </div>
   );
 }

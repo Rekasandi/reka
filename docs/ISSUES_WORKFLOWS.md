@@ -14,6 +14,14 @@ Open **Triage** from the workspace navigation; it is a team-work queue, separate
 
 In **Triage → Templates**, a team lead can create/delete a team-scoped internal form; workspace owner/admin can create workspace-wide forms. Forms are not public URLs. They define default issue type/priority and required form fields. A member chooses a form, title and answers; server validation checks required keys, select options and field bounds, then creates a real triage issue. Workspace-wide forms require the submitter to choose a team they can write to. Template visibility follows workspace and private-team membership. A template's triage state cannot be disabled while an active form uses it.
 
+## Issue detail navigation
+
+Desktop list/board clicks open a quick-edit **Sheet**. Choose **Open full page** for a focused issue workspace. Mobile list clicks, Inbox issue links, and command-palette results open `/issues/:id` directly. **Copy issue link** copies this canonical URL; reload and direct access fetch the issue through the authorized API. The Back control returns to the originating list or Inbox, with `/issues` as the direct-entry fallback.
+
+Sheet and page share the same detail content and mutation hooks. The full page places properties in a desktop side column; mobile stacks them below the title. Description, sub-tasks and discussion remain prominent. Attachments, relations, recurrence and GitHub expand on demand. Archive, restore, link-copy and deletion live in **Issue actions**. Deletion confirmations use the existing shadcn AlertDialog; fields, menus, tabs and disclosures use `@reka/ui`. Guest/client and team read-only controls remain disabled; the server remains the authority.
+
+`node apps/web/test/issue-detail-navigation.mjs` verifies the real app router with controlled API fixtures: sheet/page navigation, Inbox, direct entry/reload, browser back/forward, mobile, shared mutations, loading/error states and light/dark layouts. `apps/api/test/issue-detail.integration.test.cjs` checks list/detail label and workflow parity plus private-team denial against disposable Postgres. These checks do not modify production data or verify live providers.
+
 ## Issue properties, relations and lifecycle
 
 The create form and issue detail support description, type, priority, nullable assignee, status, labels, estimates (including `0`), due date, project and cycle. API validation prevents invalid estimate/date values, ineligible assignees and cross-team project/cycle/parent/relation links. Recursive sub-issues are same-team; self/circular parent chains are rejected. Directional blocking relations are shown consistently from both ends, `related_to` and `duplicate` are symmetric in reads, and duplicate source provenance is retained.
@@ -24,7 +32,7 @@ Archive hides issues from the default active list without deleting their history
 
 ## Recurring issues and worker configuration
 
-Open an issue detail and use **Issue recurrence**. Set a positive interval, cadence (`day`, `week`, `month`), IANA timezone, next local occurrence, and optional due-date offset. Saving captures a template snapshot of the source issue and current properties; later source edits do not mutate that snapshot. Each generated occurrence receives normal issue history and links to the recurrence record. Stopping disables future generation; it does not delete previous occurrences.
+Open an issue detail and expand **Recurrence**. Set a positive interval, cadence (`day`, `week`, `month`), IANA timezone, next local occurrence, and optional due-date offset. Saving captures a template snapshot of the source issue and current properties; later source edits do not mutate that snapshot. Each generated occurrence receives normal issue history and links to the recurrence record. Stopping disables future generation; it does not delete previous occurrences.
 
 The Nest worker registers a repeatable recurrence job every 60 seconds. For a deployed/test worker, set `DATABASE_URL` to the same migrated Postgres instance used by the API and configure Redis using `REDIS_URL` (or `REDIS_HOST`, `REDIS_PORT`, `REDIS_PASSWORD`). The API and worker must use the same database and Redis queue. The processor reports failed jobs and uses a stable repeat-job id; database occurrence uniqueness/idempotency prevents duplicates when a due job is retried. Local domain tests call the same processor logic against disposable Postgres and do not need a live Redis service.
 

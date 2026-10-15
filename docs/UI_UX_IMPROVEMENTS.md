@@ -83,6 +83,19 @@ Verifikasi terbaru: `all-pages-ui.mjs` **25 routes × 4 variants = 100 renders**
 
 Evidence: `/tmp/reka-sidebar-linear-final/results.json`, `/tmp/reka-sidebar-ui-final.log`, `/tmp/reka-sidebar-{real-api,cycles,build,types-final}.log`. API/auth visual harness dimock; real-api suites memakai PostgreSQL terisolasi, bukan database aplikasi.
 
+## Detail issue: sheet + halaman penuh
+
+Refinement berikutnya berfokus pada ruang kerja issue, bukan penggantian identitas seluruh aplikasi:
+
+- Desktop list/board membuka Sheet; **Open full page**, Inbox, pencarian command palette dan mobile membuka `/issues/:id`.
+- Konten/aksi tetap satu implementasi. Halaman penuh menempatkan properties di kolom samping desktop; title, description, sub-tasks dan discussion menjadi fokus. Attachments, relations, recurrence dan GitHub memakai Collapsible, bukan tumpukan card.
+- Header lebih tenang; tindakan copy/archive/restore/delete berada di DropdownMenu. Konfirmasi delete memakai AlertDialog existing. Fields, Select, Button, Skeleton dan Alert memakai shadcn dari `@reka/ui`; tanpa dependency baru.
+- Breadcrumb/title/link langsung mengambil detail dari API; label dan workflow detail disamakan dengan list setelah access check. Guest/client, tim read-only dan issue archived tidak menawarkan edit utama. Cache subtask ikut diperbarui setelah mutation.
+
+Verifikasi: web build dan web/API type-check lulus; `pnpm test:issues` **5/5** termasuk metadata detail/private-team access; `pnpm test:web:issue-detail`, `pnpm test:web:real-api` dan `pnpm test:web:collaboration-real-api` lulus. Audit `all-pages-ui.mjs` sekarang **26 routes × 4 variants = 104 renders**. Tes mencakup direct/reload/back/forward, mobile, Inbox, shared edits, subtask completion, read-only, loading/error dan light/dark. API fixture tidak membuktikan provider live; suite real-API hanya menulis PostgreSQL disposable.
+
+Evidence lokal: `/tmp/reka-issue-detail/`, `/tmp/reka-issue-ui-audit/results.json`. Panduan alur: `docs/ISSUES_WORKFLOWS.md`.
+
 ## Batasan
 
 - Vite masih memberi warning chunk besar (main sekitar 1.87 MB; editor sekitar 800 KB). Build berhasil; route-level bundle optimization bukan bagian perubahan ini.

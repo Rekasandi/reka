@@ -1,9 +1,13 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getIssues, createIssue, updateIssue, updateIssues, deleteIssue, archiveIssue, moveIssueToTop, getSubtasks, type CreateIssueInput, type IssuePatch, type BulkIssueUpdate } from '../api/issues.api';
+import { getIssueById, getIssues, createIssue, updateIssue, updateIssues, deleteIssue, archiveIssue, moveIssueToTop, getSubtasks, type CreateIssueInput, type IssuePatch, type BulkIssueUpdate } from '../api/issues.api';
 import type { Issue, Label } from '@reka/types';
 import { toast } from '@reka/ui';
 
 export const ISSUES_QUERY_KEY = ['issues'];
+
+export function useIssue(id?: string) {
+  return useQuery({ queryKey: [...ISSUES_QUERY_KEY, 'detail', id], queryFn: () => getIssueById(id!), enabled: !!id });
+}
 
 export function useIssues(status?: string, archived = false) {
   return useQuery({
@@ -91,6 +95,7 @@ export function useUpdateIssue() {
     mutationFn: ({ id, data }: { id: string; data: IssuePatch }) => updateIssue(id, data),
     onSuccess: (updated, { data }) => {
       queryClient.invalidateQueries({ queryKey: ISSUES_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: ['subtasks'] });
       if (data.cycleId !== undefined) {
         queryClient.invalidateQueries({ queryKey: ['cycles'] });
         queryClient.invalidateQueries({ queryKey: ['cycle'] });
@@ -147,6 +152,7 @@ export function useDeleteIssue() {
     mutationFn: (id: string) => deleteIssue(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ISSUES_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: ['subtasks'] });
       toast.success('Issue deleted');
     },
     onError: (err) => {

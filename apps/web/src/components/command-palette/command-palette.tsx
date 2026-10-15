@@ -37,7 +37,7 @@ export function CommandPalette() {
   const displayResults = allResults ?? results.data;
 
   const handleSelect = (callback: () => void) => { setOpen(false); callback(); };
-  const openIssue = (id: string) => handleSelect(() => navigate(`/issues?issueId=${encodeURIComponent(id)}`));
+  const openIssue = (id: string) => handleSelect(() => navigate(`/issues/${encodeURIComponent(id)}`));
   return (
     <CommandDialog open={isOpen} onOpenChange={setOpen}>
       <CommandInput placeholder="Search issues, projects, and documents…" value={query} onValueChange={setQuery} />

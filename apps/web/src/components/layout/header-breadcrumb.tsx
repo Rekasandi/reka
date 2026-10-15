@@ -13,6 +13,7 @@ import { useProject } from '../../features/projects/hooks/use-projects';
 import { useCycle } from '../../features/cycles/hooks/use-cycles';
 import { useDocument } from '../../features/projects/hooks/use-documents';
 import { useInitiative } from '../../features/initiatives/hooks/use-initiatives';
+import { useIssue } from '../../features/issues/hooks/use-issues';
 
 const PAGE_LABELS: Record<string, string> = {
   dashboard: 'Dashboard',
@@ -46,6 +47,7 @@ export function HeaderBreadcrumb() {
   const { data: cycle } = useCycle(section === 'cycles' ? resourceId : undefined);
   const { data: document } = useDocument(section === 'documents' ? resourceId : undefined);
   const { data: initiative } = useInitiative(section === 'initiatives' ? resourceId : undefined);
+  const { data: issue } = useIssue(section === 'issues' ? resourceId : undefined);
 
   const items = [{ label: 'Dashboard', to: '/dashboard' }];
   if (section !== 'dashboard') {
@@ -62,6 +64,7 @@ export function HeaderBreadcrumb() {
         : section === 'cycles' ? cycle?.name || (cycle ? `Cycle ${cycle.number}` : 'Cycle')
         : section === 'documents' ? document?.title || 'Document'
         : section === 'initiatives' ? initiative?.name || 'Initiative'
+        : section === 'issues' ? issue?.identifier || 'Issue'
         : 'Details';
       items.push({ label, to: `/${section}/${resourceId}${search}` });
     }

@@ -10,6 +10,7 @@ import {
   AvatarFallback,
   AvatarImage,
   Input,
+  Button,
 } from '@reka/ui';
 import { User, Check, Search, UserCheck, X } from 'lucide-react';
 import { useUsers } from '../../users/hooks/use-users';
@@ -17,6 +18,7 @@ import { useAuthStore } from '../../../stores/auth.store';
 
 interface AssigneePickerProps {
   assigneeId?: string | null;
+  id?: string;
   onAssigneeChange: (assigneeId: string | null) => void;
   className?: string;
   size?: 'sm' | 'default' | 'icon';
@@ -24,6 +26,7 @@ interface AssigneePickerProps {
 
 export function AssigneePicker({
   assigneeId,
+  id,
   onAssigneeChange,
   className,
   size = 'default',
@@ -62,7 +65,7 @@ export function AssigneePicker({
     <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
         {size === 'icon' ? (
-          <button
+          <Button variant="ghost" size="icon-xs" id={id}
             type="button"
             className={`flex size-6 items-center justify-center rounded-full hover:ring-1 hover:ring-border transition-colors outline-hidden ${className || ''}`}
             title={assignedUser ? `Assigned to ${assignedUser.name}` : 'Assign member'}
@@ -81,9 +84,9 @@ export function AssigneePicker({
                 <User className="size-3" />
               </div>
             )}
-          </button>
+          </Button>
         ) : size === 'sm' ? (
-          <button
+          <Button variant="outline" size="xs" id={id}
             type="button"
             className={`inline-flex items-center gap-1.5 h-6 px-1.5 rounded-[4px] border border-border/60 hover:bg-muted/50 text-xs transition-colors outline-hidden ${className || ''}`}
           >
@@ -107,9 +110,10 @@ export function AssigneePicker({
                 <span>Assign</span>
               </span>
             )}
-          </button>
+          </Button>
         ) : (
-          <button
+          <Button variant="ghost" id={id}
+            aria-label={assignedUser ? `Assigned to ${assignedUser.name}` : 'Assign member'}
             type="button"
             className={`flex h-8 w-full items-center justify-between rounded-[6px] border border-border/60 bg-background/80 px-2.5 text-xs font-medium hover:border-border transition-colors outline-hidden ${className || ''}`}
           >
@@ -138,7 +142,7 @@ export function AssigneePicker({
               )}
             </div>
             <span className="text-xs text-muted-foreground/60">Assign</span>
-          </button>
+          </Button>
         )}
       </DropdownMenuTrigger>
 
