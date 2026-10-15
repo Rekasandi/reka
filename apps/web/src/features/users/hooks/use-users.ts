@@ -13,8 +13,9 @@ import { useAuthStore } from '../../../stores/auth.store';
 
 export const USERS_QUERY_KEY = ['users'];
 
-export function useUsers(includeInactive = false) {
+export function useUsers(includeInactive = false, enabled = true) {
   return useQuery({
+    enabled,
     queryKey: includeInactive ? [...USERS_QUERY_KEY, 'including-inactive'] : USERS_QUERY_KEY,
     queryFn: () => getUsers(includeInactive),
   });

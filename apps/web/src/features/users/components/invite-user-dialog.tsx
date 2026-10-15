@@ -21,7 +21,7 @@ export function InviteUserDialog({ open, onOpenChange }: { open: boolean; onOpen
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Invite User</DialogTitle>
-          <DialogDescription>Create a single-use link. No email is sent; share it directly with your teammate.</DialogDescription>
+          <DialogDescription>Invite someone to this workspace with a single-use link. No email is sent; share it directly. Team membership is added separately.</DialogDescription>
         </DialogHeader>
         {created ? (
           <div className="flex min-w-0 flex-col gap-4">
@@ -39,7 +39,7 @@ export function InviteUserDialog({ open, onOpenChange }: { open: boolean; onOpen
           <form className="flex flex-col gap-4" onSubmit={event => { event.preventDefault(); mutation.mutate({ email: email.trim().toLowerCase(), role, expiresInDays }); }}>
             <FieldGroup>
               <Field><FieldLabel htmlFor="invite-email">Work email</FieldLabel><Input id="invite-email" type="email" value={email} onChange={event => setEmail(event.target.value)} required maxLength={255} autoFocus disabled={mutation.isPending} /><FieldDescription>The recipient must have this email verified on their GitHub account.</FieldDescription></Field>
-              <Field><FieldLabel htmlFor="invite-role">Role</FieldLabel><Select value={role} onValueChange={value => setRole(value as 'member' | 'admin')} disabled={mutation.isPending}><SelectTrigger id="invite-role" className="w-full"><SelectValue /></SelectTrigger><SelectContent><SelectGroup><SelectItem value="member">Member</SelectItem><SelectItem value="admin">Admin</SelectItem></SelectGroup></SelectContent></Select></Field>
+              <Field><FieldLabel htmlFor="invite-role">Workspace role</FieldLabel><Select value={role} onValueChange={value => setRole(value as 'member' | 'admin')} disabled={mutation.isPending}><SelectTrigger id="invite-role" className="w-full"><SelectValue /></SelectTrigger><SelectContent><SelectGroup><SelectItem value="member">Member</SelectItem><SelectItem value="admin">Admin</SelectItem></SelectGroup></SelectContent></Select></Field>
               <Field><FieldLabel htmlFor="invite-expiry">Expires in days</FieldLabel><Input id="invite-expiry" type="number" min={1} max={30} required value={expiresInDays} onChange={event => setExpiresInDays(Number(event.target.value))} disabled={mutation.isPending} /></Field>
             </FieldGroup>
             {mutation.isError && <Alert variant="destructive"><AlertDescription>{mutation.error.message}</AlertDescription></Alert>}

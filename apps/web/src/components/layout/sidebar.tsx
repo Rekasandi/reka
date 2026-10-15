@@ -86,6 +86,7 @@ export function AppSidebar() {
     const target = new URLSearchParams(query);
     if (target.get('teamId') !== (search.get('teamId') || null)) return false;
     if (path === '/cycles' && (target.get('status') || 'all') !== (search.get('status') || 'all')) return false;
+    if (/^\/teams\/[^/]+$/.test(path) && (target.get('tab') || 'home') !== (search.get('tab') || 'home')) return false;
     return [...target].every(([key, value]) => search.get(key) === value);
   };
   const navItem = (item: NavItem, nested = false) => {
@@ -156,7 +157,8 @@ export function AppSidebar() {
             const TeamIcon = resolveEntityIcon(team.icon);
             const query = `teamId=${encodeURIComponent(team.id)}`;
             const teamNav: NavItem[] = [
-              { label: 'Home', to: `/teams/${team.id}`, icon: Home },
+              { label: 'Overview', to: `/teams/${team.id}`, icon: Home },
+              { label: 'Members', to: `/teams/${team.id}?tab=members`, icon: Users },
               { label: 'Triage', to: `/triage?${query}`, icon: CircleArrowRight, count: triage?.filter(issue => issue.teamId === team.id).length },
               { label: 'Issues', to: `/teams/${team.id}/issues`, icon: PanelsTopLeft },
               { label: 'Cycles', to: `/cycles?${query}`, icon: CircleDot },

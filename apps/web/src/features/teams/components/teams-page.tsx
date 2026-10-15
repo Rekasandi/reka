@@ -21,7 +21,7 @@ export function TeamsPage() {
           <div className="flex items-center gap-2.5"><h1 className="text-xl font-semibold tracking-tight sm:text-2xl">Teams</h1><Badge variant="outline">{teams.length}</Badge></div>
           <p className="text-xs text-muted-foreground">Teams, members, and the work they own.</p>
         </div>
-        {canCreateTeam && <Button onClick={() => setIsCreateOpen(true)}><Plus data-icon="inline-start" />New Team</Button>}
+        {canCreateTeam && <Button onClick={() => setIsCreateOpen(true)}><Plus data-icon="inline-start" />Create team</Button>}
       </div>
       {isLoading ? <div role="status" aria-label="Loading teams" className="flex flex-col gap-2">{[0, 1, 2].map(i => <Skeleton key={i} className="h-16 w-full" />)}</div> : isError ? (
         <div role="alert" className="flex flex-wrap items-center gap-3 py-6"><p className="text-sm text-muted-foreground">Could not load teams.</p><Button variant="outline" size="sm" onClick={() => refetch()}><RefreshCw data-icon="inline-start" />Retry</Button></div>

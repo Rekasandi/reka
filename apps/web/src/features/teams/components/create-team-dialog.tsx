@@ -1,211 +1,45 @@
 import * as React from 'react';
-import { useForm } from '@tanstack/react-form';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-  Button,
-  Input,
-  Textarea,
-  Field,
-  FieldLabel,
-  FieldError,
-  FieldDescription,
-  FieldGroup,
-  Checkbox,
-} from '@reka/ui';
+import { useNavigate } from 'react-router-dom';
+import { Alert, AlertDescription, Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, Button, Input, Textarea, Field, FieldLabel, FieldDescription, FieldError, FieldGroup, Select, SelectTrigger, SelectValue, SelectContent, SelectGroup, SelectItem } from '@reka/ui';
 import { useCreateTeam } from '../hooks/use-teams';
 
-interface CreateTeamDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
+function suggestIdentifier(name: string) {
+  const words = name.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toUpperCase().match(/[A-Z0-9]+/g) || [];
+  return (words.length > 1 ? words.map(word => word[0]).join('') : words[0]?.slice(0, 3) || '').replace(/^[^A-Z]+/, '').slice(0, 10);
 }
 
-export function CreateTeamDialog({ open, onOpenChange }: CreateTeamDialogProps) {
-  const createMutation = useCreateTeam();
-
-  const form = useForm({
-    defaultValues: {
-      name: '',
-      key: '',
-      description: '',
-      isPrivate: false,
-    },
-    onSubmit: async ({ value }) => {
-      createMutation.mutate(
-        {
-          name: value.name.trim(),
-          key: value.key.trim().toUpperCase(),
-          description: value.description?.trim() || undefined,
-          isPrivate: value.isPrivate,
-        },
-        {
-          onSuccess: () => {
-            form.reset();
-            onOpenChange(false);
-          },
-        },
-      );
-    },
-  });
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-full sm:max-w-lg max-w-lg">
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            form.handleSubmit();
-          }}
-          className="flex flex-col gap-4"
-        >
-          <DialogHeader>
-            <DialogTitle>New Team</DialogTitle>
-            <DialogDescription>
-              Create a team space to organize issues, members, and cycles.
-            </DialogDescription>
-          </DialogHeader>
-
-          <FieldGroup className="py-1">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              {/* Team Name */}
-              <div className="sm:col-span-2">
-                <form.Field
-                  name="name"
-                  validators={{
-                    onChange: ({ value }) => (!value?.trim() ? 'Team name is required' : undefined),
-                  }}
-                  children={(field) => {
-                    const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid;
-                    return (
-                      <Field data-invalid={isInvalid}>
-                        <FieldLabel htmlFor={field.name}>Team Name</FieldLabel>
-                        <Input
-                          id={field.name}
-                          name={field.name}
-                          placeholder="e.g. Engineering, Core Product..."
-                          value={field.state.value}
-                          onBlur={field.handleBlur}
-                          onChange={(e) => {
-                            field.handleChange(e.target.value);
-                            // Auto-suggest identifier key if empty
-                            const currentKey = form.getFieldValue('key');
-                            if (!currentKey && e.target.value) {
-                              const autoKey = e.target.value
-                                .trim()
-                                .split(/\s+/)
-                                .map((w) => w[0])
-                                .join('')
-                                .toUpperCase()
-                                .slice(0, 4);
-                              if (autoKey) form.setFieldValue('key', autoKey);
-                            }
-                          }}
-                          autoFocus
-                          required
-                        />
-                        {isInvalid && <FieldError errors={field.state.meta.errors} />}
-                      </Field>
-                    );
-                  }}
-                />
-              </div>
-
-              {/* Identifier Key */}
-              <div>
-                <form.Field
-                  name="key"
-                  validators={{
-                    onChange: ({ value }) =>
-                      !value?.trim()
-                        ? 'Key is required'
-                        : value.trim().length > 8
-                        ? 'Max 8 chars'
-                        : undefined,
-                  }}
-                  children={(field) => {
-                    const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid;
-                    return (
-                      <Field data-invalid={isInvalid}>
-                        <FieldLabel htmlFor={field.name}>Team Key</FieldLabel>
-                        <Input
-                          id={field.name}
-                          name={field.name}
-                          placeholder="ENG, DES..."
-                          value={field.state.value}
-                          onBlur={field.handleBlur}
-                          onChange={(e) => field.handleChange(e.target.value.toUpperCase())}
-                          className="font-mono uppercase"
-                          required
-                          maxLength={8}
-                        />
-                        {isInvalid && <FieldError errors={field.state.meta.errors} />}
-                      </Field>
-                    );
-                  }}
-                />
-              </div>
-            </div>
-
-            <p className="text-xs text-muted-foreground font-mono">
-              Issues created in this team will use this key prefix (e.g. <span className="font-semibold text-foreground">{form.getFieldValue('key') || 'ENG'}-1</span>).
-            </p>
-
-            <form.Field name="isPrivate" children={field => (
-              <Field orientation="horizontal" className="items-start gap-3">
-                <Checkbox id="team-private" checked={field.state.value} onCheckedChange={value => field.handleChange(value === true)} />
-                <div className="flex flex-col gap-1"><FieldLabel htmlFor="team-private">Private team</FieldLabel><FieldDescription>Only explicitly added members can find or view this team. You will be added as its lead.</FieldDescription></div>
-              </Field>
-            )} />
-
-            {/* Description Field */}
-            <form.Field
-              name="description"
-              children={(field) => (
-                <Field>
-                  <FieldLabel htmlFor={field.name}>Description</FieldLabel>
-                  <Textarea
-                    id={field.name}
-                    name={field.name}
-                    placeholder="What is this team responsible for?"
-                    rows={2}
-                    value={field.state.value}
-                    onBlur={field.handleBlur}
-                    onChange={(e) => field.handleChange(e.target.value)}
-                  />
-                </Field>
-              )}
-            />
-          </FieldGroup>
-
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => onOpenChange(false)}
-            >
-              Cancel
-            </Button>
-            <form.Subscribe
-              selector={(state) => [state.canSubmit, state.isSubmitting]}
-              children={([canSubmit, isSubmitting]) => (
-                <Button
-                  type="submit"
-                  size="sm"
-                  disabled={!canSubmit || createMutation.isPending || isSubmitting}
-                >
-                  {createMutation.isPending || isSubmitting ? 'Creating...' : 'Create Team'}
-                </Button>
-              )}
-            />
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
-  );
+export function CreateTeamDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
+  const navigate = useNavigate();
+  const create = useCreateTeam();
+  const [name, setName] = React.useState('');
+  const [key, setKey] = React.useState('');
+  const [keyEdited, setKeyEdited] = React.useState(false);
+  const [description, setDescription] = React.useState('');
+  const [visibility, setVisibility] = React.useState('workspace');
+  const keyValid = /^[A-Z][A-Z0-9]{0,9}$/.test(key);
+  React.useEffect(() => {
+    if (open) { setName(''); setKey(''); setKeyEdited(false); setDescription(''); setVisibility('workspace'); create.reset(); }
+  }, [open]);
+  return <Dialog open={open} onOpenChange={next => { if (!create.isPending) onOpenChange(next); }}>
+    <DialogContent className="sm:max-w-lg">
+      <form className="flex flex-col gap-5" onSubmit={event => {
+        event.preventDefault();
+        if (!name.trim() || !keyValid || create.isPending) return;
+        create.mutate({ name: name.trim(), key, description: description.trim() || undefined, isPrivate: visibility === 'private' }, { onSuccess: team => {
+          onOpenChange(false);
+          navigate(`/teams/${team.id}?tab=members`);
+        } });
+      }}>
+        <DialogHeader><DialogTitle>Create team</DialogTitle><DialogDescription>Organize work and people. You will become the team lead, then add members.</DialogDescription></DialogHeader>
+        <FieldGroup>
+          <Field><FieldLabel htmlFor="create-team-name">Team name</FieldLabel><Input id="create-team-name" autoFocus required maxLength={255} placeholder="e.g. Engineering" value={name} disabled={create.isPending} onChange={event => { setName(event.target.value); if (!keyEdited) setKey(suggestIdentifier(event.target.value)); }} /></Field>
+          <Field data-invalid={!!key && !keyValid}><FieldLabel htmlFor="create-team-key">Identifier</FieldLabel><Input id="create-team-key" aria-invalid={!!key && !keyValid} required maxLength={10} pattern="[A-Z][A-Z0-9]{0,9}" title="Start with a letter; use up to 10 uppercase letters or numbers." className="font-mono" placeholder="ENG" value={key} disabled={create.isPending} onChange={event => { const value = event.target.value.toUpperCase(); setKey(value); setKeyEdited(!!value); }} /><FieldDescription>Used in issue identifiers, such as <span className="font-mono">{key || 'ENG'}-1</span>. You can edit the suggestion.</FieldDescription>{key && !keyValid && <FieldError>Use up to 10 letters or numbers, starting with a letter.</FieldError>}</Field>
+          <Field><FieldLabel htmlFor="create-team-visibility">Visibility</FieldLabel><Select value={visibility} onValueChange={setVisibility} disabled={create.isPending}><SelectTrigger id="create-team-visibility" className="w-full"><SelectValue /></SelectTrigger><SelectContent><SelectGroup><SelectItem value="workspace">Workspace</SelectItem><SelectItem value="private">Private</SelectItem></SelectGroup></SelectContent></Select><FieldDescription>{visibility === 'private' ? 'Only explicitly added members can find or view this team, including owners and admins.' : 'Every active workspace member can find this team. Members with write access can join.'}</FieldDescription></Field>
+          <Field><FieldLabel htmlFor="create-team-description">Description (optional)</FieldLabel><Textarea id="create-team-description" rows={2} maxLength={4000} placeholder="What is this team responsible for?" value={description} onChange={event => setDescription(event.target.value)} disabled={create.isPending} /></Field>
+        </FieldGroup>
+        {create.isError && <Alert variant="destructive"><AlertDescription>{create.error.message}</AlertDescription></Alert>}
+        <DialogFooter><Button type="button" variant="outline" disabled={create.isPending} onClick={() => onOpenChange(false)}>Cancel</Button><Button type="submit" disabled={create.isPending || !name.trim() || !keyValid}>{create.isPending ? 'Creating…' : 'Create team'}</Button></DialogFooter>
+      </form>
+    </DialogContent>
+  </Dialog>;
 }

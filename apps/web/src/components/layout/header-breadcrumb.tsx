@@ -39,6 +39,8 @@ const PAGE_LABELS: Record<string, string> = {
 export function HeaderBreadcrumb() {
   const { pathname, search } = useLocation();
   const [section = 'dashboard', resourceId, child] = pathname.split('/').filter(Boolean);
+  const teamTab = section === 'teams' && !child ? new URLSearchParams(search).get('tab') : null;
+  const isTeamTab = teamTab === 'members' || teamTab === 'settings';
   const isSettingsTeam = section === 'settings' && resourceId === 'teams' && !!child;
   const isTeamScopedSection = ['projects', 'cycles', 'triage', 'initiatives', 'views'].includes(section);
   const teamId = isSettingsTeam ? child : section === 'teams'
@@ -71,9 +73,10 @@ export function HeaderBreadcrumb() {
         : section === 'initiatives' ? initiative?.name || 'Initiative'
         : section === 'issues' ? issue?.identifier || 'Issue'
         : 'Details';
-      items.push({ label, to: `/${section}/${resourceId}${search}` });
+      items.push({ label, to: `/${section}/${resourceId}${isTeamTab ? '' : search}` });
     }
     if (child) items.push({ label: isSettingsTeam ? team?.name || 'Team' : PAGE_LABELS[child] || 'Page', to: pathname + search });
+    if (isTeamTab) items.push({ label: teamTab === 'members' ? 'Members' : 'Settings', to: pathname + search });
   }
 
   return (

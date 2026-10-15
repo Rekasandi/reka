@@ -23,9 +23,7 @@ import {
   Repeat,
   Trash2,
   RefreshCw,
-  UserPlus,
   LockKeyhole,
-  Settings2,
   FolderKanban,
   ArrowRight,
 } from 'lucide-react';
@@ -35,8 +33,7 @@ import { useProjects } from '../../projects/hooks/use-projects';
 import { useCycles } from '../../cycles/hooks/use-cycles';
 import { CreateIssueDialog } from '../../issues/components/create-issue-dialog';
 import { IssueDetailSheet } from '../../issues/components/issue-detail-sheet';
-import { AddMemberDialog } from './add-member-dialog';
-import { TeamSettingsDialog } from './team-settings-dialog';
+import { TeamSettingsForm } from './team-settings-dialog';
 import { TeamMembersPanel } from './team-members-panel';
 import { ConfirmDeleteDialog } from '../../../components/common/confirm-delete-dialog';
 import { getIssueStatusCategory, isIssueClosed, type Issue } from '@reka/types';
@@ -47,17 +44,17 @@ export function TeamDetailPage() {
   const navigate = useNavigate();
   const tab = new URLSearchParams(location.search).get('tab');
 
-  const [activeTab, setActiveTab] = React.useState(tab === 'members' ? tab : 'home');
-
-  React.useEffect(() => {
-    setActiveTab(tab === 'members' ? tab : 'home');
-  }, [tab]);
+  const activeTab = tab === 'members' || tab === 'settings' ? tab : 'home';
+  const setActiveTab = (value: string) => {
+    if (value === activeTab) return;
+    const params = new URLSearchParams(location.search);
+    if (value === 'home') params.delete('tab'); else params.set('tab', value);
+    navigate({ pathname: location.pathname, search: params.toString() });
+  };
   const [isCreateIssueOpen, setIsCreateIssueOpen] = React.useState(false);
-  const [isAddMemberOpen, setIsAddMemberOpen] = React.useState(false);
   const [selectedIssue, setSelectedIssue] = React.useState<Issue | null>(null);
   const [isIssueDetailOpen, setIsIssueDetailOpen] = React.useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = React.useState(false);
-  const [isSettingsOpen, setIsSettingsOpen] = React.useState(false);
 
   const { data: team, isLoading, isError, refetch } = useTeam(id);
   const { data: allIssues = [] } = useIssues();
@@ -90,11 +87,6 @@ export function TeamDetailPage() {
     : [];
   const doneCycleIssues = cycleIssues.filter((issue) => getIssueStatusCategory(issue) === 'completed').length;
   const cycleProgress = cycleIssues.length ? Math.round((doneCycleIssues / cycleIssues.length) * 100) : 0;
-
-  const handleDelete = () => {
-    if (!team) return;
-    setIsDeleteDialogOpen(true);
-  };
 
   const handleOpenIssueDetail = (issue: Issue) => {
     setSelectedIssue(issue);
@@ -137,19 +129,17 @@ export function TeamDetailPage() {
 
         <div className="flex items-center gap-2">
           {team.canJoin && <Button variant="outline" size="sm" disabled={joinMutation.isPending} onClick={() => joinMutation.mutate()}>{joinMutation.isPending ? 'Joining…' : 'Join team'}</Button>}
-          {team.canManage && <Button variant="outline" size="sm" onClick={() => setIsSettingsOpen(true)}><Settings2 data-icon="inline-start" />Settings</Button>}
-          {team.canDelete && <Button type="button" variant="ghost" size="icon-xs" onClick={handleDelete} className="text-muted-foreground/50 hover:text-destructive" title="Delete team"><Trash2 className="size-3.5" /></Button>}
         </div>
       </div>
 
       {/* Team Header Spotlight */}
       <div className="flex flex-col gap-5 border-b border-border pb-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <span aria-hidden="true" className="flex size-10 shrink-0 items-center justify-center rounded-md border border-border bg-muted text-sm font-semibold text-muted-foreground">{team.key}</span>
-            <div>
-              <div className="flex items-center gap-2.5">
-                <h1 className="text-xl sm:text-2xl font-semibold tracking-[-0.03em] text-foreground">{team.name}</h1>
+          <div className="flex min-w-0 items-center gap-3">
+            <span aria-hidden="true" className="flex h-10 min-w-10 shrink-0 items-center justify-center rounded-md border border-border bg-muted px-2 font-mono text-xs font-semibold text-muted-foreground">{team.key}</span>
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2.5">
+                <h1 className="min-w-0 break-words text-xl sm:text-2xl font-semibold tracking-[-0.03em] text-foreground">{team.name}</h1>
                 {team.isPrivate && <Badge variant="outline"><LockKeyhole data-icon="inline-start" />Private</Badge>}
                 <Badge variant="outline" className="font-mono text-xs px-2 py-0.5 border-border/70 bg-background/60">
                   {team.key}
@@ -162,15 +152,7 @@ export function TeamDetailPage() {
           </div>
 
           <div className="flex items-center gap-2">
-            {team.canManage && <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setIsAddMemberOpen(true)}
-            >
-              <UserPlus data-icon="inline-start" className="size-3.5" />
-              <span>Add Member</span>
-            </Button>}
-            {team.canWrite && <Button
+            {team.canWrite && activeTab === 'home' && <Button
               size="sm"
               onClick={() => setIsCreateIssueOpen(true)}
             >
@@ -200,14 +182,14 @@ export function TeamDetailPage() {
       </div>
 
       {/* Tabs Section: Issues & Members */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-col gap-4 w-full">
+      <Tabs value={activeTab} onValueChange={setActiveTab} activationMode="manual" className="flex-col gap-4 w-full">
         <TabsList variant="line" className="h-9 w-fit justify-start gap-6 p-0 border-b border-border/60 pb-1">
           <TabsTrigger
             value="home"
             className="h-8 flex-none rounded-none border-0 bg-transparent px-0 text-sm font-medium text-muted-foreground hover:text-foreground data-[state=active]:text-foreground"
           >
             <Repeat className="size-3.5" />
-            <span>Home</span>
+            <span>Overview</span>
           </TabsTrigger>
           <TabsTrigger
             value="members"
@@ -216,6 +198,7 @@ export function TeamDetailPage() {
             <Users className="size-3.5" />
             <span>Members</span>
           </TabsTrigger>
+          {team.canManage && <TabsTrigger value="settings" className="h-8 flex-none rounded-none border-0 bg-transparent px-0 text-sm font-medium text-muted-foreground hover:text-foreground data-[state=active]:text-foreground">Settings</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="home" className="mt-0 flex w-full flex-col gap-5">
@@ -332,19 +315,12 @@ export function TeamDetailPage() {
 
         {/* Members Tab */}
         <TabsContent value="members" className="mt-0 w-full">
-          <TeamMembersPanel team={team} />
+          <TeamMembersPanel key={team.id} team={team} />
+        </TabsContent>
+        <TabsContent value="settings" className="mt-0 flex flex-col gap-8">
+          {team.canManage ? <><section className="flex max-w-4xl flex-col gap-5"><div><h2 className="text-sm font-medium">Team settings</h2><p className="mt-1 text-sm text-muted-foreground">Manage team access and issue workflow.</p></div><TeamSettingsForm team={team} /></section>{team.canDelete && <section className="flex max-w-4xl flex-col items-start gap-3 border-t border-border pt-6"><h2 className="text-sm font-medium">Delete team</h2><p className="text-sm text-muted-foreground">Permanently deletes this team and its issues. This action cannot be undone.</p><Button variant="destructive" onClick={() => setIsDeleteDialogOpen(true)}><Trash2 data-icon="inline-start" />Delete team</Button></section>}</> : <p className="text-sm text-muted-foreground">Only team managers can change these settings.</p>}
         </TabsContent>
       </Tabs>
-
-      <TeamSettingsDialog team={team} open={isSettingsOpen} onOpenChange={setIsSettingsOpen} />
-
-      {/* Add Member Dialog */}
-      <AddMemberDialog
-        teamId={team.id}
-        open={isAddMemberOpen}
-        onOpenChange={setIsAddMemberOpen}
-        existingMemberUserIds={team.members?.map((m) => m.userId) || []}
-      />
 
       {/* Create Issue Dialog pre-configured for this team */}
       {team.canWrite && <CreateIssueDialog
@@ -365,7 +341,7 @@ export function TeamDetailPage() {
         open={isDeleteDialogOpen}
         onOpenChange={setIsDeleteDialogOpen}
         title={`Delete team "${team.name}"?`}
-        description="This will permanently delete this team and remove all member associations."
+        description="This permanently deletes this team, its issues and member associations. This action cannot be undone."
         onConfirm={() => {
           deleteMutation.mutate(team.id, {
             onSuccess: () => navigate('/teams'),

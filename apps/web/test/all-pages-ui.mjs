@@ -47,7 +47,7 @@ teams[1].isPrivate = true;
 components.push(['ViewsPage', 'views']);
 routes.push('/views', '/issues/i0', ...['preferences', 'profile', 'accounts', 'workflows', 'labels', 'projects', 'github', 'workspace', 'members', 'teams'].map(section => `/settings/${section}`));
 config.push(['/views', 'ViewsPage'], ['/issues/:id', 'IssueDetailPage'], ['/settings/teams/:teamId', 'SettingsPage']);
-routes.push('/settings/teams/t1');
+routes.push('/settings/teams/t1', '/teams/t1?tab=members', '/teams/t1?tab=settings');
 try {
   const page = await browser.newPage();
   let errors = [];

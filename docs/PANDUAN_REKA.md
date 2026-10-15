@@ -188,7 +188,17 @@ Klik **Settings** untuk masuk ke halaman pengaturan. Sidebar workspace diganti s
 
 Setiap menu memiliki URL `/settings/...` yang bisa dibuka langsung atau di-reload. Tautan lama seperti `/settings#profile`, `/settings#appearance`, serta callback instalasi GitHub tetap diarahkan ke halaman yang sesuai. Di mobile, buka sidebar melalui tombol di header; sidebar menutup setelah memilih menu. Data profil tidak diedit melalui form palsu: identitas ditampilkan dari akun login yang sebenarnya.
 
-**Pengelolaan anggota tim:** buka **Settings → Administrations → Teams → nama tim** (`/settings/teams/:teamId`). **Add member** memilih anggota workspace dan role Lead/Member/Viewer. Role bisa diubah langsung; menghapus anggota atau keluar tim membutuhkan konfirmasi. Penghapusan ini tidak menghapus akun workspace. Lead writable terakhir wajib dipertahankan. Tim privat hanya terlihat bagi anggota eksplisit, termasuk bagi owner/admin; pengaturan ini tidak memberi jalan pintas ke tim privat. Team lead yang bukan admin tetap menggunakan tab **Members** di halaman tim biasa.
+### 4.5 Membuat dan mengelola tim
+
+**Alur utama:** sidebar **Your teams → nama tim → Members → Add member**, bukan harus melalui Administration. Halaman tim memiliki tab **Overview / Members / Settings**; Settings hanya tersedia bagi pengelola tim. Tab tersimpan pada URL (`/teams/:id?tab=members` atau `?tab=settings`), mendukung reload/back/forward. Tombol panah memindahkan fokus tab; Enter/Space mengaktifkan tab.
+
+- **Create team:** isi Team name, Identifier dengan saran otomatis yang tetap bisa diedit, Visibility (Workspace/Private), dan Description opsional. Pembuat otomatis menjadi Lead; setelah berhasil, halaman Members terbuka untuk menambahkan anggota.
+- **Members:** cari nama/email, klik **Add member**, pilih anggota workspace, lalu tentukan **Lead / Member / Viewer**. Lead mengelola tim dan keanggotaannya; Member mengerjakan issue; Viewer read-only. Izin workspace tetap berlaku dan role tim tidak mengubah role workspace.
+- **Remove/Leave:** buka menu `…` pada baris anggota, lalu konfirmasi. Akun workspace tidak dihapus. Role dan remove/leave lead writable terakhir dinonaktifkan dengan penjelasan; tambahkan lead lain terlebih dahulu. Proteksi server tetap berlaku.
+- **Orang baru:** owner/admin dapat memilih **Invite to workspace** dari dialog Add member. Ini membuka dialog undangan existing, bukan otomatis menambahkan anggota tim. Tidak ada email otomatis; bagikan link satu-pakai. Setelah diterima, tambahkan pengguna ke tim. Lead non-admin diminta menghubungi owner/admin untuk undangan workspace.
+- **Administrasi:** **Settings → Administrations → Teams** tetap menyediakan direktori lintas tim bagi owner/admin. Pengelolaan anggotanya memakai panel dan API yang sama; **Open team** membuka Members di ruang kerja biasa.
+
+Tim privat hanya terlihat bagi anggota eksplisit, termasuk owner/admin. Pintu masuk baru ini tidak memberi akses tambahan ke tim privat.
 
 ## 5. Workflow pekerjaan dari awal hingga selesai
 

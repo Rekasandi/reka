@@ -112,8 +112,18 @@ Evidence lokal: `/tmp/reka-settings/`, `/tmp/reka-settings-audit/results.json`. 
 
 Verifikasi: build/type-check web, `pnpm test:web:settings`, `header-breadcrumb.mjs`, `pnpm test:workspace-access` (**29/29**), serta `pnpm test:web:workspace` lulus. Suite API/UI database disposable membuktikan add/role/remove/cancel/restart, penolakan demosi lead terakhir, dan penolakan admin non-member pada tim privat. Suite router nyata memakai API terkontrol untuk navigasi/keyboard/role/sidebar dan light/dark desktop/mobile. Audit terbaru **37 routes × 4 variants = 148 renders**, tanpa exception/overflow/clipped control; evidence `/tmp/reka-teams-audit/results.json` dan `/tmp/reka-settings/`. Tidak ada migrasi, deployment, perubahan data production atau dependency baru. Provider GitHub tetap contract fixture; `/live.js` dev-server dapat mencatat connection refusal non-API.
 
+## Team management sebagai alur harian
+
+- Sidebar tim menyediakan **Overview / Members**, dan halaman tim **Overview / Members / Settings**. Lead tidak perlu mengakses Administration untuk mengelola timnya; Settings tim memakai form/workflow editor yang sama dengan dialog existing. Delete team dipindahkan dari ikon dominan ke Settings dengan konfirmasi dan penjelasan cascade issue.
+- Create team menjadi satu modal ringkas: nama, identifier auto-suggest yang tidak menimpa edit manual, pilihan visibility, deskripsi opsional. Validasi identifier sesuai API (maksimal 10 karakter, diawali huruf), error server inline, pending-safe. Pembuat otomatis Lead dan sukses membuka Members.
+- Panel Members bersama menyediakan pencarian nama/email, penjelasan role, picker role, menu `…` untuk remove/leave, dan konfirmasi. Lead writable terakhir tidak bisa didemosi/dihapus melalui UI; server tetap sumber otorisasi.
+- Add member menggunakan Command shadcn dengan pencarian dan navigasi keyboard, state loading/error/retry, serta role Lead/Member/Viewer. Ini hanya memasukkan pengguna workspace existing. **Invite to workspace** membuka dialog undangan existing bagi owner/admin, tanpa menumpuk modal dan tanpa auto-team admission. Lead biasa tidak mendapat izin undangan workspace. Label **Workspace role** membedakannya dari **Team role**.
+- Tab berbasis URL mempertahankan reload/back/forward. Aktivasi tab manual (panah untuk fokus, Enter/Space untuk aktivasi) mencegah push history ganda dari mouse/focus Radix. Sidebar active state dan breadcrumb mengikuti tab.
+
+Verifikasi: build/type-check web, `pnpm test:web:settings`, `pnpm test:web:workspace`, `pnpm test:web:real-api`, `header-breadcrumb.mjs`, dan **29/29** tes `pnpm test:workspace-access` lulus. Tes API/UI PostgreSQL disposable membuktikan create → Members, creator lead, role/remove/restart, Viewer read-only, pengelolaan lead non-admin tanpa hak invite workspace, serta isolasi tim privat. Tes router nyata/API terkontrol membuktikan validasi/error create, pergantian dialog undangan, pencarian, keyboard, satu history entry per tab, reload/back/forward, serta desktop/mobile light/dark. Audit terbaru **39 routes × 4 variants = 156 renders**, tanpa overflow/exception/clipped controls. Evidence: `/tmp/reka-team-flow-audit/results.json`, `/tmp/reka-settings/`. Tidak ada dependency baru, migrasi atau perubahan production.
+
 ## Batasan
 
 - Vite masih memberi warning chunk besar (main sekitar 1.87 MB; editor sekitar 800 KB). Build berhasil; route-level bundle optimization bukan bagian perubahan ini.
 - Screenshot/keyboard checks tidak menggantikan audit screen reader dan semua browser/device fisik.
-- Tidak ada verifikasi live GitHub OAuth/webhook, deployment, perubahan database, perubahan role, atau pengiriman email dalam tugas ini.
+- Tidak ada verifikasi live GitHub OAuth/webhook, deployment, perubahan database/role production, atau pengiriman email sungguhan dalam tugas ini.

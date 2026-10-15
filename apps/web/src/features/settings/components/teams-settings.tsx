@@ -4,7 +4,6 @@ import { Alert, AlertDescription, Badge, Button, Input, Select, SelectTrigger, S
 import { ArrowDown, ArrowLeft, ArrowUp, Plus, Settings2 } from 'lucide-react';
 import { useTeam, useTeams } from '../../teams/hooks/use-teams';
 import { CreateTeamDialog } from '../../teams/components/create-team-dialog';
-import { AddMemberDialog } from '../../teams/components/add-member-dialog';
 import { TeamSettingsDialog } from '../../teams/components/team-settings-dialog';
 import { TeamMembersPanel } from '../../teams/components/team-members-panel';
 import { resolveEntityIcon } from '../../../components/entity-icon-picker';
@@ -37,16 +36,13 @@ function TeamsDirectory() {
 
 function TeamAdministration({ id }: { id: string }) {
   const query = useTeam(id);
-  const [addOpen, setAddOpen] = React.useState(false);
   const [settingsOpen, setSettingsOpen] = React.useState(false);
   const team = query.data;
   return <div className="flex min-w-0 max-w-4xl flex-col gap-6 pb-10">
     <Button variant="ghost" size="sm" asChild className="w-fit"><Link to="/settings/teams"><ArrowLeft data-icon="inline-start" />Back to teams</Link></Button>
     {query.isPending ? <Skeleton className="h-48 w-full" /> : query.isError || !team ? <Alert variant="destructive"><AlertDescription>Team unavailable. It may have been removed, or you may not have access. <Button variant="link" onClick={() => void query.refetch()}>Retry</Button></AlertDescription></Alert> : <>
-      <header className="flex flex-wrap items-center justify-between gap-4 border-b border-border pb-5"><div className="min-w-0"><h1 className="break-words text-xl font-semibold tracking-tight sm:text-2xl">{team.name}</h1><div className="mt-2 flex items-center gap-2"><span className="font-mono text-xs text-muted-foreground">{team.key}</span><Badge variant="outline">{team.isPrivate ? 'Private' : 'Workspace'}</Badge></div></div>{team.canManage && <div className="flex gap-2"><Button variant="outline" onClick={() => setSettingsOpen(true)}><Settings2 data-icon="inline-start" />Team settings</Button><Button onClick={() => setAddOpen(true)}><Plus data-icon="inline-start" />Add member</Button></div>}</header>
-      <div><h2 className="text-sm font-medium">Members ({team.members?.length ?? 0})</h2><p className="mt-1 text-sm text-muted-foreground">Team roles control access within this team. They do not change workspace roles.</p></div>
+      <header className="flex flex-wrap items-center justify-between gap-4 border-b border-border pb-5"><div className="min-w-0"><h1 className="break-words text-xl font-semibold tracking-tight sm:text-2xl">{team.name}</h1><div className="mt-2 flex items-center gap-2"><span className="font-mono text-xs text-muted-foreground">{team.key}</span><Badge variant="outline">{team.isPrivate ? 'Private' : 'Workspace'}</Badge></div></div>{team.canManage && <div className="flex gap-2"><Button variant="outline" onClick={() => setSettingsOpen(true)}><Settings2 data-icon="inline-start" />Team settings</Button><Button variant="outline" asChild><Link to={`/teams/${team.id}?tab=members`}>Open team</Link></Button></div>}</header>
       <TeamMembersPanel team={team} />
-      <AddMemberDialog teamId={team.id} open={addOpen} onOpenChange={setAddOpen} existingMemberUserIds={team.members?.map(member => member.userId)} />
       <TeamSettingsDialog team={team} open={settingsOpen} onOpenChange={setSettingsOpen} />
     </>}
   </div>;

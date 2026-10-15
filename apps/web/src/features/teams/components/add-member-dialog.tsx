@@ -1,295 +1,44 @@
 import * as React from 'react';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-  Button,
-  Field,
-  FieldGroup,
-  FieldLabel,
-  Input,
-  Select,
-  SelectTrigger,
-  SelectValue,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  Avatar,
-  AvatarFallback,
-  AvatarImage,
-  Badge,
-} from '@reka/ui';
-import { Search, UserCheck, X, Check, Shield } from 'lucide-react';
+import { Alert, AlertDescription, Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, Button, Field, FieldGroup, FieldLabel, FieldDescription, Select, SelectTrigger, SelectValue, SelectContent, SelectGroup, SelectItem, Avatar, AvatarFallback, AvatarImage, Badge, Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem, Skeleton } from '@reka/ui';
+import { X } from 'lucide-react';
 import { useAddTeamMember } from '../hooks/use-teams';
 import { useUsers } from '../../users/hooks/use-users';
+import { InviteUserDialog } from '../../users/components/invite-user-dialog';
+import { useAuthStore } from '../../../stores/auth.store';
 import type { User } from '../../users/api/users.api';
 
-interface AddMemberDialogProps {
-  teamId: string;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  existingMemberUserIds?: string[];
-}
-
-export function AddMemberDialog({
-  teamId,
-  open,
-  onOpenChange,
-  existingMemberUserIds = [],
-}: AddMemberDialogProps) {
-  const [searchQuery, setSearchQuery] = React.useState('');
+export function AddMemberDialog({ teamId, open, onOpenChange, existingMemberUserIds = [] }: {
+  teamId: string; open: boolean; onOpenChange: (open: boolean) => void; existingMemberUserIds?: string[];
+}) {
   const [selectedUser, setSelectedUser] = React.useState<User | null>(null);
   const [role, setRole] = React.useState('member');
-  const [isDropdownOpen, setIsDropdownOpen] = React.useState(false);
-
-  const containerRef = React.useRef<HTMLDivElement>(null);
-  const inputRef = React.useRef<HTMLInputElement>(null);
-
-  const { data: users = [], isLoading: isUsersLoading } = useUsers();
-  const addMemberMutation = useAddTeamMember(teamId);
-
-  // Close dropdown on click outside
-  React.useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setIsDropdownOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  // Filter available users based on search
-  const filteredUsers = React.useMemo(() => {
-    const q = searchQuery.toLowerCase().trim();
-    if (!q) return users;
-    return users.filter(
-      (u) =>
-        u.name.toLowerCase().includes(q) ||
-        u.email.toLowerCase().includes(q) ||
-        u.role.toLowerCase().includes(q),
-    );
-  }, [users, searchQuery]);
-
-  const handleSelectUser = (u: User) => {
-    const isAlreadyMember = existingMemberUserIds.includes(u.id);
-    if (isAlreadyMember) return;
-
-    setSelectedUser(u);
-    setSearchQuery('');
-    setIsDropdownOpen(false);
-  };
-
-  const handleClearSelected = () => {
-    setSelectedUser(null);
-    setSearchQuery('');
-    setTimeout(() => inputRef.current?.focus(), 50);
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedUser) return;
-
-    addMemberMutation.mutate(
-      {
-        userId: selectedUser.id,
-        role,
-      },
-      {
-        onSuccess: () => {
-          setSelectedUser(null);
-          setSearchQuery('');
-          setRole('member');
-          onOpenChange(false);
-        },
-      },
-    );
-  };
-
-  // Reset state on modal open/close
-  React.useEffect(() => {
-    if (!open) {
-      setSelectedUser(null);
-      setSearchQuery('');
-      setIsDropdownOpen(false);
-      setRole('member');
-    }
-  }, [open]);
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-full sm:max-w-md max-w-md">
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <DialogHeader>
-            <DialogTitle>Add Team Member</DialogTitle>
-            <DialogDescription>
-              Assign a developer or contributor to this team workspace.
-            </DialogDescription>
-          </DialogHeader>
-
-          <FieldGroup className="py-1">
-            {/* User Autocomplete Selector */}
-            <Field>
-              <FieldLabel htmlFor="team-member-search">Select Member *</FieldLabel>
-
-              <div ref={containerRef} className="relative w-full">
-                {selectedUser ? (
-                  /* Selected User Pill */
-                  <div className="flex items-center justify-between p-2 rounded-[6px] border border-border bg-muted/30 text-xs">
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <Avatar className="size-6 border border-border">
-                        {selectedUser.avatarUrl && (
-                          <AvatarImage src={selectedUser.avatarUrl} alt={selectedUser.name} />
-                        )}
-                        <AvatarFallback className="text-xs font-semibold bg-secondary text-foreground">
-                          {(selectedUser.name[0] || 'U').toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex flex-col min-w-0">
-                        <span className="font-semibold text-foreground truncate">
-                          {selectedUser.name}
-                        </span>
-                        <span className="text-xs font-mono text-muted-foreground truncate">
-                          {selectedUser.email}
-                        </span>
-                      </div>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={handleClearSelected}
-                      className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                      title="Clear selection"
-                    >
-                      <X className="size-3.5" />
-                    </button>
-                  </div>
-                ) : (
-                  /* Search Input */
-                  <div className="relative">
-                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
-                    <Input
-                      ref={inputRef}
-                      id="team-member-search"
-                      placeholder="Type name or email to search..."
-                      value={searchQuery}
-                      onChange={(e) => {
-                        setSearchQuery(e.target.value);
-                        setIsDropdownOpen(true);
-                      }}
-                      onFocus={() => setIsDropdownOpen(true)}
-                      className="h-8 pl-8 text-xs font-sans bg-background"
-                      autoFocus
-                    />
-                  </div>
-                )}
-
-                {/* Autocomplete Dropdown Menu */}
-                {!selectedUser && isDropdownOpen && (
-                  <div className="absolute top-full left-0 right-0 mt-1 max-h-56 overflow-y-auto rounded-lg border border-border bg-popover text-popover-foreground shadow-2xl z-50 divide-y divide-border/50">
-                    {isUsersLoading ? (
-                      <div className="p-3 text-center text-xs text-muted-foreground font-mono">
-                        Loading workspace users...
-                      </div>
-                    ) : filteredUsers.length === 0 ? (
-                      <div className="p-4 text-center text-xs text-muted-foreground">
-                        No users found matching &ldquo;{searchQuery}&rdquo;
-                      </div>
-                    ) : (
-                      filteredUsers.map((u) => {
-                        const isAlreadyMember = existingMemberUserIds.includes(u.id);
-                        const initial = (u.name[0] || 'U').toUpperCase();
-
-                        return (
-                          <button
-                            type="button"
-                            disabled={isAlreadyMember}
-                            key={u.id}
-                            onClick={() => handleSelectUser(u)}
-                            className={`flex w-full items-center justify-between p-2.5 text-left text-xs transition-colors select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring ${
-                              isAlreadyMember
-                                ? 'opacity-50 cursor-not-allowed bg-muted/20'
-                                : 'cursor-pointer hover:bg-muted/60'
-                            }`}
-                          >
-                            <div className="flex items-center gap-2.5 min-w-0 pr-2">
-                              <Avatar className="size-6 border border-border shrink-0">
-                                {u.avatarUrl && <AvatarImage src={u.avatarUrl} alt={u.name} />}
-                                <AvatarFallback className="text-xs font-semibold bg-secondary text-foreground">
-                                  {initial}
-                                </AvatarFallback>
-                              </Avatar>
-
-                              <div className="flex flex-col min-w-0">
-                                <span className="font-medium text-foreground truncate">
-                                  {u.name}
-                                </span>
-                                <span className="text-xs font-mono text-muted-foreground truncate">
-                                  {u.email}
-                                </span>
-                              </div>
-                            </div>
-
-                            <div className="flex items-center gap-1.5 shrink-0">
-                              {isAlreadyMember ? (
-                                <Badge variant="outline" className="text-xs font-mono text-muted-foreground bg-muted px-1.5 py-0 h-4">
-                                  Already in team
-                                </Badge>
-                              ) : (
-                                <Badge variant="secondary" className="capitalize text-xs font-mono px-1.5 py-0 h-4">
-                                  {u.role}
-                                </Badge>
-                              )}
-                            </div>
-                          </button>
-                        );
-                      })
-                    )}
-                  </div>
-                )}
-              </div>
-            </Field>
-
-            {/* Team Role Selector */}
-            <Field>
-              <FieldLabel>Team Role</FieldLabel>
-              <Select value={role} onValueChange={setRole}>
-                <SelectTrigger size="compact" className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    <SelectItem value="lead" disabled={!['owner', 'admin', 'member'].includes(selectedUser?.role ?? '')}>Team Lead</SelectItem>
-                    <SelectItem value="member">Member</SelectItem>
-                    <SelectItem value="viewer">Viewer</SelectItem>
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
-            </Field>
-          </FieldGroup>
-
-          <DialogFooter className="mt-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => onOpenChange(false)}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              size="sm"
-              disabled={!selectedUser || addMemberMutation.isPending}
-            >
-              {addMemberMutation.isPending ? 'Adding...' : 'Add Member'}
-            </Button>
-          </DialogFooter>
-        </form>
+  const [inviteOpen, setInviteOpen] = React.useState(false);
+  const workspaceRole = useAuthStore(state => state.user?.role);
+  const canInvite = workspaceRole === 'owner' || workspaceRole === 'admin';
+  const query = useUsers(false, open);
+  const add = useAddTeamMember(teamId);
+  React.useEffect(() => { if (open) { setSelectedUser(null); setRole('member'); add.reset(); } }, [open]);
+  return <>
+    <Dialog open={open} onOpenChange={next => { if (!add.isPending) onOpenChange(next); }}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader><DialogTitle>Add team member</DialogTitle><DialogDescription>Choose someone already in this workspace. This does not change their workspace role.</DialogDescription></DialogHeader>
+        <FieldGroup>
+          <Field><FieldLabel>Workspace member</FieldLabel>
+            {selectedUser ? <div className="flex min-w-0 items-center gap-3 rounded-md border border-border p-3"><Avatar className="size-8 shrink-0"><AvatarImage src={selectedUser.avatarUrl || undefined} alt={selectedUser.name} /><AvatarFallback>{selectedUser.name[0]}</AvatarFallback></Avatar><div className="min-w-0 flex-1"><p className="truncate text-sm font-medium">{selectedUser.name}</p><p className="truncate text-xs text-muted-foreground">{selectedUser.email}</p></div><Button variant="ghost" size="icon-sm" aria-label="Change selected member" disabled={add.isPending} onClick={() => setSelectedUser(null)}><X /></Button></div> : query.isPending ? <Skeleton className="h-40 w-full" /> : query.isError ? <Alert variant="destructive"><AlertDescription>Could not load workspace members. <Button variant="link" onClick={() => void query.refetch()}>Retry</Button></AlertDescription></Alert> : <Command label="Workspace member" className="rounded-md border border-border">
+              <CommandInput autoFocus placeholder="Search name or email…" />
+              <CommandList className="max-h-48"><CommandEmpty>No matching workspace members.</CommandEmpty><CommandGroup heading="Workspace members">{(query.data || []).map(user => {
+                const existing = existingMemberUserIds.includes(user.id);
+                return <CommandItem key={user.id} value={`${user.name} ${user.email}`} disabled={existing} onSelect={() => { setSelectedUser(user); setRole('member'); }}><Avatar className="size-7 shrink-0"><AvatarImage src={user.avatarUrl || undefined} alt={user.name} /><AvatarFallback>{user.name[0]}</AvatarFallback></Avatar><div className="min-w-0 flex-1"><p className="truncate font-medium">{user.name}</p><p className="truncate text-muted-foreground">{user.email}</p></div>{existing && <Badge variant="outline">Already in team</Badge>}</CommandItem>;
+              })}</CommandGroup></CommandList>
+            </Command>}
+          </Field>
+          <Field><FieldLabel htmlFor="add-team-role">Team role</FieldLabel><Select value={role} onValueChange={setRole} disabled={add.isPending}><SelectTrigger id="add-team-role" className="w-full"><SelectValue /></SelectTrigger><SelectContent><SelectGroup><SelectItem value="lead" disabled={!['owner', 'admin', 'member'].includes(selectedUser?.role || '')}>Lead</SelectItem><SelectItem value="member">Member</SelectItem><SelectItem value="viewer">Viewer</SelectItem></SelectGroup></SelectContent></Select><FieldDescription>{role === 'lead' ? 'Manages team settings and membership.' : role === 'member' ? 'Creates and updates issues in this team.' : 'Can view this team without changing its work.'} Workspace permissions still apply.</FieldDescription></Field>
+        </FieldGroup>
+        {add.isError && <Alert variant="destructive"><AlertDescription>{add.error.message}</AlertDescription></Alert>}
+        <div className="flex flex-col items-start gap-1 border-t border-border pt-4"><p className="text-xs text-muted-foreground">Not in this workspace yet?</p>{canInvite ? <><Button variant="link" className="px-0" disabled={add.isPending} onClick={() => { onOpenChange(false); setInviteOpen(true); }}>Invite to workspace</Button><p className="text-xs text-muted-foreground">After they accept, add them to this team. The invitation does not grant team membership.</p></> : <p className="text-xs text-muted-foreground">Ask a workspace owner or admin to invite them first.</p>}</div>
+        <DialogFooter><Button variant="outline" disabled={add.isPending} onClick={() => onOpenChange(false)}>Cancel</Button><Button disabled={!selectedUser || add.isPending || existingMemberUserIds.includes(selectedUser.id)} onClick={() => { if (selectedUser) add.mutate({ userId: selectedUser.id, role }, { onSuccess: () => onOpenChange(false) }); }}>{add.isPending ? 'Adding…' : 'Add member'}</Button></DialogFooter>
       </DialogContent>
     </Dialog>
-  );
+    {canInvite && <InviteUserDialog open={inviteOpen} onOpenChange={setInviteOpen} />}
+  </>;
 }
