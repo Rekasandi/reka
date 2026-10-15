@@ -8,12 +8,12 @@ import {
 import {
   Plus, Calendar, CheckCircle2, AlertTriangle, AlertCircle, RefreshCw,
   Circle, CircleDot, CirclePause, CircleX, ChevronDown, ArrowDown, ArrowUp,
-  Filter, SlidersHorizontal, Search,
+  Filter, SlidersHorizontal, Search, Minus, SignalLow, SignalMedium, SignalHigh,
 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { resolveEntityIcon } from '../../../components/entity-icon-picker';
 import { useAuthStore } from '../../../stores/auth.store';
-import { PriorityIcon, PRIORITY_CONFIG } from '../../issues/components/priority-picker';
+import { PRIORITY_CONFIG } from '../../issues/components/priority-picker';
 import { useTeams } from '../../teams/hooks/use-teams';
 import { useUsers } from '../../users/hooks/use-users';
 import { useProjects } from '../hooks/use-projects';
@@ -21,9 +21,9 @@ import { CreateProjectDialog } from './create-project-dialog';
 import type { Project } from '../api/projects.api';
 
 const PROJECT_STATUSES = [
-  { key: 'in_progress', label: 'In progress', icon: CircleDot, color: 'text-warning-foreground' },
+  { key: 'in_progress', label: 'In progress', icon: CircleDot, color: 'text-foreground' },
   { key: 'planned', label: 'Planned', icon: Circle, color: 'text-muted-foreground' },
-  { key: 'paused', label: 'Paused', icon: CirclePause, color: 'text-warning-foreground' },
+  { key: 'paused', label: 'Paused', icon: CirclePause, color: 'text-muted-foreground' },
   { key: 'completed', label: 'Completed', icon: CheckCircle2, color: 'text-success' },
   { key: 'canceled', label: 'Canceled', icon: CircleX, color: 'text-muted-foreground' },
 ] as const;
@@ -38,6 +38,11 @@ function ProjectHealth({ health }: { health: Project['health'] }) {
   if (!option) return <span className="text-muted-foreground">—</span>;
   const Icon = option.icon;
   return <span className={cn('inline-flex items-center gap-1.5 whitespace-nowrap', option.color)}><Icon className="size-3.5 shrink-0" />{option.label}</span>;
+}
+
+function ProjectPriority({ priority }: { priority: Project['priority'] }) {
+  const Icon = { urgent: AlertCircle, high: SignalHigh, medium: SignalMedium, low: SignalLow, no_priority: Minus }[priority] ?? Minus;
+  return <Icon aria-hidden="true" className={cn('size-4 shrink-0', priority === 'urgent' ? 'text-destructive' : 'text-muted-foreground')} />;
 }
 
 export function ProjectsPage() {
@@ -73,22 +78,22 @@ export function ProjectsPage() {
   const clearFilters = () => { setFilterStatus('all'); setFilterHealth('all'); setQuery(''); };
 
   return (
-    <div className="@container -mt-4 flex min-w-0 flex-col gap-3 pb-10 sm:-mt-6">
-      <div className="-mx-4 flex items-center justify-between gap-3 border-b border-border px-4 py-3 sm:-mx-6 sm:px-6">
-        <h1 className="text-sm font-medium text-foreground">Projects</h1>
-        {canCreate && <Button variant="ghost" size="sm" className="border-0" onClick={() => openCreate()}><Plus data-icon="inline-start" />New project</Button>}
+    <div className="projects-page @container -mt-4 flex min-w-0 flex-col gap-4 pb-10 sm:-mt-6">
+      <div className="-mx-4 flex items-center justify-between gap-4 border-b border-border px-4 py-4 sm:-mx-6 sm:px-6">
+        <h1 className="text-xl font-semibold tracking-[-0.02em] text-foreground">Projects</h1>
+        {canCreate && <Button onClick={() => openCreate()}><Plus data-icon="inline-start" />New project</Button>}
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-3" aria-label="Project toolbar">
-        <Badge variant="secondary">All projects <span className="ml-1 tabular-nums text-muted-foreground">{scopedProjects.length}</span></Badge>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between" aria-label="Project toolbar">
+        <Badge variant="outline" className="h-8 gap-2 bg-card px-4 text-sm">All projects <span className="tabular-nums text-muted-foreground">{scopedProjects.length}</span></Badge>
         <div className="flex min-w-0 flex-1 items-center justify-end gap-2">
-          <div className="relative min-w-0 max-w-60 flex-1">
+          <div className="relative min-w-0 flex-1 sm:max-w-60">
             <Search aria-hidden="true" className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
             <Input type="search" aria-label="Filter projects" placeholder="Filter projects…" value={query} onChange={event => setQuery(event.target.value)} className="pl-8" />
           </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant={activeFilterCount ? 'secondary' : 'outline'} size="icon-sm" aria-label="Project filters" title={activeFilterCount ? `${activeFilterCount} active filters` : 'Filter projects'}><Filter /></Button>
+              <Button variant={activeFilterCount ? 'secondary' : 'outline'} size="icon" className="rounded-full max-sm:size-11" aria-label="Project filters" title={activeFilterCount ? `${activeFilterCount} active filters` : 'Filter projects'}><Filter /></Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
               <DropdownMenuLabel>Status</DropdownMenuLabel>
@@ -105,7 +110,7 @@ export function ProjectsPage() {
             </DropdownMenuContent>
           </DropdownMenu>
           <DropdownMenu>
-            <DropdownMenuTrigger asChild><Button variant="outline" size="icon-sm" aria-label="Project display options" title="Display options"><SlidersHorizontal /></Button></DropdownMenuTrigger>
+            <DropdownMenuTrigger asChild><Button variant="outline" size="icon" className="rounded-full max-sm:size-11" aria-label="Project display options" title="Display options"><SlidersHorizontal /></Button></DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
               <DropdownMenuLabel>Grouping</DropdownMenuLabel>
               <DropdownMenuRadioGroup value={groupBy} onValueChange={setGroupBy}>
@@ -133,7 +138,7 @@ export function ProjectsPage() {
         <Skeleton className="h-9 w-full rounded-md" />
         {Array.from({ length: 5 }).map((_, index) => <Skeleton key={index} className="h-12 w-full rounded-md" />)}
       </div>}
-      {isError && <div role="alert" className="flex items-center justify-between gap-3 rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-xs text-destructive">
+      {isError && <div role="alert" className="flex items-center justify-between gap-4 rounded-[6px] border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
         <span>Failed to load projects from server.</span>
         <Button variant="outline" size="sm" onClick={() => refetch()}><RefreshCw data-icon="inline-start" />Retry</Button>
       </div>}
@@ -144,7 +149,7 @@ export function ProjectsPage() {
             : canCreate && <Button size="sm" variant="outline" onClick={() => openCreate()}><Plus data-icon="inline-start" />New project</Button>}
         </div>
       ) : (
-        <Table aria-label="Projects" className="table-fixed text-xs">
+        <Table aria-label="Projects" className="table-fixed text-sm leading-5">
           <TableHeader>
             <TableRow className="border-0 hover:bg-transparent">
               <TableHead aria-sort={sortDirection === 'asc' ? 'ascending' : 'descending'}>
@@ -164,8 +169,8 @@ export function ProjectsPage() {
             const collapsed = !!collapsedGroups[group.key];
             const GroupIcon = group.icon;
             const contentId = `project-group-${group.key}`;
-            const groupHeader = <div className="flex items-center justify-between gap-2 rounded-md bg-muted/60 px-2 py-1">
-                    <Button variant="ghost" size="sm" className="min-w-0 flex-1 justify-start border-0 aria-expanded:bg-transparent" aria-label={`${collapsed ? 'Expand' : 'Collapse'} ${group.label} projects`} aria-expanded={!collapsed} aria-controls={contentId} onClick={() => setCollapsedGroups(previous => ({ ...previous, [group.key]: !previous[group.key] }))}>
+            const groupHeader = <div className="flex items-center justify-between gap-2 rounded-[6px] bg-secondary px-2 py-1">
+                    <Button variant="ghost" size="sm" className="min-w-0 flex-1 justify-start gap-2 border-0 aria-expanded:bg-transparent" aria-label={`${collapsed ? 'Expand' : 'Collapse'} ${group.label} projects`} aria-expanded={!collapsed} aria-controls={contentId} onClick={() => setCollapsedGroups(previous => ({ ...previous, [group.key]: !previous[group.key] }))}>
                       <ChevronDown className={cn(collapsed && '-rotate-90')} /><GroupIcon className={group.color} />
                       <span>{group.label}</span><span className="tabular-nums text-muted-foreground">{group.projects.length}</span>
                     </Button>
@@ -174,8 +179,8 @@ export function ProjectsPage() {
             return <React.Fragment key={group.key}>
               {groupBy === 'status' && <TableBody><TableRow className="border-0 hover:bg-transparent has-aria-expanded:bg-transparent">
                 {/* Match the visible column count so native table layout does not create empty mobile columns. */}
-                <TableCell colSpan={2} className="px-0 pb-1 pt-3 @min-[56rem]:hidden">{groupHeader}</TableCell>
-                <TableCell colSpan={7} className="hidden px-0 pb-1 pt-3 @min-[56rem]:table-cell">{groupHeader}</TableCell>
+                <TableCell colSpan={2} className="px-0 pb-1 pt-4 @min-[56rem]:hidden">{groupHeader}</TableCell>
+                <TableCell colSpan={7} className="hidden px-0 pb-1 pt-4 @min-[56rem]:table-cell">{groupHeader}</TableCell>
               </TableRow></TableBody>}
               <TableBody id={contentId} hidden={groupBy === 'status' && collapsed} aria-label={groupBy === 'status' ? `${group.label} projects` : group.label}>
               {(groupBy !== 'status' || !collapsed) && group.projects.map(project => {
@@ -188,13 +193,13 @@ export function ProjectsPage() {
                 const StatusIcon = status?.icon ?? Circle;
                 const ProjectIcon = resolveEntityIcon(project.icon);
                 const priority = PRIORITY_CONFIG.find(item => item.key === project.priority)?.label ?? 'None';
-                return <TableRow key={project.id} data-project-id={project.id} className="border-0">
+                return <TableRow key={project.id} data-project-id={project.id}>
                   <TableCell className="whitespace-normal py-3 @min-[56rem]:py-4">
                     <Link to={`/projects/${project.id}${location.search}`} className="block min-w-0 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label={`Open project ${project.name}`}>
                       <span className="flex min-w-0 items-center gap-3"><ProjectIcon aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" /><span className="truncate font-medium text-foreground" title={project.name}>{project.name}</span></span>
-                      <span className="ml-7 mt-2 flex flex-wrap items-center gap-x-3 gap-y-2 text-muted-foreground @min-[56rem]:hidden">
+                      <span className="ml-7 mt-2 flex flex-wrap items-center gap-x-3 gap-y-2 text-xs leading-4 text-muted-foreground @min-[56rem]:hidden">
                         <ProjectHealth health={project.health} />
-                        <span className="inline-flex items-center gap-1.5"><PriorityIcon priority={project.priority} />{priority === 'None' ? 'No priority' : priority}</span>
+                        <span className="inline-flex items-center gap-1.5"><ProjectPriority priority={project.priority} />{priority === 'None' ? 'No priority' : priority}</span>
                         {lead && <span className="inline-flex items-center gap-1.5"><Avatar size="sm"><AvatarImage src={lead.avatarUrl || undefined} /><AvatarFallback>{initials}</AvatarFallback></Avatar>{lead.name}</span>}
                         <span className="inline-flex items-center gap-1.5"><Calendar className="size-3.5 shrink-0" />{targetLabel}</span>
                         <span>{project.totalIssues ?? '—'} issues</span>
@@ -203,14 +208,14 @@ export function ProjectsPage() {
                     </Link>
                   </TableCell>
                   <TableCell className="hidden @min-[56rem]:table-cell"><ProjectHealth health={project.health} /></TableCell>
-                  <TableCell className="hidden @min-[56rem]:table-cell"><span role="img" aria-label={`Priority: ${priority}`}><PriorityIcon priority={project.priority} /></span></TableCell>
+                  <TableCell className="hidden @min-[56rem]:table-cell"><span role="img" aria-label={`Priority: ${priority}`}><ProjectPriority priority={project.priority} /></span></TableCell>
                   <TableCell className="hidden @min-[56rem]:table-cell">{lead ? <Avatar size="sm" aria-label={lead.name} title={lead.name}><AvatarImage src={lead.avatarUrl || undefined} /><AvatarFallback>{initials}</AvatarFallback></Avatar> : <span className="text-muted-foreground">—</span>}</TableCell>
                   <TableCell className="hidden text-muted-foreground @min-[56rem]:table-cell"><span className="inline-flex items-center gap-1.5 whitespace-nowrap"><Calendar className="size-3.5 shrink-0" />{targetLabel}</span></TableCell>
                   <TableCell className="hidden text-right tabular-nums @min-[56rem]:table-cell">{project.totalIssues ?? '—'}</TableCell>
                   <TableCell>
                     <div className="flex flex-col items-end gap-2">
                       <span className="inline-flex items-center gap-2" title={status?.label}><StatusIcon aria-label={status?.label} className={cn('size-3.5 shrink-0', status?.color)} /><span className="tabular-nums">{progress === null ? '—' : `${progress}%`}</span></span>
-                      {progress !== null && <div role="meter" aria-label={`${project.name}: ${progress}% complete`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress} className="h-0.5 w-12 overflow-hidden rounded-full bg-secondary"><div className="h-full bg-primary" style={{ width: `${progress}%` }} /></div>}
+                      {progress !== null && <div role="meter" aria-label={`${project.name}: ${progress}% complete`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress} className="h-1 w-12 overflow-hidden rounded-full bg-secondary"><div className="h-full bg-primary" style={{ width: `${progress}%` }} /></div>}
                     </div>
                   </TableCell>
                 </TableRow>;

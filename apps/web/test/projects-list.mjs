@@ -149,6 +149,7 @@ try {
     await page.waitForTimeout(250); // Capture settled theme colors, not the button transitions.
     for (const width of [1440, 1024, 900, 768, 390, 320]) {
       await page.setViewportSize({ width, height: width < 768 ? 844 : 1000 });
+      await page.waitForTimeout(180);
       const layout = await page.evaluate(() => ({
         overflow: document.documentElement.scrollWidth > innerWidth,
         clippedControls: [...document.querySelectorAll('button,input')].filter(element => element.checkVisibility() && (element.getBoundingClientRect().right > innerWidth + 1 || element.getBoundingClientRect().left < -1)).map(element => element.getAttribute('aria-label') || element.textContent),
@@ -161,7 +162,43 @@ try {
       const statusBounds = await firstRow.locator('td').last().boundingBox();
       assert.ok(nameBounds.width >= 160, `${theme} ${width}: name retains useful width`);
       assert.ok(nameBounds.x + nameBounds.width <= statusBounds.x + 1, `${theme} ${width}: name does not overlap progress`);
-      if ([1440, 900, 390, 320].includes(width)) await page.screenshot({ path: `/tmp/reka-projects-grouped-${theme}-${width}.png` });
+      const design = await page.evaluate(() => {
+        const style = element => getComputedStyle(element);
+        const heading = style(document.querySelector('h1'));
+        const primary = style([...document.querySelectorAll('button')].find(element => element.textContent.trim() === 'New project'));
+        const link = style(document.querySelector('tr[data-project-id] a'));
+        const badge = style(document.querySelector('[aria-label="Project toolbar"] [data-slot="badge"]'));
+        const filters = style(document.querySelector('button[aria-label="Project filters"]'));
+        const disclosure = [...document.querySelectorAll('button[aria-controls^="project-group-"]')].find(element => element.checkVisibility());
+        const group = style(disclosure.parentElement);
+        const priority = style(document.querySelector('tr[data-project-id="p0"] td:nth-child(3) svg'));
+        const channels = color => color.match(/[\d.]+/g).slice(0, 3).map(Number).map(value => { const channel = value / 255; return channel <= .04045 ? channel / 12.92 : ((channel + .055) / 1.055) ** 2.4; });
+        const luminance = color => channels(color).reduce((sum, channel, index) => sum + channel * [.2126, .7152, .0722][index], 0);
+        const contrast = (a, b) => (Math.max(luminance(a), luminance(b)) + .05) / (Math.min(luminance(a), luminance(b)) + .05);
+        return {
+          heading: [heading.fontSize, heading.lineHeight, heading.fontWeight, heading.letterSpacing], font: heading.fontFamily,
+          row: [link.fontSize, link.lineHeight], primary: [primary.borderRadius, primary.backgroundColor],
+          badge: [badge.fontSize, badge.height], group: [group.borderRadius, group.backgroundColor],
+          circular: parseFloat(filters.borderRadius) >= parseFloat(filters.width) / 2,
+          touchTarget: [parseFloat(primary.height), parseFloat(filters.height)],
+          rowBorder: style(document.querySelector('tr[data-project-id="p5"]')).borderBottomWidth,
+          neutralPriority: priority.color === style(document.querySelector('tr[data-project-id="p0"] svg.lucide-building-2')).color,
+          primaryContrast: contrast(primary.color, primary.backgroundColor),
+          textContrast: contrast(link.color, style(document.body).backgroundColor),
+        };
+      });
+      assert.deepEqual(design.heading, ['20px', '28px', '600', '-0.4px'], 'DESIGN.md heading-md');
+      assert.match(design.font, /Geist/);
+      assert.deepEqual(design.row, ['14px', '20px'], 'DESIGN.md body-md');
+      assert.deepEqual(design.primary, ['6px', theme === 'dark' ? 'rgb(237, 237, 237)' : 'rgb(23, 23, 23)'], 'App primary button uses ink and 6px radius');
+      assert.deepEqual(design.badge, ['14px', '32px'], 'Category pill is readable, not a tiny count badge');
+      assert.deepEqual(design.group, ['6px', theme === 'dark' ? 'rgb(28, 28, 28)' : 'rgb(242, 242, 242)'], 'Flat semantic secondary surface');
+      assert.equal(design.circular, true, 'Icon controls follow button-icon-circular');
+      assert.equal(design.rowBorder, '1px', 'Hairline row separators');
+      assert.equal(design.neutralPriority, true, 'Non-urgent priorities use neutral ink, not decorative colors');
+      assert.ok(design.primaryContrast >= 4.5 && design.textContrast >= 4.5, 'Readable primary and body text contrast');
+      if (width < 640) assert.ok(design.touchTarget.every(size => size >= 44), 'Mobile primary/icon controls retain 44px targets');
+      if ([1440, 900, 390, 320].includes(width)) await page.screenshot({ path: `/tmp/reka-projects-design-${theme}-${width}.png` });
     }
   }
   await page.setViewportSize({ width: 390, height: 844 });
@@ -217,7 +254,7 @@ try {
   await goto();
   await page.getByText('No projects yet.', { exact: true }).waitFor();
   assert.deepEqual(errors, []);
-  console.log('PASS: grouped project table, collapse/ungroup, sorting, combined filters, real group-create payload, permissions, team scope, keyboard navigation, states and 12 responsive light/dark layouts.');
+  console.log('PASS: grouped project table, collapse/ungroup, sorting, combined filters, real group-create payload, permissions, team scope, keyboard navigation, states, DESIGN.md computed typography/radius/palette/hairline/contrast checks and 12 responsive light/dark layouts.');
 } finally {
   await browser.close();
 }

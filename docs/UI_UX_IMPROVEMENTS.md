@@ -132,6 +132,18 @@ Responsive memakai container query berdasarkan lebar area Projects, bukan lebar 
 
 Verifikasi: `projects-list.mjs` lulus dengan create payload per grup, kombinasi filter, collapse/ungroup, sorting, permission fixtures, team scope, fallback data kosong/invalid, dan **12 ukuran/theme** (320/390/768/900/1024/1440px × light/dark). `project-detail-layout.mjs`, `pnpm test:web:real-api` (Nest + PostgreSQL disposable), web build/type-check dan `git diff --check` lulus. Audit aplikasi **39 routes × 4 variants = 156 renders**, tanpa overflow, clipped controls/headings/actions, atau page exceptions. Evidence lokal: `/tmp/reka-projects-grouped-audit/results.json`, `/tmp/reka-projects-grouped-{dark,light}-*.png`, `/tmp/reka-projects-grouped-{test,detail,real-api,build}.log`. Visual/interaction suites memakai API/auth terkontrol; bukan bukti load test atau provider live.
 
+## Projects mengikuti DESIGN.md
+
+Refinement lanjutan mempertahankan grouped list dan semua perilakunya, tetapi menyelaraskan visual dengan token aplikasi pada `DESIGN.md`:
+
+- Geist **heading-md 20/28px, weight 600, tracking −0.4px** untuk judul; **body-md 14/20px** untuk tabel; metadata mobile/caption tetap 12/16px.
+- **New project** memakai primary ink button existing dengan radius **6px**, bukan ghost action atau pill CTA marketing. Kontrol filter/display berbentuk lingkaran, sedangkan **All projects** menjadi category pill ber-hairline yang terbaca.
+- Hairline antarrow, neutral secondary surface untuk header grup, radius grup 6px, serta spacing utama 16px. Tidak menambah card, bayangan, hero, uppercase dekoratif, atau gradient.
+- Status berjalan/paused dan prioritas non-urgent memakai warna netral. Aksen hanya untuk kondisi semantik: completed/on-track, risiko, off-track, dan urgent. Ikon priority Projects bersifat lokal; picker/warna Issues tidak diubah.
+- Toolbar mobile terpisah menjadi dua baris agar pencarian tidak terhimpit; primary action dan kontrol filter/display memiliki target 44px. Container-query metadata dan colspan responsive tetap dipertahankan.
+
+`projects-list.mjs` menguji computed styles terhadap ukuran/font/tracking, palette per theme, radius, circular controls, hairline, contrast teks/primary ≥4.5:1, dan target sentuh; sekaligus mempertahankan pengujian filter, grouping, create payload, scope/permissions dan keyboard. **12 ukuran/theme** lulus, web type-check/build lulus, dan audit **39 routes × 4 variants = 156 renders** tidak menemukan overflow, clipped controls/headings/actions, atau page exceptions. Evidence: `/tmp/reka-projects-design-{dark,light}-*.png`, `/tmp/reka-projects-design-audit/results.json`, `/tmp/reka-projects-design-{test,build}.log`. API/auth browser dimock; tidak ada perubahan API/database/dependency, dan `DESIGN.md` tidak diubah. Ini bukan audit WCAG/screen reader menyeluruh.
+
 ## Batasan
 
 - Vite masih memberi warning chunk besar (main sekitar 1.87 MB; editor sekitar 800 KB). Build berhasil; route-level bundle optimization bukan bagian perubahan ini.
