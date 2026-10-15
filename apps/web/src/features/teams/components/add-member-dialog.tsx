@@ -8,6 +8,7 @@ import {
   DialogFooter,
   Button,
   Field,
+  FieldGroup,
   FieldLabel,
   Input,
   Select,
@@ -114,6 +115,7 @@ export function AddMemberDialog({
       setSelectedUser(null);
       setSearchQuery('');
       setIsDropdownOpen(false);
+      setRole('member');
     }
   }, [open]);
 
@@ -128,10 +130,10 @@ export function AddMemberDialog({
             </DialogDescription>
           </DialogHeader>
 
-          <div className="flex flex-col gap-4 py-1">
+          <FieldGroup className="py-1">
             {/* User Autocomplete Selector */}
             <Field>
-              <FieldLabel>Select Member *</FieldLabel>
+              <FieldLabel htmlFor="team-member-search">Select Member *</FieldLabel>
 
               <div ref={containerRef} className="relative w-full">
                 {selectedUser ? (
@@ -171,6 +173,7 @@ export function AddMemberDialog({
                     <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
                     <Input
                       ref={inputRef}
+                      id="team-member-search"
                       placeholder="Type name or email to search..."
                       value={searchQuery}
                       onChange={(e) => {
@@ -201,10 +204,12 @@ export function AddMemberDialog({
                         const initial = (u.name[0] || 'U').toUpperCase();
 
                         return (
-                          <div
+                          <button
+                            type="button"
+                            disabled={isAlreadyMember}
                             key={u.id}
                             onClick={() => handleSelectUser(u)}
-                            className={`flex items-center justify-between p-2.5 text-xs transition-colors select-none ${
+                            className={`flex w-full items-center justify-between p-2.5 text-left text-xs transition-colors select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring ${
                               isAlreadyMember
                                 ? 'opacity-50 cursor-not-allowed bg-muted/20'
                                 : 'cursor-pointer hover:bg-muted/60'
@@ -239,7 +244,7 @@ export function AddMemberDialog({
                                 </Badge>
                               )}
                             </div>
-                          </div>
+                          </button>
                         );
                       })
                     )}
@@ -264,7 +269,7 @@ export function AddMemberDialog({
                 </SelectContent>
               </Select>
             </Field>
-          </div>
+          </FieldGroup>
 
           <DialogFooter className="mt-2">
             <Button

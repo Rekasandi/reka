@@ -30,6 +30,7 @@ export * from './components/skeleton';
 export * from './components/sonner';
 export { toast } from 'sonner';
 export * from './components/tabs';
+export * from './components/table';
 export * from './components/textarea';
 export * from './components/tooltip';
 export * from './hooks/use-mobile';

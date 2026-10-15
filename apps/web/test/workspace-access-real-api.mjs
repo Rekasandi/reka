@@ -82,6 +82,7 @@ try {
         import { LoginPage } from '/src/features/auth/components/login-page.tsx';
         import { TeamsPage } from '/src/features/teams/components/teams-page.tsx';
         import { TeamDetailPage } from '/src/features/teams/components/team-detail-page.tsx';
+        import { TeamsSettings } from '/src/features/settings/components/teams-settings.tsx';
         import { useAuthStore } from '/src/stores/auth.store.ts';
         import '/src/styles/globals.css';
         await useAuthStore.getState().fetchCurrentUser();
@@ -89,6 +90,8 @@ try {
           React.createElement(Route, { path: '/login', element: React.createElement(LoginPage) }),
           React.createElement(Route, { path: '/teams', element: React.createElement(TeamsPage) }),
           React.createElement(Route, { path: '/teams/:id', element: React.createElement(TeamDetailPage) }),
+          React.createElement(Route, { path: '/settings/teams', element: React.createElement(TeamsSettings) }),
+          React.createElement(Route, { path: '/settings/teams/:teamId', element: React.createElement(TeamsSettings) }),
           React.createElement(Route, { path: '*', element: React.createElement('main', { className: 'flex flex-col gap-6 p-6' }, React.createElement(UsersPage), React.createElement(WorkspaceSettings)) }));
         ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(TooltipProvider, null,
           React.createElement(ThemeProvider, { defaultTheme: new URLSearchParams(location.search).get('theme') || 'dark', storageKey: 'workspace-e2e' },
@@ -186,7 +189,42 @@ try {
   await owner.getByRole('tab', { name: 'Members' }).click();
   await owner.getByText('Member', { exact: true }).waitFor();
   assert.equal((await postgres.db.select().from(require('@reka/database').teamMembers).where(require('drizzle-orm').and(require('drizzle-orm').eq(require('@reka/database').teamMembers.teamId, privateTeam.id), require('drizzle-orm').eq(require('@reka/database').teamMembers.userId, people.Member.id))))[0].role, 'viewer');
+  // New administration surface reuses the real member controls and server guards.
+  await owner.goto(`${url}/settings/teams`);
+  await owner.getByRole('link', { name: 'Manage team Private engineering' }).click();
+  await owner.waitForURL(`**/settings/teams/${privateTeam.id}`);
+  await owner.getByRole('combobox', { name: 'Team role for Owner' }).click();
+  await owner.getByRole('option', { name: 'Member', exact: true }).click();
+  await owner.getByRole('alert').getByText('Assign another writable team lead before removing or demoting the last lead', { exact: true }).waitFor();
+  await owner.getByRole('combobox', { name: 'Team role for Member' }).click();
+  await owner.getByRole('option', { name: 'Member', exact: true }).click();
+  await owner.getByText('Team role updated', { exact: true }).waitFor();
+  await owner.getByRole('button', { name: 'Remove Member', exact: true }).click();
+  await owner.getByRole('alertdialog').getByRole('button', { name: 'Cancel', exact: true }).click();
+  await owner.getByRole('combobox', { name: 'Team role for Member' }).waitFor();
+  await owner.getByRole('button', { name: 'Remove Member', exact: true }).click();
+  await owner.getByRole('alertdialog').getByRole('button', { name: 'Remove member', exact: true }).click();
+  await owner.getByText('Member removed from team', { exact: true }).waitFor();
+  await owner.getByRole('combobox', { name: 'Team role for Member' }).waitFor({ state: 'hidden' });
+  await owner.getByRole('button', { name: 'Add member', exact: true }).click();
+  teamDialog = owner.getByRole('dialog', { name: 'Add Team Member' });
+  await teamDialog.getByPlaceholder('Type name or email to search...').fill('member@example.test');
+  await teamDialog.getByRole('button', { name: /member@example.test/ }).click();
+  await teamDialog.getByRole('button', { name: 'Add Member', exact: true }).click();
+  await teamDialog.waitFor({ state: 'hidden' });
+  await owner.getByRole('combobox', { name: 'Team role for Member' }).waitFor();
+  await postgres.reopen();
+  await owner.reload();
+  await owner.getByRole('combobox', { name: 'Team role for Member' }).waitFor();
+  const storedMembers = await postgres.db.select().from(require('@reka/database').teamMembers).where(eq(require('@reka/database').teamMembers.teamId, privateTeam.id));
+  assert.equal(storedMembers.find(member => member.userId === people.Owner.id).role, 'lead');
+  assert.equal(storedMembers.find(member => member.userId === people.Member.id).role, 'member');
   const nonMember = await pageFor('Admin');
+  await nonMember.goto(`${url}/settings/teams`);
+  await nonMember.getByRole('table', { name: 'Workspace teams' }).waitFor();
+  assert.equal(await nonMember.getByRole('link', { name: 'Manage team Private engineering' }).count(), 0);
+  await nonMember.goto(`${url}/settings/teams/${privateTeam.id}`);
+  await nonMember.getByText('Team unavailable.', { exact: false }).waitFor();
   await nonMember.goto(`${url}/teams/${privateTeam.id}`);
   await nonMember.getByText('Failed to load team details.').waitFor();
   assert.equal(await nonMember.getByRole('button', { name: 'Add Member' }).count(), 0);
@@ -196,7 +234,7 @@ try {
   assert.equal(await privateMember.getByRole('button', { name: 'Settings' }).count(), 0);
   assert.equal(await privateMember.getByRole('button', { name: 'Add Member' }).count(), 0);
   assert.equal(await privateMember.getByRole('button', { name: 'Join team' }).count(), 0);
-  await owner.getByRole('button', { name: 'Settings' }).click();
+  await owner.getByRole('button', { name: 'Team settings', exact: true }).click();
   const settings = owner.getByRole('dialog', { name: 'Team settings' });
   await settings.getByLabel('Private team').click();
   await settings.getByRole('button', { name: 'Save settings' }).click();

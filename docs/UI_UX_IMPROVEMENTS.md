@@ -98,13 +98,19 @@ Evidence lokal: `/tmp/reka-issue-detail/`, `/tmp/reka-issue-ui-audit/results.jso
 
 ## Settings sebagai ruang pengaturan tersendiri
 
-`/settings` membuka Preferences dan mengganti sidebar workspace dengan sidebar Settings. Kategori: Personal (Preferences/Profile/Connected accounts), Issues (Workflows/Labels), Projects (Project settings), Integrations (GitHub), serta Administrations (Workspace/Members, owner/admin). Setiap menu memiliki route `/settings/:section`; Back to workspace mengembalikan navigasi normal. Breadcrumb, document title, menu profil dan tautan hash/callback lama mengikuti tujuan baru.
+`/settings` membuka Preferences dan mengganti sidebar workspace dengan sidebar Settings. Kategori: Personal (Preferences/Profile/Connected accounts), Issues (Workflows/Labels), Projects (Project settings), Integrations (GitHub), serta Administrations (Workspace/Members/Teams, owner/admin). Setiap menu memiliki route `/settings/:section`; Back to workspace mengembalikan navigasi normal. Breadcrumb, document title, menu profil dan tautan hash/callback lama mengikuti tujuan baru.
 
 Tidak ada konfigurasi palsu atau dependency baru. Theme dan notifikasi menggunakan penyimpanan existing; profil/identitas tetap read-only; workflow dan labels membuka editor tim existing; project settings mengarahkan ke konfigurasi per-project. GitHub UI dipisahkan dari pengaturan pribadi, sehingga Preferences tidak mengambil data instalasi/repository. Otorisasi API tidak berubah.
 
 Verifikasi: web build/type-check, `pnpm test:web:settings`, `header-breadcrumb.mjs`, dan `pnpm test:web:collaboration-real-api` lulus. Audit `all-pages-ui.mjs`: **35 routes × 4 variants = 140 renders**, tanpa exception/overflow/clipped control. Suite Settings memakai router aplikasi nyata dengan API terkontrol: sidebar berganti, semua kategori, tema persisten, penyimpanan preferensi notifikasi, workflow/label dialogs, direct/reload/back/forward, legacy links, mobile/light/dark, guest denial dan retry. Collaboration tetap memakai API/PostgreSQL disposable; provider live dan deployment tidak diverifikasi.
 
 Evidence lokal: `/tmp/reka-settings/`, `/tmp/reka-settings-audit/results.json`. Chip status, priority, type, assignee, project dan cycle di issue detail juga kembali memakai background/border existing, bukan override transparan.
+
+## Teams di Administrations
+
+`/settings/teams` menyediakan direktori tabel shadcn dengan filter nama/visibilitas, pengurutan nama, entry Create team, serta data anggota/issue/tanggal dari API existing. Nama tim membuka `/settings/teams/:teamId` tanpa meninggalkan Settings. Pengelolaan anggota, dialog tambah anggota dan pengaturan tim memakai API/hook existing; panel anggota dibagi dengan halaman tim biasa. Selector anggota kini dapat dipilih dengan keyboard, sementara remove/leave membutuhkan AlertDialog. Tim privat tetap membutuhkan membership eksplisit; role workspace tidak ditimpa oleh role tim dan lead writable terakhir tetap dijaga server.
+
+Verifikasi: build/type-check web, `pnpm test:web:settings`, `header-breadcrumb.mjs`, `pnpm test:workspace-access` (**29/29**), serta `pnpm test:web:workspace` lulus. Suite API/UI database disposable membuktikan add/role/remove/cancel/restart, penolakan demosi lead terakhir, dan penolakan admin non-member pada tim privat. Suite router nyata memakai API terkontrol untuk navigasi/keyboard/role/sidebar dan light/dark desktop/mobile. Audit terbaru **37 routes × 4 variants = 148 renders**, tanpa exception/overflow/clipped control; evidence `/tmp/reka-teams-audit/results.json` dan `/tmp/reka-settings/`. Tidak ada migrasi, deployment, perubahan data production atau dependency baru. Provider GitHub tetap contract fixture; `/live.js` dev-server dapat mencatat connection refusal non-API.
 
 ## Batasan
 

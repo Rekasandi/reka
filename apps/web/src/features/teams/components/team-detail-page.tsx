@@ -8,15 +8,12 @@ import {
   TabsList,
   TabsTrigger,
   TabsContent,
-  Avatar,
-  AvatarImage,
   Select,
   SelectContent,
   SelectGroup,
   SelectItem,
   SelectTrigger,
   SelectValue,
-  AvatarFallback,
 } from '@reka/ui';
 import {
   ArrowLeft,
@@ -27,14 +24,12 @@ import {
   Trash2,
   RefreshCw,
   UserPlus,
-  Shield,
   LockKeyhole,
   Settings2,
-  LogOut,
   FolderKanban,
   ArrowRight,
 } from 'lucide-react';
-import { useTeam, useDeleteTeam, useJoinTeam, useRemoveTeamMember, useUpdateTeamMember } from '../hooks/use-teams';
+import { useTeam, useDeleteTeam, useJoinTeam } from '../hooks/use-teams';
 import { useIssues, useUpdateIssue } from '../../issues/hooks/use-issues';
 import { useProjects } from '../../projects/hooks/use-projects';
 import { useCycles } from '../../cycles/hooks/use-cycles';
@@ -42,6 +37,7 @@ import { CreateIssueDialog } from '../../issues/components/create-issue-dialog';
 import { IssueDetailSheet } from '../../issues/components/issue-detail-sheet';
 import { AddMemberDialog } from './add-member-dialog';
 import { TeamSettingsDialog } from './team-settings-dialog';
+import { TeamMembersPanel } from './team-members-panel';
 import { ConfirmDeleteDialog } from '../../../components/common/confirm-delete-dialog';
 import { getIssueStatusCategory, isIssueClosed, type Issue } from '@reka/types';
 
@@ -69,8 +65,6 @@ export function TeamDetailPage() {
   const { data: cycles = [] } = useCycles();
   const updateIssueMutation = useUpdateIssue();
   const deleteMutation = useDeleteTeam();
-  const removeMemberMutation = useRemoveTeamMember(id || '');
-  const updateMemberMutation = useUpdateTeamMember(id || '');
   const joinMutation = useJoinTeam(id || '');
 
   // Issues belonging to this team
@@ -338,44 +332,7 @@ export function TeamDetailPage() {
 
         {/* Members Tab */}
         <TabsContent value="members" className="mt-0 w-full">
-          <div className="rounded-lg border border-border/80 divide-y divide-border/60 bg-card/30 overflow-hidden">
-            {(team.members || []).map((m) => {
-              const userName = m.user?.name || 'Unknown member';
-              const userEmail = m.user?.email || 'Email unavailable';
-              const initial = userName[0] || 'U';
-
-              return (
-                <div key={m.userId} className="flex items-center justify-between p-3.5 text-xs hover:bg-secondary/30 transition-colors">
-                  <div className="flex items-center gap-3">
-                    <Avatar className="size-7 rounded-full border border-border/70">
-                      {m.user?.avatarUrl && <AvatarImage src={m.user.avatarUrl} alt={userName} />}
-                      <AvatarFallback className="text-xs font-medium bg-secondary text-foreground">
-                        {initial}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex flex-col gap-0.5">
-                      <span className="font-semibold text-foreground text-xs">{userName}</span>
-                      <span className="text-xs font-mono text-muted-foreground">{userEmail}</span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-3">
-                    {team.canManage ? <Select value={m.role} disabled={updateMemberMutation.isPending} onValueChange={role => updateMemberMutation.mutate({ userId: m.userId, role: role as 'lead' | 'member' | 'viewer' })}>
-                      <SelectTrigger aria-label={`Team role for ${userName}`} size="sm" className="w-28"><SelectValue /></SelectTrigger>
-                      <SelectContent><SelectGroup><SelectItem value="lead">Lead</SelectItem><SelectItem value="member">Member</SelectItem><SelectItem value="viewer">Viewer</SelectItem></SelectGroup></SelectContent>
-                    </Select> : <Badge variant={m.role === 'lead' ? 'default' : 'secondary'} className="capitalize text-xs">{m.role}</Badge>}
-                    {(team.canManage || (m.userId === team.currentMemberUserId && team.canLeave)) && <Button type="button" variant="ghost" size="icon-xs" disabled={removeMemberMutation.isPending} onClick={() => removeMemberMutation.mutate(m.userId)} aria-label={m.userId === team.currentMemberUserId ? 'Leave team' : `Remove ${userName}`} title={m.userId === team.currentMemberUserId ? 'Leave team' : 'Remove member'}>{m.userId === team.currentMemberUserId ? <LogOut /> : <Trash2 />}</Button>}
-                  </div>
-                </div>
-              );
-            })}
-
-            {(!team.members || team.members.length === 0) && (
-              <div className="py-8 text-center text-xs text-muted-foreground">
-                No members found in this team.
-              </div>
-            )}
-          </div>
+          <TeamMembersPanel team={team} />
         </TabsContent>
       </Tabs>
 

@@ -19,6 +19,7 @@ export const SETTINGS_GROUPS = [
   { label: 'Administrations', adminOnly: true, items: [
     { id: 'workspace', label: 'Workspace', icon: Building2, description: 'Workspace identity and invitations.' },
     { id: 'members', label: 'Members', icon: Users, description: 'Manage workspace members and their roles.' },
+    { id: 'teams', label: 'Teams', icon: Users, description: 'Manage teams and their members.' },
   ] },
 ];
 

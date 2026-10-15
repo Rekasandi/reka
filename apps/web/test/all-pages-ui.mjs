@@ -45,8 +45,9 @@ cycles.push({ ...cycles[0], id: 'cy2', teamId: 't2', name: 'Design current cycle
 initiatives.push({ ...initiatives[0], id: 'in2', name: 'Design foundation initiative', projects: [projects[1]] });
 teams[1].isPrivate = true;
 components.push(['ViewsPage', 'views']);
-routes.push('/views', '/issues/i0', ...['preferences', 'profile', 'accounts', 'workflows', 'labels', 'projects', 'github', 'workspace', 'members'].map(section => `/settings/${section}`));
-config.push(['/views', 'ViewsPage'], ['/issues/:id', 'IssueDetailPage']);
+routes.push('/views', '/issues/i0', ...['preferences', 'profile', 'accounts', 'workflows', 'labels', 'projects', 'github', 'workspace', 'members', 'teams'].map(section => `/settings/${section}`));
+config.push(['/views', 'ViewsPage'], ['/issues/:id', 'IssueDetailPage'], ['/settings/teams/:teamId', 'SettingsPage']);
+routes.push('/settings/teams/t1');
 try {
   const page = await browser.newPage();
   let errors = [];

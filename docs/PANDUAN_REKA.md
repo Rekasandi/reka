@@ -184,9 +184,11 @@ Klik **Settings** untuk masuk ke halaman pengaturan. Sidebar workspace diganti s
 | **Issues** | **Workflows** dan **Labels**: pilih tim, lalu gunakan pengaturan workflow atau label existing. Hanya pengelola tim yang dapat mengubahnya. |
 | **Projects** | **Project settings**: pilih project untuk membuka konfigurasi properti, milestone, anggota, atau repository pada halaman project tersebut. Tidak ada default global project yang dipalsukan. |
 | **Integrations** | **GitHub**: instalasi organisasi, repository workspace, aturan workflow yang didukung dan status webhook. Tindakan pengelolaan mengikuti izin owner/admin. |
-| **Administrations** | **Workspace** dan **Members**, khusus owner/admin. Nama workspace, undangan, dan pengelolaan anggota memakai API yang sama seperti sebelumnya. |
+| **Administrations** | **Workspace**, **Members**, dan **Teams**, khusus owner/admin. Teams menampilkan nama, deskripsi, visibilitas, jumlah anggota/issue, dan tanggal dibuat. Filter nama/visibilitas, urutkan nama, atau buat tim baru; klik nama tim untuk mengelola anggotanya. |
 
 Setiap menu memiliki URL `/settings/...` yang bisa dibuka langsung atau di-reload. Tautan lama seperti `/settings#profile`, `/settings#appearance`, serta callback instalasi GitHub tetap diarahkan ke halaman yang sesuai. Di mobile, buka sidebar melalui tombol di header; sidebar menutup setelah memilih menu. Data profil tidak diedit melalui form palsu: identitas ditampilkan dari akun login yang sebenarnya.
+
+**Pengelolaan anggota tim:** buka **Settings → Administrations → Teams → nama tim** (`/settings/teams/:teamId`). **Add member** memilih anggota workspace dan role Lead/Member/Viewer. Role bisa diubah langsung; menghapus anggota atau keluar tim membutuhkan konfirmasi. Penghapusan ini tidak menghapus akun workspace. Lead writable terakhir wajib dipertahankan. Tim privat hanya terlihat bagi anggota eksplisit, termasuk bagi owner/admin; pengaturan ini tidak memberi jalan pintas ke tim privat. Team lead yang bukan admin tetap menggunakan tab **Members** di halaman tim biasa.
 
 ## 5. Workflow pekerjaan dari awal hingga selesai
 
