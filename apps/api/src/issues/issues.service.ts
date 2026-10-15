@@ -31,8 +31,11 @@ export class IssuesService {
     const issueRows = await this.database.db.select().from(issues)
       .where(and(issueScope(this.database.db, actor), archived ? isNotNull(issues.archivedAt) : isNull(issues.archivedAt), status ? eq(issues.status, status) : undefined))
       .orderBy(desc(issues.sortOrder), desc(issues.createdAt));
-    if (!issueRows.length) return issueRows;
+    return this.withIssueDetails(actor, issueRows);
+  }
 
+  private async withIssueDetails(actor: WorkspaceActor, issueRows: (typeof issues.$inferSelect)[]) {
+    if (!issueRows.length) return [];
     const workflowRows = await this.database.db.select().from(teamWorkflowStates).where(inArray(teamWorkflowStates.teamId, [...new Set(issueRows.map((issue) => issue.teamId))]));
     const workflowByTeam = new Map(workflowRows.map((state) => [`${state.teamId}:${state.key}`, state]));
     const labelRows = await this.database.db
@@ -85,7 +88,9 @@ export class IssuesService {
   }
 
   async findById(id: string, actorId: string) {
-    return requireIssue(this.database.db, await requireWorkspace(this.database.db, actorId), id);
+    const actor = await requireWorkspace(this.database.db, actorId);
+    const issue = await requireIssue(this.database.db, actor, id);
+    return (await this.withIssueDetails(actor, [issue]))[0];
   }
 
   async findByIdentifier(identifier: string, actorId: string) {
@@ -97,7 +102,7 @@ export class IssuesService {
     if (!result.length) {
       throw new NotFoundException(`Issue ${identifier} not found`);
     }
-    return result[0];
+    return (await this.withIssueDetails(actor, result))[0];
   }
 
   private async validateRelations(actor: WorkspaceActor, teamId: string, projectId?: string | null, cycleId?: string | null, parentId?: string | null, editingId?: string, milestoneId?: string | null) {
