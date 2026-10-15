@@ -275,10 +275,11 @@ try {
   assert.ok(tabBounds.x >= 0 && tabBounds.x + tabBounds.width <= 390, 'Offscreen project tabs scroll into view');
 
   await page.goto(`${process.env.WEB_URL || 'http://localhost:5173'}?route=%2Fprojects&theme=dark`);
-  await page.getByRole('textbox', { name: 'Filter projects', exact: true }).or(page.getByRole('searchbox', { name: 'Filter projects', exact: true })).fill('no matching project');
-  await page.getByText('No matching projects. Try another search or filter.', { exact: true }).waitFor();
-  await page.getByRole('searchbox', { name: 'Filter projects', exact: true }).fill('booking');
   await page.getByRole('link', { name: 'Open project Guest booking platform', exact: true }).waitFor();
+  assert.equal(await page.locator('[aria-label="Project toolbar"]').count(), 0);
+  assert.equal(await page.getByRole('searchbox', { name: 'Filter projects', exact: true }).count(), 0);
+  assert.equal(await page.getByRole('button', { name: 'Project filters', exact: true }).count(), 0);
+  assert.equal(await page.getByRole('button', { name: 'Project display options', exact: true }).count(), 0);
 
   await page.evaluate(() => window.__auditSetIdentity({ githubUsername: null }));
   await page.getByRole('button', { name: 'Open profile menu', exact: true }).click();

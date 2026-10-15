@@ -144,6 +144,10 @@ Refinement lanjutan mempertahankan grouped list dan semua perilakunya, tetapi me
 
 `projects-list.mjs` menguji computed styles terhadap ukuran/font/tracking, palette per theme, radius, circular controls, hairline, contrast teks/primary ≥4.5:1, dan target sentuh; sekaligus mempertahankan pengujian filter, grouping, create payload, scope/permissions dan keyboard. **12 ukuran/theme** lulus, web type-check/build lulus, dan audit **39 routes × 4 variants = 156 renders** tidak menemukan overflow, clipped controls/headings/actions, atau page exceptions. Evidence: `/tmp/reka-projects-design-{dark,light}-*.png`, `/tmp/reka-projects-design-audit/results.json`, `/tmp/reka-projects-design-{test,build}.log`. API/auth browser dimock; tidak ada perubahan API/database/dependency, dan `DESIGN.md` tidak diubah. Ini bukan audit WCAG/screen reader menyeluruh.
 
+## Toolbar Projects dihapus
+
+Sesuai pemilihan elemen `Project toolbar`, seluruh baris **All projects**, pencarian, filter status/health, dan display options dihapus, termasuk state/import/empty-state khusus filter yang tidak terpakai. Header Projects/New project, kolom properti, grouping status, disclosure/count, create per grup, serta sorting melalui header Name tetap tersedia. Panduan dan browser assertions diperbarui. `projects-list.mjs` (12 ukuran/theme), web type-check dan audit **156 renders** lulus; evidence `/tmp/reka-projects-no-toolbar-*`. Tidak ada perubahan API/database.
+
 ## Batasan
 
 - Vite masih memberi warning chunk besar (main sekitar 1.87 MB; editor sekitar 800 KB). Build berhasil; route-level bundle optimization bukan bagian perubahan ini.

@@ -80,14 +80,6 @@ try {
   const goto = async (route = '/projects?teamId=t1', theme = 'dark', role = 'owner') => {
     await page.goto(`${url}?${new URLSearchParams({ route, theme, role })}`);
   };
-  const filter = async name => {
-    await page.getByRole('button', { name: 'Project filters', exact: true }).click();
-    await page.getByRole('menuitemradio', { name, exact: true }).click();
-  };
-  const display = async name => {
-    await page.getByRole('button', { name: 'Project display options' }).click();
-    await page.getByRole('menuitemradio', { name, exact: true }).click();
-  };
   delay = 700;
   await goto();
   await page.getByRole('status', { name: 'Loading projects' }).waitFor();
@@ -105,6 +97,11 @@ try {
   assert.equal(await rows().filter({ hasText: 'in_progress project' }).locator('svg.lucide-building-2').count(), 1);
   assert.equal(await page.locator('tr[data-project-id="p5"]').getByRole('meter').count(), 0, 'Missing progress is not fabricated');
   assert.equal(await page.getByText('Invalid Date', { exact: true }).count(), 0);
+  assert.equal(await page.locator('[aria-label="Project toolbar"]').count(), 0);
+  assert.equal(await page.getByText(/^All projects/).count(), 0);
+  assert.equal(await page.getByRole('searchbox', { name: 'Filter projects' }).count(), 0);
+  assert.equal(await page.getByRole('button', { name: 'Project filters', exact: true }).count(), 0);
+  assert.equal(await page.getByRole('button', { name: 'Project display options' }).count(), 0);
 
   const collapse = page.getByRole('button', { name: 'Collapse In progress projects', exact: true });
   const contentId = await collapse.getAttribute('aria-controls');
@@ -114,34 +111,14 @@ try {
   assert.equal(await page.getByRole('button', { name: 'Expand In progress projects' }).getAttribute('aria-expanded'), 'false');
   assert.equal(await page.locator(`#${contentId}`).isVisible(), false);
   assert.equal(await page.getByRole('link').count(), 4);
-  await display('No grouping');
-  assert.equal(await page.getByRole('link').count(), 6, 'Ungrouped view must ignore collapsed status groups');
-  assert.equal(await page.getByRole('button', { name: /^Collapse .* projects$/ }).count(), 0);
-  await display('Status');
   await page.getByRole('button', { name: 'Expand In progress projects' }).click();
-
-  for (const [label, name] of [['In progress', 'in_progress'], ['Planned', 'planned'], ['Completed', 'completed'], ['Paused', 'paused'], ['Canceled', 'canceled']]) {
-    await filter(label);
-    await page.getByRole('link', { name: `Open project ${name} project`, exact: true }).waitFor();
-    assert.equal(await page.getByRole('link').count(), label === 'In progress' ? 2 : 1);
-  }
-  await filter('Planned');
-  await filter('On track');
-  await page.getByText('No matching projects. Try another search or filter.').waitFor();
-  await page.getByRole('button', { name: 'Clear filters', exact: true }).click();
   assert.equal(await page.getByRole('link').count(), 6);
-  await filter('At risk');
-  assert.equal(await page.getByRole('link').count(), 2);
-  await page.getByRole('button', { name: 'Clear filters', exact: true }).click();
-  await page.getByRole('searchbox', { name: 'Filter projects' }).fill('  PLANNED  ');
-  assert.equal(await page.getByRole('link').count(), 1);
-  await page.getByRole('button', { name: 'Clear filters', exact: true }).click();
 
   assert.equal(await rows().first().getAttribute('data-project-id'), 'p5');
   await page.getByRole('button', { name: 'Sort projects by name descending' }).click();
   assert.equal(await rows().first().getAttribute('data-project-id'), 'p0');
   assert.equal(await page.getByRole('columnheader').first().getAttribute('aria-sort'), 'descending');
-  await display('A to Z');
+  await page.getByRole('button', { name: 'Sort projects by name ascending' }).click();
   assert.equal(await rows().first().getAttribute('data-project-id'), 'p5');
 
   for (const theme of ['dark', 'light']) {
@@ -167,8 +144,6 @@ try {
         const heading = style(document.querySelector('h1'));
         const primary = style([...document.querySelectorAll('button')].find(element => element.textContent.trim() === 'New project'));
         const link = style(document.querySelector('tr[data-project-id] a'));
-        const badge = style(document.querySelector('[aria-label="Project toolbar"] [data-slot="badge"]'));
-        const filters = style(document.querySelector('button[aria-label="Project filters"]'));
         const disclosure = [...document.querySelectorAll('button[aria-controls^="project-group-"]')].find(element => element.checkVisibility());
         const group = style(disclosure.parentElement);
         const priority = style(document.querySelector('tr[data-project-id="p0"] td:nth-child(3) svg'));
@@ -178,9 +153,8 @@ try {
         return {
           heading: [heading.fontSize, heading.lineHeight, heading.fontWeight, heading.letterSpacing], font: heading.fontFamily,
           row: [link.fontSize, link.lineHeight], primary: [primary.borderRadius, primary.backgroundColor],
-          badge: [badge.fontSize, badge.height], group: [group.borderRadius, group.backgroundColor],
-          circular: parseFloat(filters.borderRadius) >= parseFloat(filters.width) / 2,
-          touchTarget: [parseFloat(primary.height), parseFloat(filters.height)],
+          group: [group.borderRadius, group.backgroundColor],
+          touchTarget: parseFloat(primary.height),
           rowBorder: style(document.querySelector('tr[data-project-id="p5"]')).borderBottomWidth,
           neutralPriority: priority.color === style(document.querySelector('tr[data-project-id="p0"] svg.lucide-building-2')).color,
           primaryContrast: contrast(primary.color, primary.backgroundColor),
@@ -191,14 +165,12 @@ try {
       assert.match(design.font, /Geist/);
       assert.deepEqual(design.row, ['14px', '20px'], 'DESIGN.md body-md');
       assert.deepEqual(design.primary, ['6px', theme === 'dark' ? 'rgb(237, 237, 237)' : 'rgb(23, 23, 23)'], 'App primary button uses ink and 6px radius');
-      assert.deepEqual(design.badge, ['14px', '32px'], 'Category pill is readable, not a tiny count badge');
       assert.deepEqual(design.group, ['6px', theme === 'dark' ? 'rgb(28, 28, 28)' : 'rgb(242, 242, 242)'], 'Flat semantic secondary surface');
-      assert.equal(design.circular, true, 'Icon controls follow button-icon-circular');
       assert.equal(design.rowBorder, '1px', 'Hairline row separators');
       assert.equal(design.neutralPriority, true, 'Non-urgent priorities use neutral ink, not decorative colors');
       assert.ok(design.primaryContrast >= 4.5 && design.textContrast >= 4.5, 'Readable primary and body text contrast');
-      if (width < 640) assert.ok(design.touchTarget.every(size => size >= 44), 'Mobile primary/icon controls retain 44px targets');
-      if ([1440, 900, 390, 320].includes(width)) await page.screenshot({ path: `/tmp/reka-projects-design-${theme}-${width}.png` });
+      if (width < 640) assert.ok(design.touchTarget >= 44, 'Mobile primary action retains a 44px target');
+      if ([1440, 900, 390, 320].includes(width)) await page.screenshot({ path: `/tmp/reka-projects-no-toolbar-${theme}-${width}.png` });
     }
   }
   await page.setViewportSize({ width: 390, height: 844 });
@@ -254,7 +226,7 @@ try {
   await goto();
   await page.getByText('No projects yet.', { exact: true }).waitFor();
   assert.deepEqual(errors, []);
-  console.log('PASS: grouped project table, collapse/ungroup, sorting, combined filters, real group-create payload, permissions, team scope, keyboard navigation, states, DESIGN.md computed typography/radius/palette/hairline/contrast checks and 12 responsive light/dark layouts.');
+  console.log('PASS: project toolbar removed, grouped table, keyboard collapse/sorting/navigation, group-create payload, permissions, team scope, states, DESIGN.md checks and 12 responsive light/dark layouts.');
 } finally {
   await browser.close();
 }
