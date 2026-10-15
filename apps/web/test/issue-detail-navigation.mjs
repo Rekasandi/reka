@@ -111,10 +111,12 @@ try {
     assert.equal(await title.evaluate(el => el.scrollHeight > el.clientHeight + 2), false, 'long title is not clipped');
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
     assert.equal(await page.locator('button button, button input, button textarea').count(), 0, 'no nested controls');
-    const chip = await chipAppearance(page.locator('#detail-status'));
-    assert.notEqual(chip.background, 'rgba(0, 0, 0, 0)', `${theme} ${width}: status chip has a tinted background`);
-    assert.notEqual(chip.border, 'rgba(0, 0, 0, 0)', `${theme} ${width}: status chip has a visible border`);
-    assert.equal(chip.height, listChipAppearance.height, 'Status remains a compact chip');
+    for (const property of ['status', 'priority', 'type', 'project', 'cycle', 'assignee']) {
+      const chip = await chipAppearance(page.locator(`#detail-${property}`));
+      assert.notEqual(chip.background, 'rgba(0, 0, 0, 0)', `${theme} ${width}: ${property} chip has a background`);
+      assert.notEqual(chip.border, 'rgba(0, 0, 0, 0)', `${theme} ${width}: ${property} chip has a visible border`);
+      assert.equal(chip.height, listChipAppearance.height, `${property} remains a compact chip`);
+    }
     await page.screenshot({ path: `${out}/page-${theme}-${width}.png`, fullPage: true });
   }
   await page.setViewportSize({ width: 390, height: 844 });

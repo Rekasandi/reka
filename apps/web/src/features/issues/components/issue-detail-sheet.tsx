@@ -416,25 +416,25 @@ export function IssueDetailContent({ issue, presentation = 'sheet', onClose, isF
           {/* Properties are moved to a side column on the full page. */}
           <aside aria-label="Issue properties" className={presentation === 'page' ? 'issue-properties min-w-0 lg:col-start-2 lg:row-start-1 lg:row-span-6 lg:border-l lg:border-border lg:pl-8' : 'min-w-0'}>
           <h2 className="mb-4 text-sm font-medium">Properties</h2>
-          <fieldset disabled={readOnly} className="issue-detail-properties min-w-0">
+          <fieldset disabled={readOnly} className="min-w-0">
           <FieldGroup className={presentation === 'page' ? 'grid grid-cols-2 gap-3 lg:grid-cols-1' : 'grid grid-cols-2 gap-3 sm:grid-cols-3'}>
             <Field><FieldLabel htmlFor="detail-status">Status</FieldLabel>
               <StatusPicker id="detail-status" teamId={issue.teamId} status={issue.status} appearance="badge" onStatusChange={status => updateMutation.mutate({ id: issue.id, data: { status } })} />
             </Field>
             <Field><FieldLabel htmlFor="detail-priority">Priority</FieldLabel>
-              <PriorityPicker id="detail-priority" priority={issue.priority} appearance="badge" className="h-8 w-full justify-start" onPriorityChange={priority => updateMutation.mutate({ id: issue.id, data: { priority: priority as Issue['priority'] } })} />
+              <PriorityPicker id="detail-priority" priority={issue.priority} appearance="badge" className="max-w-full" onPriorityChange={priority => updateMutation.mutate({ id: issue.id, data: { priority: priority as Issue['priority'] } })} />
             </Field>
             <Field><FieldLabel htmlFor="detail-assignee">Assignee</FieldLabel>
-              <AssigneePicker id="detail-assignee" assigneeId={issue.assigneeId} onAssigneeChange={assigneeId => updateMutation.mutate({ id: issue.id, data: { assigneeId } })} />
+              <AssigneePicker id="detail-assignee" size="sm" className="w-fit max-w-full rounded-full bg-muted/50" assigneeId={issue.assigneeId} onAssigneeChange={assigneeId => updateMutation.mutate({ id: issue.id, data: { assigneeId } })} />
             </Field>
             <Field><FieldLabel htmlFor="detail-project">Project</FieldLabel>
-              <ProjectPicker id="detail-project" projectId={issue.projectId ?? null} identifier={issue.identifier} className="h-8 w-full justify-start" onProjectChange={projectId => updateMutation.mutate({ id: issue.id, data: { projectId } })} />
+              <ProjectPicker id="detail-project" projectId={issue.projectId ?? null} identifier={issue.identifier} className="max-w-full" onProjectChange={projectId => updateMutation.mutate({ id: issue.id, data: { projectId } })} />
             </Field>
             <Field><FieldLabel htmlFor="detail-cycle">Cycle</FieldLabel>
-              <CyclePicker id="detail-cycle" cycleId={issue.cycleId ?? null} teamId={issue.teamId} identifier={issue.identifier} className="h-8 w-full justify-start" onCycleChange={cycleId => updateMutation.mutate({ id: issue.id, data: { cycleId } })} />
+              <CyclePicker id="detail-cycle" cycleId={issue.cycleId ?? null} teamId={issue.teamId} identifier={issue.identifier} className="max-w-full" onCycleChange={cycleId => updateMutation.mutate({ id: issue.id, data: { cycleId } })} />
             </Field>
             <Field><FieldLabel htmlFor="detail-type">Type</FieldLabel>
-              <IssueTypePicker id="detail-type" type={issue.type} identifier={issue.identifier} className="h-8 w-full justify-start" onTypeChange={type => updateMutation.mutate({ id: issue.id, data: { type } })} />
+              <IssueTypePicker id="detail-type" type={issue.type} identifier={issue.identifier} className="max-w-full" onTypeChange={type => updateMutation.mutate({ id: issue.id, data: { type } })} />
             </Field>
             <Field><FieldLabel htmlFor="issue-estimate">Estimate</FieldLabel>
               <Input id="issue-estimate" type="number" min={0} max={100} step={1} value={estimate} onChange={event => setEstimate(event.target.value)} onBlur={handleSaveEstimate} aria-label="Issue estimate" />

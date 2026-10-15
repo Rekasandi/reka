@@ -329,24 +329,13 @@ pre code {
   overflow-wrap: anywhere;
 }
 
-/* Issue detail: readable editable heading and quiet property controls. */
+/* Issue detail: readable editable heading. */
 .issue-detail-title {
   font-size: 1.5rem;
   font-weight: 600;
   line-height: 1.4;
   letter-spacing: -0.025em;
   background: transparent;
-}
-
-.issue-detail-properties [data-slot="dropdown-menu-trigger"]:not(#detail-status) {
-  border-radius: var(--radius-sm);
-  border-color: transparent;
-  background: transparent;
-  color: var(--foreground);
-}
-
-.issue-detail-properties [data-slot="dropdown-menu-trigger"]:not(#detail-status):hover {
-  background: var(--muted);
 }
 
 @media (max-width: 767px) {
