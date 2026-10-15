@@ -9,7 +9,7 @@ await mkdir(out, { recursive: true });
 const user = { id: 'u1', name: 'Dimas Pratama', email: 'dimas@example.test', role: 'owner' };
 const team = { id: 't1', name: 'Engineering', key: 'ENG', canWrite: true, canManage: true, currentMemberRole: 'lead', members: [] };
 const label = { id: 'label1', name: 'Customer experience', color: '#6b7280', teamId: team.id };
-const issue = { id: 'i1', identifier: 'ENG-42', title: 'Keep booking confirmation clear when a payment is still being verified', description: 'A guest should understand whether their booking is confirmed before leaving checkout.\n\nAcceptance criteria\nShow the payment state without hiding the booking reference. Keep the confirmation email consistent with this state.', status: 'todo', priority: 'high', type: 'task', teamId: 't1', assigneeId: user.id, reporterId: user.id, labels: [label], createdAt: '2026-10-14T08:00:00Z', updatedAt: '2026-10-14T08:00:00Z' };
+const issue = { id: 'i1', identifier: 'ENG-42', title: 'Keep booking confirmation clear when a payment is still being verified', description: 'A guest should understand whether their booking is confirmed before leaving checkout.\n\nAcceptance criteria\nShow the payment state without hiding the booking reference. Keep the confirmation email consistent with this state.', status: 'in_review', priority: 'high', type: 'task', teamId: 't1', assigneeId: user.id, reporterId: user.id, labels: [label], createdAt: '2026-10-14T08:00:00Z', updatedAt: '2026-10-14T08:00:00Z' };
 const subtask = { ...issue, id: 'i2', identifier: 'ENG-43', parentId: issue.id, title: 'Align the pending payment message', priority: 'medium' };
 let comments = [{ id: 'c1', issueId: issue.id, authorId: user.id, authorName: user.name, body: 'The booking reference should stay visible even while we wait for payment confirmation.', canEdit: true, createdAt: '2026-10-14T08:00:00Z' }];
 let favorites = [];
@@ -48,12 +48,20 @@ try {
     await page.addInitScript(theme => localStorage.setItem('reka-theme', theme), theme);
     await page.goto(base + path);
   };
+  const chipAppearance = locator => locator.evaluate(el => {
+    const style = getComputedStyle(el);
+    return { background: style.backgroundColor, border: style.borderColor, color: style.color, radius: style.borderRadius, height: style.height };
+  });
   await open('/issues');
+  const listChip = page.locator('[data-testid="issue-row-i1"]').getByRole('button', { name: 'Change status: In Review', exact: true });
+  await listChip.waitFor();
+  const listChipAppearance = await chipAppearance(listChip);
   try { await page.getByRole('button', { name: `Open issue ${issue.identifier}: ${issue.title}`, exact: true }).click({ timeout: 15000 }); }
   catch (error) { console.error('Body:', await page.locator('body').innerText(), 'Requests:', requests); throw error; }
   const sheet = page.getByRole('dialog', { name: 'Issue ENG-42', exact: true });
   await sheet.waitFor();
   await page.waitForTimeout(250);
+  assert.deepEqual(await chipAppearance(sheet.locator('#detail-status')), listChipAppearance, 'Sheet status preserves the same chip appearance as the issue list');
   await page.screenshot({ path: out + '/sheet-desktop.png' });
   await sheet.getByRole('link', { name: 'Open full page' }).click();
   await page.waitForURL('**/issues/i1');
@@ -103,6 +111,10 @@ try {
     assert.equal(await title.evaluate(el => el.scrollHeight > el.clientHeight + 2), false, 'long title is not clipped');
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
     assert.equal(await page.locator('button button, button input, button textarea').count(), 0, 'no nested controls');
+    const chip = await chipAppearance(page.locator('#detail-status'));
+    assert.notEqual(chip.background, 'rgba(0, 0, 0, 0)', `${theme} ${width}: status chip has a tinted background`);
+    assert.notEqual(chip.border, 'rgba(0, 0, 0, 0)', `${theme} ${width}: status chip has a visible border`);
+    assert.equal(chip.height, listChipAppearance.height, 'Status remains a compact chip');
     await page.screenshot({ path: `${out}/page-${theme}-${width}.png`, fullPage: true });
   }
   await page.setViewportSize({ width: 390, height: 844 });

@@ -419,7 +419,7 @@ export function IssueDetailContent({ issue, presentation = 'sheet', onClose, isF
           <fieldset disabled={readOnly} className="issue-detail-properties min-w-0">
           <FieldGroup className={presentation === 'page' ? 'grid grid-cols-2 gap-3 lg:grid-cols-1' : 'grid grid-cols-2 gap-3 sm:grid-cols-3'}>
             <Field><FieldLabel htmlFor="detail-status">Status</FieldLabel>
-              <StatusPicker id="detail-status" teamId={issue.teamId} status={issue.status} appearance="badge" className="h-8 w-full justify-start" onStatusChange={status => updateMutation.mutate({ id: issue.id, data: { status } })} />
+              <StatusPicker id="detail-status" teamId={issue.teamId} status={issue.status} appearance="badge" onStatusChange={status => updateMutation.mutate({ id: issue.id, data: { status } })} />
             </Field>
             <Field><FieldLabel htmlFor="detail-priority">Priority</FieldLabel>
               <PriorityPicker id="detail-priority" priority={issue.priority} appearance="badge" className="h-8 w-full justify-start" onPriorityChange={priority => updateMutation.mutate({ id: issue.id, data: { priority: priority as Issue['priority'] } })} />

@@ -338,14 +338,14 @@ pre code {
   background: transparent;
 }
 
-.issue-detail-properties [data-slot="dropdown-menu-trigger"] {
+.issue-detail-properties [data-slot="dropdown-menu-trigger"]:not(#detail-status) {
   border-radius: var(--radius-sm);
   border-color: transparent;
   background: transparent;
   color: var(--foreground);
 }
 
-.issue-detail-properties [data-slot="dropdown-menu-trigger"]:hover {
+.issue-detail-properties [data-slot="dropdown-menu-trigger"]:not(#detail-status):hover {
   background: var(--muted);
 }
 
