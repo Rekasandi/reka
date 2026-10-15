@@ -126,11 +126,24 @@ try {
         honestBurndown: window.__auditBurndown?.length === 1 && window.__auditBurndown[0].remaining === 4,
         clippedActions: [...document.querySelectorAll('button')].filter(el => { const r = el.getBoundingClientRect(); return r.width && r.height && /^(New|Create|Save|Invite|End|Reopen|Reply|Connect|Add|Open)/.test(el.textContent.trim()) && (r.left < 0 || r.right > innerWidth + 1); }).map(el => el.textContent),
         decorativeMotion: [...document.querySelectorAll('[class*=animate-pulse]')].filter(el => !el.matches('[data-slot=skeleton]')).length,
+        uppercaseLabels: [...document.querySelectorAll('h1,h2,h3,h4,label,button,span,p,th,dt,legend')].filter(el => el.checkVisibility() && el.textContent.trim() && getComputedStyle(el).textTransform === 'uppercase').map(el => el.textContent.trim()),
       }));
+      assert.deepEqual(result.uppercaseLabels, [], `${route} ${theme} ${size}: labels retain natural casing`);
       const label = route.replaceAll('/', '-').slice(1);
       await page.screenshot({ path: `${out}/${theme}-${size}-${label}.png` });
       findings.push({ route, theme, size, ...result, errors: [...errors] });
     }
+  }
+  for (const theme of ['light', 'dark']) for (const width of [1440, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto(`${process.env.WEB_URL || 'http://localhost:5173'}?route=%2Ftriage&theme=${theme}`);
+    await page.getByText('Team triage', { exact: true }).waitFor();
+    await page.getByRole('button', { name: 'Templates', exact: true }).click();
+    const heading = page.getByRole('heading', { name: 'New template', exact: true });
+    await heading.waitFor();
+    assert.equal(await heading.evaluate(el => getComputedStyle(el).textTransform), 'none', 'Template heading keeps natural casing');
+    assert.equal(await heading.evaluate(el => getComputedStyle(el).letterSpacing), 'normal', 'Template heading has no decorative tracking');
+    await page.screenshot({ path: `${out}/triage-templates-${theme}-${width}.png` });
   }
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto(`${process.env.WEB_URL || 'http://localhost:5173'}?route=%2Fmy-issues&theme=dark`);

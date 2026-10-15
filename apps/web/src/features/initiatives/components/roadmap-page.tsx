@@ -42,7 +42,7 @@ function Timeline({ rows }: { rows: TimelineRow[] }) {
   ];
   return <div className="overflow-x-auto border-y border-border"><div style={{ minWidth }}>
     <div className="grid border-b border-border bg-muted/20 text-xs text-muted-foreground" style={{ gridTemplateColumns: `240px repeat(${monthCount}, minmax(104px, 1fr))` }}><div className="px-3 py-2 font-medium">Work</div>{months.map(date => <div key={date.toISOString()} className="border-l border-border px-2 py-2">{monthLabel(date)}</div>)}</div>
-    {sections.map(([section, sectionRows]) => sectionRows.length > 0 && <section key={section} aria-label={`${section} timeline`}><h2 className="border-b border-border/70 px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">{section}</h2>{sectionRows.map(row => {
+    {sections.map(([section, sectionRows]) => sectionRows.length > 0 && <section key={section} aria-label={`${section} timeline`}><h2 className="border-b border-border/70 px-3 py-2 text-xs font-medium text-muted-foreground">{section}</h2>{sectionRows.map(row => {
       const milestone = row.kind === 'milestone';
       const start = row.start ?? row.end!;
       const end = row.end ?? row.start!;
