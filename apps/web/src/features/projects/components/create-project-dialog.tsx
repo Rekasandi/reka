@@ -23,15 +23,17 @@ import {
   DatePicker,
 } from '@reka/ui';
 import { useCreateProject } from '../hooks/use-projects';
+import type { Project } from '../api/projects.api';
 import { useTeams } from '../../teams/hooks/use-teams';
 
 interface CreateProjectDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   defaultTeamId?: string;
+  defaultStatus?: Project['status'];
 }
 
-export function CreateProjectDialog({ open, onOpenChange, defaultTeamId }: CreateProjectDialogProps) {
+export function CreateProjectDialog({ open, onOpenChange, defaultTeamId, defaultStatus = 'in_progress' }: CreateProjectDialogProps) {
   const createMutation = useCreateProject();
   const { data: teams = [] } = useTeams();
 
@@ -40,7 +42,7 @@ export function CreateProjectDialog({ open, onOpenChange, defaultTeamId }: Creat
       teamId: defaultTeamId || '',
       name: '',
       description: '',
-      status: 'in_progress',
+      status: defaultStatus as string,
       health: 'on_track',
       startDate: '',
       targetDate: '',
@@ -67,8 +69,13 @@ export function CreateProjectDialog({ open, onOpenChange, defaultTeamId }: Creat
   });
 
   React.useEffect(() => {
-    if (!form.state.values.teamId && teams[0]) form.setFieldValue('teamId', defaultTeamId || teams[0].id);
-  }, [defaultTeamId, form, teams]);
+    const team = teams.find(team => team.id === defaultTeamId && team.canWrite) || teams.find(team => team.canWrite);
+    if (open && team) form.setFieldValue('teamId', team.id);
+  }, [defaultTeamId, form, open, teams]);
+
+  React.useEffect(() => {
+    if (open) form.setFieldValue('status', defaultStatus);
+  }, [defaultStatus, form, open]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -145,7 +152,7 @@ export function CreateProjectDialog({ open, onOpenChange, defaultTeamId }: Creat
                     <FieldLabel htmlFor={field.name} className="text-muted-foreground">Team</FieldLabel>
                     <Select name={field.name} value={field.state.value} onValueChange={field.handleChange}>
                       <SelectTrigger id={field.name} size="compact" className="w-full"><SelectValue placeholder="Select team" /></SelectTrigger>
-                      <SelectContent><SelectGroup>{teams.map((team) => <SelectItem key={team.id} value={team.id}>{team.name}</SelectItem>)}</SelectGroup></SelectContent>
+                      <SelectContent><SelectGroup>{teams.filter(team => team.canWrite).map((team) => <SelectItem key={team.id} value={team.id}>{team.name}</SelectItem>)}</SelectGroup></SelectContent>
                     </Select>
                   </Field>
                 )}

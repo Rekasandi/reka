@@ -323,6 +323,13 @@ Kategori tersebut menentukan filter dan perhitungan progress. Mengganti nama “
 
 ### 6.2 Projects dan milestones
 
+Halaman **Projects** memakai daftar ringkas berkelompok menurut status, seperti halaman Issues. Klik header **In progress / Planned / Paused / Completed / Canceled** untuk menciutkan atau membuka grup. Kolom desktop menampilkan nama/icon project, health, priority, lead, target date, jumlah issues, serta status/progress aktual; pada area sempit, metadata dipindahkan ke bawah nama.
+
+- **Filter projects** mencari nama dalam daftar yang sudah dimuat; menu **Project filters** menggabungkan status dan health. **Clear filters** mengembalikan seluruh project dalam scope saat ini.
+- **Project display options** memilih grouping Status atau No grouping dan urutan nama A–Z/Z–A. Header **Name** juga membalik urutan nama.
+- Tombol **+** pada grup membuka form project existing dengan status grup sebagai nilai awal. Scope tim tetap dipertahankan; hanya tim writable yang tersedia dalam form. Guest/client dan tim read-only tidak menampilkan tindakan create.
+- Klik nama project untuk membuka detail. Data tanggal/progress yang belum tersedia tidak diberi angka atau grafik histori rekaan.
+
 1. Buka **Projects**, buat project pada tim yang dapat Anda tulis.
 2. Tentukan lead, status, health, prioritas, serta start/target date jika relevan.
 3. Tambahkan anggota dan issue yang sesuai.

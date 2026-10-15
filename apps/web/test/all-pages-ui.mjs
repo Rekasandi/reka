@@ -276,7 +276,7 @@ try {
 
   await page.goto(`${process.env.WEB_URL || 'http://localhost:5173'}?route=%2Fprojects&theme=dark`);
   await page.getByRole('textbox', { name: 'Filter projects', exact: true }).or(page.getByRole('searchbox', { name: 'Filter projects', exact: true })).fill('no matching project');
-  await page.getByText('No matching projects. Choose another filter or create a project.', { exact: true }).waitFor();
+  await page.getByText('No matching projects. Try another search or filter.', { exact: true }).waitFor();
   await page.getByRole('searchbox', { name: 'Filter projects', exact: true }).fill('booking');
   await page.getByRole('link', { name: 'Open project Guest booking platform', exact: true }).waitFor();
 
