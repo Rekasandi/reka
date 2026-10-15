@@ -141,7 +141,10 @@ try {
   await page.getByRole('link', { name: 'Open team', exact: true }).click();
   await page.waitForURL('**/teams/t1?tab=members');
   await page.getByRole('link', { name: 'My issues', exact: true }).waitFor();
-  assert.equal(await page.locator('[data-slot="sidebar-content"]').getByRole('link', { name: 'Members', exact: true }).getAttribute('aria-current'), 'page');
+  const workspaceSidebar = page.locator('[data-slot="sidebar-content"]');
+  assert.equal(await workspaceSidebar.getByRole('link', { name: 'Members', exact: true }).count(), 0, 'Members stays a page tab, not a sidebar menu');
+  assert.equal(await workspaceSidebar.getByRole('link', { name: 'Overview', exact: true }).getAttribute('aria-current'), 'page');
+  assert.equal(await page.getByRole('tab', { name: 'Members', exact: true }).getAttribute('aria-selected'), 'true');
   await page.getByRole('searchbox', { name: 'Search team members' }).fill('not a member');
   await page.getByText('No members match your search.', { exact: true }).waitFor();
   await page.getByRole('searchbox', { name: 'Search team members' }).fill('');

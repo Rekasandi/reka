@@ -190,7 +190,7 @@ Setiap menu memiliki URL `/settings/...` yang bisa dibuka langsung atau di-reloa
 
 ### 4.5 Membuat dan mengelola tim
 
-**Alur utama:** sidebar **Your teams → nama tim → Members → Add member**, bukan harus melalui Administration. Halaman tim memiliki tab **Overview / Members / Settings**; Settings hanya tersedia bagi pengelola tim. Tab tersimpan pada URL (`/teams/:id?tab=members` atau `?tab=settings`), mendukung reload/back/forward. Tombol panah memindahkan fokus tab; Enter/Space mengaktifkan tab.
+**Alur utama:** sidebar **Your teams → nama tim → Overview**, lalu tab **Members → Add member** di halaman tim, bukan harus melalui Administration. Members tidak menjadi menu sidebar tersendiri. Halaman tim memiliki tab **Overview / Members / Settings**; Settings hanya tersedia bagi pengelola tim. Tab tersimpan pada URL (`/teams/:id?tab=members` atau `?tab=settings`), mendukung reload/back/forward. Tombol panah memindahkan fokus tab; Enter/Space mengaktifkan tab.
 
 - **Create team:** isi Team name, Identifier dengan saran otomatis yang tetap bisa diedit, Visibility (Workspace/Private), dan Description opsional. Pembuat otomatis menjadi Lead; setelah berhasil, halaman Members terbuka untuk menambahkan anggota.
 - **Members:** cari nama/email, klik **Add member**, pilih anggota workspace, lalu tentukan **Lead / Member / Viewer**. Lead mengelola tim dan keanggotaannya; Member mengerjakan issue; Viewer read-only. Izin workspace tetap berlaku dan role tim tidak mengubah role workspace.
