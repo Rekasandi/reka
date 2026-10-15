@@ -7,17 +7,22 @@ const browser = await chromium.launch({
 });
 try {
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  const projects = Array.from({ length: 50 }, (_, index) => ({
+    id: `p${index}`, name: `Project ${index + 1}`, status: index < 35 ? 'in_progress' : 'planned',
+    health: 'on_track', priority: 'medium', teamId: 't1', progress: 0, totalIssues: 3, completedIssues: 0,
+  }));
   const errors = [];
   page.on('pageerror', (error) => { errors.push(error.message); console.error(error.message); });
   await page.route('**/api/**', async (route) => {
     const path = new URL(route.request().url()).pathname;
     if (!path.startsWith('/api/')) return route.continue();
     let body = [];
-    if (path === '/api/teams') body = [{ id: 't1', name: 'Test Team', key: 'T' }];
+    if (path === '/api/projects') body = projects;
+    else if (path === '/api/teams') body = [{ id: 't1', name: 'Test Team', key: 'T' }];
     else if (path === '/api/teams/t1') body = { id: 't1', name: 'Test Team', key: 'T' };
     else if (path === '/api/notifications/unread-count') body = { count: 0 };
     else if (path === '/api/workspace') body = { id: 'w1', name: 'Test Workspace', role: 'owner' };
-    else if (!['/api/projects', '/api/users', '/api/cycles', '/api/labels', '/api/teams/t1/workflow-states'].includes(path)) throw new Error(`Unexpected API request ${path}`);
+    else if (!['/api/projects', '/api/users', '/api/cycles', '/api/labels', '/api/favorites', '/api/triage', '/api/teams/t1/workflow-states'].includes(path)) throw new Error(`Unexpected API request ${path}`);
     await route.fulfill({ json: body });
   });
   const issues = Array.from({ length: 50 }, (_, index) => ({
@@ -35,6 +40,7 @@ try {
       import { MemoryRouter, Routes, Route } from '/node_modules/.vite/deps/react-router-dom.js${version}';
       import { AppLayout } from '/src/components/layout/app-layout.tsx';
       import { IssueGroupedListView } from '/src/features/issues/components/issue-grouped-list-view.tsx';
+      import { ProjectsPage } from '/src/features/projects/components/projects-page.tsx';
       import { ThemeProvider } from '/src/components/theme/theme-provider.tsx';
       import { TooltipProvider } from '/@fs${new URL('../../../packages/ui/src/index.ts', import.meta.url).pathname}';
       import '/src/styles/globals.css';
@@ -43,12 +49,13 @@ try {
         React.createElement(IssueGroupedListView, { issues: ${JSON.stringify(issues)} })); }
       ReactDOM.createRoot(document.getElementById('root')).render(
         React.createElement(QueryClientProvider, { client: new QueryClient({ defaultOptions: { queries: { retry: false } } }) },
-          React.createElement(MemoryRouter, { initialEntries: ['/teams/t1/issues'] },
+          React.createElement(MemoryRouter, { initialEntries: [new URLSearchParams(window.location.search).get('route') || '/teams/t1/issues'] },
             React.createElement(ThemeProvider, null,
               React.createElement(TooltipProvider, null,
                 React.createElement(Routes, null,
                   React.createElement(Route, { element: React.createElement(AppLayout) },
-                    React.createElement(Route, { path: '/teams/t1/issues', element: React.createElement(Fixture) })
+                    React.createElement(Route, { path: '/teams/t1/issues', element: React.createElement(Fixture) }),
+                    React.createElement(Route, { path: '/projects', element: React.createElement(ProjectsPage) })
                   )
                 )
               )
@@ -80,8 +87,25 @@ try {
     }
     await page.screenshot({ path: `/tmp/reka-sticky-section-${width}.png` });
   }
+  await page.goto(`${process.env.WEB_URL || 'http://localhost:5173'}?route=/projects`);
+  await page.getByRole('heading', { name: 'Projects', exact: true }).waitFor();
+  const projectGroup = page.locator('[data-project-group-header="in_progress"]');
+  await projectGroup.waitFor();
+  for (const width of [1440, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    for (const scrollTop of [300, 600]) {
+      await scroll.evaluate((element, top) => { element.scrollTop = top; }, scrollTop);
+      await page.waitForFunction(() => {
+        const header = document.querySelector('header').getBoundingClientRect();
+        const group = document.querySelector('[data-project-group-header="in_progress"]').getBoundingClientRect();
+        return Math.abs(group.top - header.bottom) < 1;
+      }, null, { timeout: 5000 });
+      assert(Math.abs((await projectGroup.boundingBox()).y - ((await header.boundingBox()).y + (await header.boundingBox()).height)) < 1);
+    }
+    await page.screenshot({ path: `/tmp/reka-projects-consistent-sticky-${width}.png` });
+  }
   assert.deepEqual(errors, []);
-  console.log('PASS: section header sits flush below the app header after scrolling on desktop and mobile; initial page padding is preserved.');
+  console.log('PASS: shared issue and project group headers sit flush below the app header when scrolling desktop/mobile; initial page padding is preserved.');
 } finally {
   await browser.close();
 }

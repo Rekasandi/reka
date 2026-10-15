@@ -3,17 +3,16 @@ import { getIssueStatusCategory, type Issue } from '@reka/types';
 import { Checkbox } from '@reka/ui';
 import { useUpdateIssue, useDeleteIssue, useArchiveIssue, useMoveIssueToTop } from '../hooks/use-issues';
 import {
-  Plus,
-  ChevronDown,
   Trash2,
   ChevronRight,
 } from 'lucide-react';
-import { StatusPicker, StatusIconOnly, STATUS_CONFIG } from './status-picker';
+import { StatusPicker, StatusIconOnly } from './status-picker';
 import { PriorityPicker } from './priority-picker';
 import { IssueRowProperties } from './issue-row-properties';
 import { IssueContextMenu } from './issue-context-menu';
 import { CreateIssueDialog } from './create-issue-dialog';
 import { ConfirmDeleteDialog } from '../../../components/common/confirm-delete-dialog';
+import { WorkListGroupHeader } from '../../../components/common/work-list';
 
 interface IssueGroupedListViewProps {
   issues: Issue[];
@@ -210,56 +209,16 @@ export function IssueGroupedListView({
     <div className="issue-work-surface flex flex-col gap-5 select-none pb-12">
       {groupedIssues.map((group) => {
         const isCollapsed = !!collapsedGroups[group.key];
-        const statusConfig = STATUS_CONFIG[group.key] || STATUS_CONFIG.backlog;
+        const contentId = `issue-group-${group.key}`;
 
         return (
           <div key={group.key} className="flex flex-col">
-            {/* Linear-style Sticky Status Section Header */}
-            <div className="sticky top-0 z-20 flex items-center justify-between py-1.5 px-2 bg-background/95 backdrop-blur-md border-b border-border/70 rounded-t-[6px]">
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => toggleGroupCollapse(group.key)}
-                  className="size-5 shrink-0 rounded-[4px] flex items-center justify-center text-muted-foreground/70 hover:text-foreground hover:bg-muted/60 transition-colors"
-                  title={isCollapsed ? 'Expand section' : 'Collapse section'}
-                  aria-label={`${isCollapsed ? 'Expand' : 'Collapse'} ${group.label} issues`}
-                  aria-expanded={!isCollapsed}
-                >
-                  <ChevronDown
-                    className={`size-3.5 transition-transform duration-200 ${isCollapsed ? '-rotate-90' : ''}`}
-                  />
-                </button>
+            <WorkListGroupHeader label={group.label} count={group.issues.length} icon={<StatusIconOnly status={group.key} />} resource="issues"
+              collapsed={isCollapsed} controlsId={contentId} onToggle={() => toggleGroupCollapse(group.key)}
+              onCreate={onCreateWithStatus ? () => onCreateWithStatus(group.key) : undefined} />
 
-                <div className="flex items-center gap-1.5 cursor-pointer" onClick={() => toggleGroupCollapse(group.key)}>
-                  <div className="shrink-0 flex items-center">
-                    <StatusIconOnly status={group.key} />
-                  </div>
-                  <span className="text-xs font-semibold text-foreground tracking-tight">
-                    {group.label}
-                  </span>
-                  <div className="flex items-center gap-1 text-xs font-mono text-muted-foreground ml-1">
-                    <span className="text-xs opacity-70">▲</span>
-                    <span>{group.issues.length}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Right: + Add issue in this status */}
-              <button
-                type="button"
-                onClick={() => onCreateWithStatus?.(group.key)}
-                className="size-6 rounded-[4px] flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                title={`New issue in ${group.label}`}
-                aria-label={`New issue in ${group.label}`}
-              >
-                <Plus className="size-3.5" />
-              </button>
-            </div>
-
-            {/* List of issues under this status */}
-            {!isCollapsed && (
-              <div className="divide-y divide-border/40 border-b border-border/40">
-                {group.issues.map((issue) => {
+            <div id={contentId} hidden={isCollapsed} className="divide-y divide-border/40 border-b border-border/40">
+                {!isCollapsed && group.issues.map((issue) => {
                   const globalIdx = currentGlobalIndex++;
                   const isFocused = focusedIndex === globalIdx;
                   const isChecked = selectedIds.has(issue.id);
@@ -277,6 +236,7 @@ export function IssueGroupedListView({
                           onSelectIssue?.(issue);
                         }}
                         data-testid={`issue-row-${issue.id}`}
+                        data-work-list-row=""
                         className={`issue-work-row flex items-center justify-between px-2 py-2 transition-colors text-xs gap-3 cursor-pointer group relative ${
                           isFocused
                             ? 'bg-secondary/70'
@@ -394,8 +354,7 @@ export function IssueGroupedListView({
                     </React.Fragment>
                   );
                 })}
-              </div>
-            )}
+            </div>
           </div>
         );
       })}

@@ -18,6 +18,7 @@ import { getIssueStatusCategory, isIssueClosed, type Issue } from '@reka/types';
 import { useCreateSavedView, useDeleteSavedView, useFavorites, useSavedViews, useToggleFavorite, useUpdateSavedView } from '../../views/hooks/use-views';
 import type { SavedView, SavedViewConfig } from '../../views/api/views.api';
 import { useTeams } from '../../teams/hooks/use-teams';
+import { WorkPageHeader } from '../../../components/common/work-list';
 
 interface IssuesPageProps {
   teamId?: string;
@@ -238,27 +239,11 @@ export function IssuesPage({ teamId }: IssuesPageProps) {
 
   return (
     <div className="flex flex-col gap-5 max-w-none mx-auto selection:bg-foreground selection:text-background pb-10">
-      {/* Page Header: Geist display typography with tight letter spacing */}
-      <div className="flex flex-col items-stretch justify-between gap-3 sm:flex-row sm:items-center sm:gap-4">
-        <div className="flex flex-col gap-1">
-          <div className="flex items-center gap-2.5">
-            <h1 className="text-xl sm:text-2xl font-semibold tracking-[-0.03em] text-foreground">
-              {teamId ? 'Team Issues' : isMyIssues ? 'My Issues' : 'Issues'}
-            </h1>
-            <Badge variant="outline" className="font-mono text-xs font-medium">
-              {scopedIssues.length}
-            </Badge>
-          </div>
-          <p className="text-xs text-muted-foreground">
-            {teamId
-              ? 'Work owned by this team.'
-              : isMyIssues
-                ? 'Issues assigned to you.'
-                : 'Track and prioritize workspace issues.'}
-          </p>
-        </div>
-
-        <div className="flex flex-wrap items-center justify-end gap-2">
+      <WorkPageHeader
+        title={teamId ? 'Team Issues' : isMyIssues ? 'My Issues' : 'Issues'}
+        count={scopedIssues.length}
+        description={teamId ? 'Work owned by this team.' : isMyIssues ? 'Issues assigned to you.' : 'Track and prioritize workspace issues.'}
+      >
           <Sheet open={mobileFiltersOpen} onOpenChange={setMobileFiltersOpen}>
             <SheetTrigger asChild>
               <Button variant="outline" className="xl:hidden">
@@ -315,8 +300,7 @@ export function IssuesPage({ teamId }: IssuesPageProps) {
             <Plus data-icon="inline-start" />
             <span>New Issue</span>
           </Button>
-        </div>
-      </div>
+      </WorkPageHeader>
 
       <div className="flex flex-wrap items-center gap-2 rounded-md bg-muted/30 px-3 py-2" role="group" aria-label="Saved view and display options">
         <label className="sr-only" htmlFor="saved-issue-view">Saved view</label>

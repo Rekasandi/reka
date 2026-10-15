@@ -97,6 +97,8 @@ try {
   assert.equal(await rows().filter({ hasText: 'in_progress project' }).locator('svg.lucide-building-2').count(), 1);
   assert.equal(await page.locator('tr[data-project-id="p5"]').getByRole('meter').count(), 0, 'Missing progress is not fabricated');
   assert.equal(await page.getByText('Invalid Date', { exact: true }).count(), 0);
+  assert.equal(await page.locator('[data-slot="work-page-header"] [data-slot="badge"]').innerText(), '6');
+  await page.getByText('Projects owned by this team.', { exact: true }).waitFor();
   assert.equal(await page.locator('[aria-label="Project toolbar"]').count(), 0);
   assert.equal(await page.getByText(/^All projects/).count(), 0);
   assert.equal(await page.getByRole('searchbox', { name: 'Filter projects' }).count(), 0);
@@ -153,7 +155,9 @@ try {
         return {
           heading: [heading.fontSize, heading.lineHeight, heading.fontWeight, heading.letterSpacing], font: heading.fontFamily,
           row: [link.fontSize, link.lineHeight], primary: [primary.borderRadius, primary.backgroundColor],
-          group: [group.borderRadius, group.backgroundColor],
+          group: [group.borderTopLeftRadius, group.borderBottomWidth],
+          groupLabel: [style(disclosure.querySelector('[data-slot="work-list-group-label"]')).fontSize, style(disclosure.querySelector('[data-slot="work-list-group-label"]')).fontWeight],
+          name: [style(document.querySelector('.project-row-title')).fontSize, style(document.querySelector('.project-row-title')).lineHeight],
           touchTarget: parseFloat(primary.height),
           rowBorder: style(document.querySelector('tr[data-project-id="p5"]')).borderBottomWidth,
           neutralPriority: priority.color === style(document.querySelector('tr[data-project-id="p0"] svg.lucide-building-2')).color,
@@ -161,16 +165,18 @@ try {
           textContrast: contrast(link.color, style(document.body).backgroundColor),
         };
       });
-      assert.deepEqual(design.heading, ['20px', '28px', '600', '-0.4px'], 'DESIGN.md heading-md');
+      assert.deepEqual(design.heading, width >= 640 ? ['24px', '32px', '600', '-0.72px'] : ['20px', '28px', '600', '-0.6px'], 'Shared My issues page heading');
       assert.match(design.font, /Geist/);
-      assert.deepEqual(design.row, ['14px', '20px'], 'DESIGN.md body-md');
+      assert.deepEqual(design.row, ['12px', '16px'], 'Compact list metadata matches My issues');
+      assert.deepEqual(design.name, width <= 848 ? ['14px', '22px'] : ['13px', '20px'], 'Issue title scale and responsive treatment');
       assert.deepEqual(design.primary, ['6px', theme === 'dark' ? 'rgb(237, 237, 237)' : 'rgb(23, 23, 23)'], 'App primary button uses ink and 6px radius');
-      assert.deepEqual(design.group, ['6px', theme === 'dark' ? 'rgb(28, 28, 28)' : 'rgb(242, 242, 242)'], 'Flat semantic secondary surface');
+      assert.deepEqual(design.group, ['6px', '1px'], 'Shared hairline group header, not a filled status band');
+      assert.deepEqual(design.groupLabel, ['12px', '600'], 'Shared My issues group label');
       assert.equal(design.rowBorder, '1px', 'Hairline row separators');
       assert.equal(design.neutralPriority, true, 'Non-urgent priorities use neutral ink, not decorative colors');
       assert.ok(design.primaryContrast >= 4.5 && design.textContrast >= 4.5, 'Readable primary and body text contrast');
       if (width < 640) assert.ok(design.touchTarget >= 44, 'Mobile primary action retains a 44px target');
-      if ([1440, 900, 390, 320].includes(width)) await page.screenshot({ path: `/tmp/reka-projects-no-toolbar-${theme}-${width}.png` });
+      if ([1440, 900, 390, 320].includes(width)) await page.screenshot({ path: `/tmp/reka-projects-consistent-${theme}-${width}.png` });
     }
   }
   await page.setViewportSize({ width: 390, height: 844 });
@@ -226,7 +232,7 @@ try {
   await goto();
   await page.getByText('No projects yet.', { exact: true }).waitFor();
   assert.deepEqual(errors, []);
-  console.log('PASS: project toolbar removed, grouped table, keyboard collapse/sorting/navigation, group-create payload, permissions, team scope, states, DESIGN.md checks and 12 responsive light/dark layouts.');
+  console.log('PASS: project toolbar removed, grouped table, keyboard collapse/sorting/navigation, group-create payload, permissions, team scope, states, shared My issues header/list styles and 12 responsive light/dark layouts.');
 } finally {
   await browser.close();
 }

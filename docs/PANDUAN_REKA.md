@@ -323,7 +323,7 @@ Kategori tersebut menentukan filter dan perhitungan progress. Mengganti nama “
 
 ### 6.2 Projects dan milestones
 
-Halaman **Projects** memakai daftar ringkas berkelompok menurut status, seperti halaman Issues. Klik header **In progress / Planned / Paused / Completed / Canceled** untuk menciutkan atau membuka grup. Kolom desktop menampilkan nama/icon project, health, priority, lead, target date, jumlah issues, serta status/progress aktual; pada area sempit, metadata dipindahkan ke bawah nama.
+Halaman **Projects** mengikuti pola **My issues**: judul dengan jumlah project yang dapat diakses, deskripsi singkat, tombol aksi di kanan, serta header grup ringkas dengan chevron, ikon status, nama, jumlah, dan tombol `+`. Tipografi, jarak, hairline, serta kepadatan baris juga disamakan. Klik header **In progress / Planned / Paused / Completed / Canceled** untuk menciutkan atau membuka grup; saat scroll, header grup tetap di bawah header aplikasi. Kolom desktop menampilkan nama/icon project, health, priority, lead, target date, jumlah issues, serta status/progress aktual; pada area sempit, nama dapat memakai dua baris dan metadata dipindahkan ke bawahnya.
 
 - Header **Name** membalik urutan nama A–Z/Z–A di dalam grup status. Toolbar **All projects**, pencarian, filter dan display options sudah dihapus; daftar langsung berada di bawah header halaman.
 - Tombol **+** pada grup membuka form project existing dengan status grup sebagai nilai awal. Scope tim tetap dipertahankan; hanya tim writable yang tersedia dalam form. Guest/client dan tim read-only tidak menampilkan tindakan create.

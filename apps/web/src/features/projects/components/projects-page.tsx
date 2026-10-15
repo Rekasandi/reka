@@ -5,11 +5,12 @@ import {
 } from '@reka/ui';
 import {
   Plus, Calendar, CheckCircle2, AlertTriangle, AlertCircle, RefreshCw,
-  Circle, CircleDot, CirclePause, CircleX, ChevronDown, ArrowDown, ArrowUp,
+  Circle, CircleDot, CirclePause, CircleX, ArrowDown, ArrowUp,
   Minus, SignalLow, SignalMedium, SignalHigh,
 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { resolveEntityIcon } from '../../../components/entity-icon-picker';
+import { WorkPageHeader, WorkListGroupHeader } from '../../../components/common/work-list';
 import { useAuthStore } from '../../../stores/auth.store';
 import { PRIORITY_CONFIG } from '../../issues/components/priority-picker';
 import { useTeams } from '../../teams/hooks/use-teams';
@@ -40,7 +41,7 @@ function ProjectHealth({ health }: { health: Project['health'] }) {
 
 function ProjectPriority({ priority }: { priority: Project['priority'] }) {
   const Icon = { urgent: AlertCircle, high: SignalHigh, medium: SignalMedium, low: SignalLow, no_priority: Minus }[priority] ?? Minus;
-  return <Icon aria-hidden="true" className={cn('size-4 shrink-0', priority === 'urgent' ? 'text-destructive' : 'text-muted-foreground')} />;
+  return <Icon aria-hidden="true" className={cn('size-3.5 shrink-0', priority === 'urgent' ? 'text-destructive' : 'text-muted-foreground')} />;
 }
 
 export function ProjectsPage() {
@@ -64,31 +65,29 @@ export function ProjectsPage() {
   const openCreate = (status: Project['status'] = 'in_progress') => { setCreateStatus(status); setIsCreateOpen(true); };
 
   return (
-    <div className="projects-page @container -mt-4 flex min-w-0 flex-col gap-4 pb-10 sm:-mt-6">
-      <div className="-mx-4 flex items-center justify-between gap-4 border-b border-border px-4 py-4 sm:-mx-6 sm:px-6">
-        <h1 className="text-xl font-semibold tracking-[-0.02em] text-foreground">Projects</h1>
-        {canCreate && <Button onClick={() => openCreate()}><Plus data-icon="inline-start" />New project</Button>}
-      </div>
+    <div className="projects-page @container mx-auto flex min-w-0 max-w-none flex-col gap-5 pb-10 selection:bg-foreground selection:text-background [&_[data-slot=table-container]]:overflow-visible">
+      <WorkPageHeader title="Projects" count={scopedProjects.length} description={teamId ? 'Projects owned by this team.' : 'Track project status, progress, and ownership.'}>
+        {canCreate && <Button className="px-3" onClick={() => openCreate()}><Plus data-icon="inline-start" />New project</Button>}
+      </WorkPageHeader>
 
       {isLoading && <div role="status" aria-label="Loading projects" className="flex flex-col gap-2">
-        <Skeleton className="h-9 w-full rounded-md" />
-        {Array.from({ length: 5 }).map((_, index) => <Skeleton key={index} className="h-12 w-full rounded-md" />)}
+        {Array.from({ length: 4 }).map((_, index) => <Skeleton key={index} className="h-10 w-full rounded-lg" />)}
       </div>}
-      {isError && <div role="alert" className="flex items-center justify-between gap-4 rounded-[6px] border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
+      {isError && <div role="alert" className="flex items-center justify-between gap-3 rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-xs text-destructive">
         <span>Failed to load projects from server.</span>
         <Button variant="outline" size="sm" onClick={() => refetch()}><RefreshCw data-icon="inline-start" />Retry</Button>
       </div>}
       {!isLoading && !isError && (scopedProjects.length === 0 ? (
-        <div className="flex flex-col items-center gap-3 py-14 text-center text-sm text-muted-foreground">
+        <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-border/80 bg-card/10 p-14 text-center text-xs text-muted-foreground">
           <p>No projects yet.</p>
           {canCreate && <Button size="sm" variant="outline" onClick={() => openCreate()}><Plus data-icon="inline-start" />New project</Button>}
         </div>
       ) : (
-        <Table aria-label="Projects" className="table-fixed text-sm leading-5">
+        <Table aria-label="Projects" className="table-fixed text-xs leading-4">
           <TableHeader>
             <TableRow className="border-0 hover:bg-transparent">
               <TableHead aria-sort={sortDirection === 'asc' ? 'ascending' : 'descending'}>
-                <Button variant="ghost" size="sm" className="border-0" onClick={() => setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')} aria-label={`Sort projects by name ${sortDirection === 'asc' ? 'descending' : 'ascending'}`}>
+                <Button variant="ghost" size="xs" className="border-0" onClick={() => setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')} aria-label={`Sort projects by name ${sortDirection === 'asc' ? 'descending' : 'ascending'}`}>
                   Name<SortIcon data-icon="inline-end" />
                 </Button>
               </TableHead>
@@ -100,24 +99,24 @@ export function ProjectsPage() {
               <TableHead className="w-20 text-right text-muted-foreground @min-[56rem]:w-24">Status</TableHead>
             </TableRow>
           </TableHeader>
-          {groups.map(group => {
+          {groups.map((group, groupIndex) => {
             const collapsed = !!collapsedGroups[group.key];
             const GroupIcon = group.icon;
             const contentId = `project-group-${group.key}`;
-            const groupHeader = <div className="flex items-center justify-between gap-2 rounded-[6px] bg-secondary px-2 py-1">
-                    <Button variant="ghost" size="sm" className="min-w-0 flex-1 justify-start gap-2 border-0 aria-expanded:bg-transparent" aria-label={`${collapsed ? 'Expand' : 'Collapse'} ${group.label} projects`} aria-expanded={!collapsed} aria-controls={contentId} onClick={() => setCollapsedGroups(previous => ({ ...previous, [group.key]: !previous[group.key] }))}>
-                      <ChevronDown className={cn(collapsed && '-rotate-90')} /><GroupIcon className={group.color} />
-                      <span>{group.label}</span><span className="tabular-nums text-muted-foreground">{group.projects.length}</span>
-                    </Button>
-                    {canCreate && <Button variant="ghost" size="icon-sm" className="border-0" aria-label={`New project in ${group.label}`} title={`New project in ${group.label}`} onClick={() => openCreate(group.key)}><Plus /></Button>}
-                  </div>;
+            const groupHeader = <WorkListGroupHeader label={group.label} count={group.projects.length} icon={<GroupIcon className={cn('size-3.5', group.color)} />} resource="projects"
+              collapsed={collapsed} controlsId={contentId} sticky={false} onToggle={() => setCollapsedGroups(previous => ({ ...previous, [group.key]: !previous[group.key] }))}
+              onCreate={canCreate ? () => openCreate(group.key) : undefined} />;
             return <React.Fragment key={group.key}>
-              <TableBody><TableRow className="border-0 hover:bg-transparent has-aria-expanded:bg-transparent">
+              {groupIndex > 0 && <TableBody aria-hidden="true"><TableRow className="border-0 hover:bg-transparent">
+                <TableCell colSpan={2} className="h-5 p-0 @min-[56rem]:hidden" />
+                <TableCell colSpan={7} className="hidden h-5 p-0 @min-[56rem]:table-cell" />
+              </TableRow></TableBody>}
+              <TableBody><TableRow data-project-group-header={group.key} className="sticky top-0 z-20 border-0 hover:bg-transparent has-aria-expanded:bg-transparent">
                 {/* Match the visible column count so native table layout does not create empty mobile columns. */}
-                <TableCell colSpan={2} className="px-0 pb-1 pt-4 @min-[56rem]:hidden">{groupHeader}</TableCell>
-                <TableCell colSpan={7} className="hidden px-0 pb-1 pt-4 @min-[56rem]:table-cell">{groupHeader}</TableCell>
+                <TableCell colSpan={2} className="p-0 @min-[56rem]:hidden">{groupHeader}</TableCell>
+                <TableCell colSpan={7} className="hidden p-0 @min-[56rem]:table-cell">{groupHeader}</TableCell>
               </TableRow></TableBody>
-              <TableBody id={contentId} hidden={collapsed} aria-label={`${group.label} projects`}>
+              <TableBody id={contentId} hidden={collapsed} aria-label={`${group.label} projects`} className="border-b border-border/40">
               {!collapsed && group.projects.map(project => {
                 const progress = typeof project.progress === 'number' && Number.isFinite(project.progress) ? Math.min(100, Math.max(0, project.progress)) : null;
                 const target = project.targetDate ? new Date(project.targetDate) : null;
@@ -128,10 +127,10 @@ export function ProjectsPage() {
                 const StatusIcon = status?.icon ?? Circle;
                 const ProjectIcon = resolveEntityIcon(project.icon);
                 const priority = PRIORITY_CONFIG.find(item => item.key === project.priority)?.label ?? 'None';
-                return <TableRow key={project.id} data-project-id={project.id}>
-                  <TableCell className="whitespace-normal py-3 @min-[56rem]:py-4">
+                return <TableRow key={project.id} data-project-id={project.id} data-work-list-row="" className="h-10 border-border/40 hover:bg-muted/40">
+                  <TableCell className="whitespace-normal py-2 @max-[50rem]:py-3">
                     <Link to={`/projects/${project.id}${location.search}`} className="block min-w-0 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label={`Open project ${project.name}`}>
-                      <span className="flex min-w-0 items-center gap-3"><ProjectIcon aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" /><span className="truncate font-medium text-foreground" title={project.name}>{project.name}</span></span>
+                      <span className="flex min-w-0 items-center gap-3"><ProjectIcon aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" /><span className="project-row-title min-w-0 text-[13px] leading-5 font-normal tracking-tight text-foreground @max-[50rem]:line-clamp-2 @max-[50rem]:text-sm @max-[50rem]:leading-[22px] @min-[50rem]:truncate" title={project.name}>{project.name}</span></span>
                       <span className="ml-7 mt-2 flex flex-wrap items-center gap-x-3 gap-y-2 text-xs leading-4 text-muted-foreground @min-[56rem]:hidden">
                         <ProjectHealth health={project.health} />
                         <span className="inline-flex items-center gap-1.5"><ProjectPriority priority={project.priority} />{priority === 'None' ? 'No priority' : priority}</span>
@@ -147,7 +146,7 @@ export function ProjectsPage() {
                   <TableCell className="hidden text-muted-foreground @min-[56rem]:table-cell"><span className="inline-flex items-center gap-1.5 whitespace-nowrap"><Calendar className="size-3.5 shrink-0" />{targetLabel}</span></TableCell>
                   <TableCell className="hidden text-right tabular-nums @min-[56rem]:table-cell">{project.totalIssues ?? '—'}</TableCell>
                   <TableCell>
-                    <div className="flex flex-col items-end gap-2">
+                    <div className="flex flex-col items-end gap-1">
                       <span className="inline-flex items-center gap-2" title={status?.label}><StatusIcon aria-label={status?.label} className={cn('size-3.5 shrink-0', status?.color)} /><span className="tabular-nums">{progress === null ? '—' : `${progress}%`}</span></span>
                       {progress !== null && <div role="meter" aria-label={`${project.name}: ${progress}% complete`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress} className="h-1 w-12 overflow-hidden rounded-full bg-secondary"><div className="h-full bg-primary" style={{ width: `${progress}%` }} /></div>}
                     </div>

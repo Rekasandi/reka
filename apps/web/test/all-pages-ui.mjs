@@ -135,6 +135,49 @@ try {
       findings.push({ route, theme, size, ...result, errors: [...errors] });
     }
   }
+  const projectIssueParity = [];
+  for (const theme of ['light', 'dark']) for (const width of [1440, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    const styles = {};
+    for (const route of ['/my-issues', '/projects']) {
+      await page.goto(`${process.env.WEB_URL || 'http://localhost:5173'}?route=${encodeURIComponent(route)}&theme=${theme}`);
+      await page.locator('[data-slot="work-page-header"] h1').waitFor();
+      await page.locator('[data-work-list-row]').first().waitFor();
+      await page.waitForTimeout(250); // Allow theme/badge transitions to settle before comparing computed colors.
+      styles[route] = await page.evaluate(() => {
+        const signature = (element, properties) => properties.map(property => getComputedStyle(element)[property]);
+        const header = document.querySelector('[data-slot="work-page-header"]');
+        const group = [...document.querySelectorAll('[data-slot="work-list-group-header"]')].find(element => element.checkVisibility());
+        const row = document.querySelector('[data-work-list-row]');
+        return {
+          heading: signature(header.querySelector('h1'), ['fontFamily', 'fontSize', 'fontWeight', 'lineHeight', 'letterSpacing', 'color']),
+          description: signature(header.querySelector('p'), ['fontSize', 'lineHeight', 'color']),
+          badge: signature(header.querySelector('[data-slot="badge"]'), ['height', 'fontSize', 'fontWeight', 'borderRadius', 'borderColor']),
+          headerLayout: signature(header, ['display', 'flexDirection', 'rowGap', 'columnGap']),
+          group: signature(group, ['height', 'paddingTop', 'paddingBottom', 'paddingLeft', 'borderBottomWidth', 'borderBottomColor', 'borderTopLeftRadius', 'backgroundColor']),
+          groupLabel: signature(group.querySelector('[data-slot="work-list-group-label"]'), ['fontSize', 'lineHeight', 'fontWeight', 'letterSpacing', 'color']),
+          count: signature(group.querySelector('[data-slot="work-list-group-count"]'), ['fontSize', 'lineHeight', 'fontWeight', 'color']),
+          row: signature(row, ['fontSize', 'lineHeight']),
+          rowPadding: signature(row.tagName === 'TR' ? row.querySelector('td') : row, ['paddingTop', 'paddingBottom']),
+          title: signature(row.querySelector('.project-row-title, .issue-row-title'), ['fontSize', 'lineHeight', 'fontWeight', 'letterSpacing']),
+        };
+      });
+      const resource = route === '/projects' ? 'projects' : 'issues';
+      const disclosure = page.getByRole('button', { name: new RegExp(`^Collapse .* ${resource}$`) }).first();
+      const controlsId = await disclosure.getAttribute('aria-controls');
+      await disclosure.focus();
+      await page.keyboard.press('Enter');
+      await page.waitForFunction(id => document.getElementById(id)?.hidden === true, controlsId);
+      assert.equal(await page.getByRole('dialog').count(), 0, 'Disclosure keyboard input does not open a detail/create dialog');
+      await page.getByRole('button', { name: new RegExp(`^Expand .* ${resource}$`) }).first().focus();
+      await page.keyboard.press('Enter');
+      await page.waitForFunction(id => document.getElementById(id)?.hidden === false, controlsId);
+    }
+    assert.deepEqual(styles['/projects'], styles['/my-issues'], `${theme} ${width}: Projects and My issues share page/group headers and list density`);
+    projectIssueParity.push({ theme, width, styles: styles['/projects'] });
+  }
+  await writeFile(`${out}/projects-issues-parity.json`, JSON.stringify(projectIssueParity, null, 2));
+
   for (const theme of ['light', 'dark']) for (const width of [1440, 390]) {
     await page.setViewportSize({ width, height: 900 });
     await page.goto(`${process.env.WEB_URL || 'http://localhost:5173'}?route=%2Ftriage&theme=${theme}`);
