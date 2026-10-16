@@ -72,7 +72,7 @@ export function CycleProgressChart({ cycle }: { cycle: Cycle }) {
               {cycle.status === 'active' && now >= start && now <= end && <ReferenceLine x={now} stroke="var(--border)" />}
               <ChartTooltip content={<ChartTooltipContent labelFormatter={(_, payload) => payload[0]?.payload?.time ? new Date(payload[0].payload.time).toLocaleString() : ''} />} />
               <Area dataKey="scope" type="stepAfter" stroke="var(--color-scope)" fill="var(--color-scope)" fillOpacity={0.05} strokeWidth={1.5} connectNulls dot={{ r: 2 }} isAnimationActive={false} />
-              <Line dataKey="guide" type="linear" stroke="var(--color-guide)" strokeDasharray="4 4" strokeWidth={1.5} dot={false} isAnimationActive={false} />
+              <Line dataKey="guide" type="linear" stroke="var(--color-guide)" strokeDasharray="4 4" strokeWidth={1.5} dot={false} tooltipType="none" isAnimationActive={false} />
               <Line dataKey="completed" type="linear" stroke="var(--color-completed)" strokeWidth={1.5} connectNulls dot={{ r: 3, fill: 'var(--color-completed)', strokeWidth: 0 }} isAnimationActive={false} />
               <Line dataKey="started" stroke="var(--color-started)" dot={{ r: 3, fill: 'var(--color-started)', strokeWidth: 0 }} isAnimationActive={false} />
             </ComposedChart>

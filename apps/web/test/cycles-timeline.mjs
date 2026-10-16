@@ -71,6 +71,16 @@ try {
   assert.match(await list.locator('li[data-cycle-status="active"] .cycle-capacity').innerText(), /125%/);
   assert.match(await list.locator('li').filter({ has: page.getByRole('button', { name: 'Toggle Cycle 76 summary', exact: true }) }).innerText(), /No capacity set/);
   assert.match(await list.locator('li').filter({ has: page.getByRole('button', { name: 'Toggle Cycle 78 summary', exact: true }) }).innerText(), /0%/);
+  const unhoveredActions = list.locator('.cycle-timeline-actions').first();
+  assert.equal(await unhoveredActions.evaluate(el => getComputedStyle(el).opacity), '0', 'Three-dots action button is hidden when unhovered');
+  await list.locator('.cycle-timeline-header').first().hover();
+  await page.waitForFunction(() => getComputedStyle(document.querySelector('.cycle-timeline-actions')).opacity === '1');
+  assert.equal(await unhoveredActions.evaluate(el => getComputedStyle(el).opacity), '1', 'Three-dots action button becomes visible on row hover');
+  const hoveredHeaderBg = await list.locator('.cycle-timeline-header').first().evaluate(el => getComputedStyle(el).backgroundColor);
+  assert.notEqual(hoveredHeaderBg, 'rgba(0, 0, 0, 0)', 'Full-width header row receives hover background');
+  await page.mouse.move(0, 0);
+  await page.waitForFunction(() => getComputedStyle(document.querySelector('.cycle-timeline-actions')).opacity === '0');
+  assert.equal(await unhoveredActions.evaluate(el => getComputedStyle(el).opacity), '0', 'Three-dots action button hides when cursor leaves');
   await page.getByRole('button', { name: 'Toggle Cycle 75 summary', exact: true }).focus();
   await page.keyboard.press('Enter');
   assert.equal(await page.getByLabel('Progress for Cycle 75', { exact: true }).count(), 0);
