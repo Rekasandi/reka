@@ -148,6 +148,9 @@ try {
     });
     assert.deepEqual(layout.title, ['20px', '28px', '600', '-0.4px']); assert.deepEqual(layout.description, ['14px', '20px']);
     assert.equal(layout.clipped, false); assert.equal(layout.overflow, false); assert.equal(layout.props, width === 1440);
+    assert.deepEqual(await panel.getByRole('complementary', { name: 'Issue properties' }).evaluate(element => {
+      const style = getComputedStyle(element); return [style.position, style.borderLeftWidth];
+    }), [width === 1440 ? 'sticky' : 'static', '0px'], 'Only the desktop property column is pinned; it has no left border');
     assert.equal(await page.locator('button button,button input,button textarea').count(), 0);
     if ([1440, 390, 320].includes(width)) await page.screenshot({ path: `${out}/${theme}-${width}.png` });
     if (width === 1440) {
@@ -161,6 +164,29 @@ try {
       await page.waitForFunction(() => document.querySelector('[data-triage-item="i1"]') === document.activeElement);
       assert.equal(await item('i1').evaluate(element => element === document.activeElement), true);
     }
+  }
+  // Real long content is required: a short article can clamp scrollTop to almost zero.
+  for (const theme of ['dark', 'light']) for (const height of [900, 560]) {
+    reset(); issues[0].description = `${initial[0].description}\n\n`.repeat(30);
+    await page.setViewportSize({ width: 1440, height });
+    await open('/triage?issueId=i1', theme);
+    const properties = panel.getByRole('complementary', { name: 'Issue properties' });
+    await properties.waitFor();
+    const review = page.getByRole('region', { name: 'Triage review', exact: true });
+    const top = (await properties.boundingBox()).y;
+    for (const scrollTop of [300, 1000, Number.MAX_SAFE_INTEGER]) {
+      await review.evaluate((element, scrollTop) => { element.scrollTop = scrollTop; }, scrollTop);
+      await page.waitForFunction(top => Math.abs(document.querySelector('[data-issue-detail="triage"] .issue-properties').getBoundingClientRect().top - top) < 1, top);
+      const box = await properties.boundingBox(), viewport = await review.boundingBox(), toolbar = await panel.locator('header').boundingBox();
+      assert.ok((await review.evaluate(element => element.scrollTop)) >= 300, 'Main article genuinely scrolls');
+      assert.ok(box.y >= toolbar.y + toolbar.height + 23, 'Properties remain below the sticky toolbar');
+      assert.ok(box.y + box.height <= viewport.y + viewport.height - 23, 'Properties fit within the visible review pane');
+    }
+    assert.equal(await properties.evaluate(element => element.scrollHeight - element.clientHeight > 0), height === 560, 'Short windows retain independent scrolling to the last property');
+    await properties.getByRole('button', { name: 'Issue labels', exact: true }).click();
+    await page.getByRole('menu').waitFor();
+    await page.keyboard.press('Escape');
+    await page.screenshot({ path: `${out}/properties-pinned-${theme}-${height}.png` });
   }
   for (const role of ['guest', 'client', 'member']) {
     reset(); user.role = role; if (role === 'member') mode = 'readOnly';
@@ -190,5 +216,5 @@ try {
   await intake.getByLabel('Intake title').fill('New internal report'); await intake.getByLabel('What should we know?').fill('Details for review');
   await intake.getByRole('button', { name: 'Submit to triage', exact: true }).click(); await item('new').waitFor();
   assert.deepEqual(errors, []);
-  console.log('PASS: triage master/detail, URL/history/reload/scope, shared issue edits/comments, accept/private routing/decline/duplicate/error/pending, permissions, intake/states, sticky toolbar and DESIGN.md checks across 14 desktop/tablet/mobile light/dark layouts.');
+  console.log('PASS: triage master/detail, URL/history/reload/scope, shared issue edits/comments, accept/private routing/decline/duplicate/error/pending, permissions, intake/states, sticky toolbar/properties without left border, long-content/short-window scrolling and DESIGN.md checks across 14 desktop/tablet/mobile light/dark layouts.');
 } finally { await browser.close(); }

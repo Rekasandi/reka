@@ -246,8 +246,9 @@ pre code {
 
 /* Triage uses the same issue content and tokens, inside a queue/detail workbench. */
 .triage-page { height: calc(100svh - 3rem); }
-[data-issue-detail="triage"] { container: triage-detail / inline-size; min-width: 0; }
-[data-issue-detail="triage"] > header { position: sticky; top: 0; z-index: 10; background: var(--background); }
+.triage-review { container-type: size; }
+[data-issue-detail="triage"] { --triage-toolbar-height: 3.5rem; container: triage-detail / inline-size; min-width: 0; }
+[data-issue-detail="triage"] > header { position: sticky; top: 0; z-index: 10; min-height: var(--triage-toolbar-height); background: var(--background); }
 [data-issue-detail="triage"] .issue-content-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px 32px; }
 [data-issue-detail="triage"] .issue-description { grid-row: 2; }
 [data-issue-detail="triage"] .issue-properties { grid-row: 3; }
@@ -260,7 +261,8 @@ pre code {
 @container triage-detail (min-width: 48rem) {
   [data-issue-detail="triage"] .issue-content-grid { grid-template-columns: minmax(0, 1fr) 220px; }
   [data-issue-detail="triage"] .issue-content-grid > :not(.issue-properties) { grid-column-start: 1; }
-  [data-issue-detail="triage"] .issue-properties { grid-column: 2; grid-row: 1 / span 6; border-left: 1px solid var(--border); padding-left: 24px; }
+  /* Cover all eight content sections, not just the first six, when pinning the panel. */
+  [data-issue-detail="triage"] .issue-properties { grid-column: 2; grid-row: 1 / span 8; align-self: start; position: sticky; top: calc(var(--triage-toolbar-height) + 24px); max-height: calc(100cqh - var(--triage-toolbar-height) - 48px); overflow-y: auto; overscroll-behavior: contain; padding-left: 24px; }
   [data-issue-detail="triage"] .issue-properties-grid { grid-template-columns: minmax(0, 1fr); }
 }
 @container triage (min-width: 48rem) {

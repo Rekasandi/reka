@@ -93,7 +93,7 @@ export function TriagePage() {
           })}</ul>}
         </div>
       </section>
-      <section aria-label="Triage review" className={cn('min-h-0 min-w-0 overflow-y-auto overscroll-contain @min-[48rem]/triage:block', selectedId ? 'block' : 'hidden')}>
+      <section aria-label="Triage review" className={cn('triage-review min-h-0 min-w-0 overflow-y-auto overscroll-contain @min-[48rem]/triage:block', selectedId ? 'block' : 'hidden')}>
         {selectedIssue && !isError ? <TriageDetail key={selectedIssue.id} issueId={selectedIssue.id} onClose={closeReview} onDecision={(issue, mode) => setDecision({ issue, mode })} /> : <div className="flex h-full flex-col items-center justify-center gap-3 px-6 py-12 text-center"><ClipboardList className="size-6 text-muted-foreground" /><h2 className="text-sm font-medium">{selectedId && !isLoading && !isError ? 'Intake unavailable' : isLoading ? 'Loading incoming work…' : isError ? 'Queue unavailable' : 'Select an intake to review'}</h2><p className="max-w-sm text-sm text-muted-foreground">{selectedId ? 'This issue may have left triage, or is not available in this team.' : 'Review the details, then accept, decline, or mark it as a duplicate.'}</p>{selectedId && <Button variant="outline" onClick={() => selectIssue()}>Back to queue</Button>}</div>}
       </section>
     </div>

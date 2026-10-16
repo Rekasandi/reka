@@ -169,6 +169,12 @@ Referensi: screenshot pengguna `Screenshot 2026-10-16 at 4.27.58 PM.png`. Antrea
 - Verifikasi: web type-check/production build; `triage-workbench.mjs` memakai actual app/router + controlled APIs (**14 viewport/theme**, keyboard/URL/history/reload/team scope, read-only, title/comments, accept/private routing, decline, duplicate, pending/error/retry/intake); `issue-detail-navigation.mjs` memastikan sheet/full page tetap bekerja. Audit **39 route × 4 = 156 renders** tanpa overflow/clipped controls/page errors.
 - `pnpm test:triage`: **2/2** disposable Postgres/HTTP + migration preservation. `workflow-foundation-real-api.mjs`: browser → Nest HTTP → isolated Postgres untuk intake/templates/accept/assignee/decline/duplicate dan regresi workflow/project/initiative, termasuk restart. Evidence `/tmp/reka-triage-workbench*`, `/tmp/reka-triage-{types,build,api,real-api,detail-regression}.log`. Tidak ada perubahan database produksi, deployment, atau live provider; ini bukan audit aksesibilitas menyeluruh.
 
+## Properties triage tetap terlihat
+
+Refinement berikutnya menghapus border kiri pada panel **Issue properties** khusus triage dan menahannya di bawah toolbar saat artikel di-scroll. CSS sticky mengikuti seluruh delapan bagian konten, bukan hanya enam baris awal. Tinggi panel dibatasi terhadap pane review aktual; pada jendela pendek, properties mempunyai scroll sendiri sehingga Due date/Labels tetap dapat dijangkau. Di mobile/tablet yang tidak mempunyai kolom kanan, properties tetap inline dan tidak menutupi konten. Sheet/full-page issue lainnya tidak diubah.
+
+Web type-check/build, `triage-workbench.mjs` (**14 layout/theme**, tambahan scroll artikel panjang pada 300px/1000px/ujung artikel dan tinggi jendela 900/560px × light/dark, border 0, akses dropdown Labels), serta `issue-detail-navigation.mjs` lulus. Evidence `/tmp/reka-triage-properties-{types,build,test,detail}.log`, captures `/tmp/reka-triage-workbench/properties-pinned-*.png`. Pengujian browser memakai controlled APIs; tidak ada perubahan API/database produksi.
+
 ## Batasan
 
 - Vite masih memberi warning chunk besar (main sekitar 1.87 MB; editor sekitar 800 KB). Build berhasil; route-level bundle optimization bukan bagian perubahan ini.
