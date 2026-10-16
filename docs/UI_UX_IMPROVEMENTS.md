@@ -175,6 +175,10 @@ Refinement berikutnya menghapus border kiri pada panel **Issue properties** khus
 
 Web type-check/build, `triage-workbench.mjs` (**14 layout/theme**, tambahan scroll artikel panjang pada 300px/1000px/ujung artikel dan tinggi jendela 900/560px × light/dark, border 0, akses dropdown Labels), serta `issue-detail-navigation.mjs` lulus. Evidence `/tmp/reka-triage-properties-{types,build,test,detail}.log`, captures `/tmp/reka-triage-workbench/properties-pinned-*.png`. Pengujian browser memakai controlled APIs; tidak ada perubahan API/database produksi.
 
+## Kolom tengah triage lebih ramping
+
+Kolom artikel triage desktop dibatasi maksimal **480px**, dengan grup artikel + Properties dipusatkan pada area detail. Lebar Properties tetap **220px**, tetap sticky tanpa border kiri; antrean serta layout inline mobile/tablet tidak berubah. `triage-workbench.mjs` menambahkan assertion ukuran **480/220px**, mempertahankan pemeriksaan 14 layout/theme dan sticky pada konten panjang/jendela pendek. Web type-check/build dan browser regression lulus; evidence `/tmp/reka-triage-narrow-*` dan `/tmp/reka-triage-workbench/`.
+
 ## Batasan
 
 - Vite masih memberi warning chunk besar (main sekitar 1.87 MB; editor sekitar 800 KB). Build berhasil; route-level bundle optimization bukan bagian perubahan ini.

@@ -144,10 +144,11 @@ try {
     const layout = await panel.evaluate(element => {
       const title = element.querySelector('[aria-label="Issue title"]'), description = element.querySelector('#issue-description');
       const style = getComputedStyle(title), body = getComputedStyle(description);
-      return { title: [style.fontSize, style.lineHeight, style.fontWeight, style.letterSpacing], description: [body.fontSize, body.lineHeight], clipped: title.scrollHeight > title.clientHeight + 2, overflow: document.documentElement.scrollWidth > innerWidth, props: element.querySelector('.issue-properties').getBoundingClientRect().x > title.getBoundingClientRect().right };
+      return { title: [style.fontSize, style.lineHeight, style.fontWeight, style.letterSpacing], description: [body.fontSize, body.lineHeight], clipped: title.scrollHeight > title.clientHeight + 2, overflow: document.documentElement.scrollWidth > innerWidth, props: element.querySelector('.issue-properties').getBoundingClientRect().x > title.getBoundingClientRect().right, widths: [title.getBoundingClientRect().width, element.querySelector('.issue-properties').getBoundingClientRect().width] };
     });
     assert.deepEqual(layout.title, ['20px', '28px', '600', '-0.4px']); assert.deepEqual(layout.description, ['14px', '20px']);
     assert.equal(layout.clipped, false); assert.equal(layout.overflow, false); assert.equal(layout.props, width === 1440);
+    if (width === 1440) assert.deepEqual(layout.widths, [480, 220], 'Desktop middle column is capped at 480px; Properties retains its 220px width');
     assert.deepEqual(await panel.getByRole('complementary', { name: 'Issue properties' }).evaluate(element => {
       const style = getComputedStyle(element); return [style.position, style.borderLeftWidth];
     }), [width === 1440 ? 'sticky' : 'static', '0px'], 'Only the desktop property column is pinned; it has no left border');
