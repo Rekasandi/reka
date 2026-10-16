@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { useLocation, useSearchParams } from 'react-router-dom';
 import { Button, Skeleton, Input, Badge, Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetTrigger, DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuLabel, DropdownMenuCheckboxItem, Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@reka/ui';
-import { Filter, PanelRight, Plus, LayoutGrid, List, RefreshCw, Search, Layers, X, SlidersHorizontal, Star, Trash2, Save, Tag } from 'lucide-react';
+import { Filter, PanelRight, Plus, LayoutGrid, List, RefreshCw, Search, Layers, X, SlidersHorizontal, Star, Trash2, Save, Tag, BarChart2 } from 'lucide-react';
 import { useIssues, useIssueLabels } from '../hooks/use-issues';
 import { useUsers } from '../../users/hooks/use-users';
 import { useProjects } from '../../projects/hooks/use-projects';
@@ -12,6 +12,7 @@ import { IssueListView } from './issue-list-view';
 import { IssueGroupedListView } from './issue-grouped-list-view';
 import { IssueKanbanBoard } from './issue-kanban-board';
 import { IssueFiltersSidebar, type FilterCategory } from './issue-filters-sidebar';
+import { IssueMetricsAside } from './issue-metrics-aside';
 import { ManageLabelsDialog } from './manage-labels-dialog';
 import { EMPTY_ISSUE_FILTERS, filterIssues, type IssueFilters } from '../lib/issue-filters';
 import { getIssueStatusCategory, isIssueClosed, type Issue } from '@reka/types';
@@ -46,6 +47,8 @@ export function IssuesPage({ teamId }: IssuesPageProps) {
   const [filters, setFilters] = React.useState<IssueFilters>(EMPTY_ISSUE_FILTERS);
   const [filterCategory, setFilterCategory] = React.useState<FilterCategory>('assignees');
   const [filtersVisible, setFiltersVisible] = React.useState(false);
+  const [metricsVisible, setMetricsVisible] = React.useState(false);
+  const [mobileMetricsOpen, setMobileMetricsOpen] = React.useState(false);
   const [showSubtasks, setShowSubtasks] = React.useState(() => {
     try { return localStorage.getItem('reka:issues:show-subtasks') !== 'false'; }
     catch { return true; }
@@ -380,10 +383,39 @@ export function IssuesPage({ teamId }: IssuesPageProps) {
           className="hidden shrink-0 xl:inline-flex"
           aria-expanded={filtersVisible}
           aria-controls="issue-filters-panel"
-          onClick={() => setFiltersVisible((visible) => !visible)}
+          onClick={() => {
+            setFiltersVisible((visible) => !visible);
+            if (!filtersVisible) setMetricsVisible(false);
+          }}
         >
           <PanelRight data-icon="inline-start" />
           {filtersVisible ? 'Hide filters' : 'Show filters'}
+        </Button>
+        <Button
+          variant={metricsVisible ? 'secondary' : 'outline'}
+          size="sm"
+          className="hidden shrink-0 xl:inline-flex"
+          aria-expanded={metricsVisible}
+          aria-controls="issue-metrics-panel"
+          aria-label="Toggle metrics insight"
+          title="Toggle metrics insight"
+          onClick={() => {
+            setMetricsVisible((visible) => !visible);
+            if (!metricsVisible) setFiltersVisible(false);
+          }}
+        >
+          <BarChart2 data-icon="inline-start" />
+          <span>Insights</span>
+        </Button>
+        <Button
+          variant="outline"
+          size="icon-sm"
+          className="xl:hidden shrink-0"
+          aria-label="Issue metrics"
+          title="Issue metrics"
+          onClick={() => setMobileMetricsOpen(true)}
+        >
+          <BarChart2 />
         </Button>
         </div>
       </div>
@@ -410,7 +442,7 @@ export function IssuesPage({ teamId }: IssuesPageProps) {
 
       {/* Issue list */}
       {!isLoading && !isError && (
-        <div className={filtersVisible ? 'grid min-w-0 grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(340px,30%)]' : 'min-w-0'}>
+        <div className={(filtersVisible || metricsVisible) ? 'grid min-w-0 grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(0,1fr)_400px]' : 'min-w-0'}>
           <div className="min-w-0">
             {viewMode === 'grouped' && groupBy === 'status' ? (
               <IssueGroupedListView
@@ -452,8 +484,34 @@ export function IssuesPage({ teamId }: IssuesPageProps) {
               />
             </aside>
           )}
+          {metricsVisible && (
+            <aside id="issue-metrics-panel" aria-label="Issue metrics insight" className="sticky top-6 hidden h-[calc(100svh-7.25rem)] min-h-0 self-start flex-col overflow-hidden rounded-xl border border-border bg-card xl:flex shadow-sm">
+              <IssueMetricsAside
+                issues={filteredIssues}
+                users={users}
+                projects={projects}
+                onClose={() => setMetricsVisible(false)}
+              />
+            </aside>
+          )}
         </div>
       )}
+
+      {/* Mobile metrics sheet */}
+      <Sheet open={mobileMetricsOpen} onOpenChange={setMobileMetricsOpen}>
+        <SheetContent side="right" showCloseButton={false} className="gap-0 overflow-hidden p-0 bg-card text-foreground data-[side=right]:w-[min(100vw,26rem)]">
+          <SheetHeader className="sr-only">
+            <SheetTitle>Issue metrics</SheetTitle>
+            <SheetDescription>Metrics breakdown by status and priority</SheetDescription>
+          </SheetHeader>
+          <IssueMetricsAside
+            issues={filteredIssues}
+            users={users}
+            projects={projects}
+            onClose={() => setMobileMetricsOpen(false)}
+          />
+        </SheetContent>
+      </Sheet>
 
       <ManageLabelsDialog open={manageLabelsOpen} onOpenChange={setManageLabelsOpen} initialTeamId={teamId} />
 

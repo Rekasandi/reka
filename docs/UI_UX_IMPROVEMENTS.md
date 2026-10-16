@@ -217,6 +217,18 @@ Pengguna memilih **data aktual**. Scope/completed historis memakai snapshot; Sta
 
 Verifikasi: web build/type-check, `cycles-timeline.mjs` (10 viewport/theme, 320–2400px, sorting, kategori custom, kapasitas, URL/history, keyboard, readonly, error/empty/retry, tanpa request mutasi), `cycles-real-api.mjs` (current Started dan capacity, schedule persisten, history, atomic rollover melalui Nest + disposable Postgres), serta audit **39 route / 156 renders** tanpa findings. Detector changed targets: `[]`. Evidence `/tmp/reka-cycles-timeline/`, `/tmp/reka-cycles-timeline-audit/`, `/tmp/reka-cycles-timeline-*.log`. Review inline, bukan reviewer independen; tidak mengklaim pixel identity untuk angka/grafik yang berbeda karena data aktual, load test, OAuth live atau audit aksesibilitas penuh. `DESIGN.md` dipertahankan sebagai sistem incumbent.
 
+## Metrics Insight aside pada halaman Issues
+
+Sesuai referensi `Screenshot 2026-10-16 at 10.43.44 PM.png`, halaman Issues kini dilengkapi panel samping (aside) analitik metrik yang dapat dibuka melalui tombol **Insights** di toolbar desktop atau ikon grafik di search bar mobile:
+
+- Header menampilkan jumlah total issue/estimate secara dinamis dari issue yang sedang difilter/dicari, tombol navigasi ke halaman penuh `/insights`, aksi `...`, dan tombol tutup `X`.
+- Selector 3-kolom untuk mengonfigurasi dimensi analitik secara real-time: **Measure** (`Issue count` / `Estimate`), **Slice** (`Status` / `Priority` / `Assignee` / `Project`), dan **Segment** (`Priority` / `Status` / `None`).
+- Grafik batang bertumpuk (stacked bar chart) berbasis Recharts + shadcn `ChartContainer`, dengan batang ramping (10px), grid garis putus-putus, dan sumbu Y di sisi kanan sesuai screenshot. Warna segmen mengikuti semantic tokens (merah Urgent, kuning High, biru Medium, hijau Low, abu-abu No priority).
+- Tabel rincian di bawah grafik menampilkan icon status (lingkaran Todo, setengah lingkaran In Progress, tiga perempat In Review, dsb.), jumlah total, serta breakdown per kolom segmen.
+- Footer menyediakan tombol **Set default for everyone** untuk menyimpan preferensi konfigurasi.
+- Komponen berada di `apps/web/src/features/issues/components/issue-metrics-aside.tsx` dan terintegrasi ke `issues-page.tsx`. Desktop memakai aside sticky 400px; mobile memakai Sheet drawer samping kanan.
+- Verifikasi: web type-check, build produksi, tes interaksi `issue-metrics-aside.mjs` (desktop, mobile sheet, ganti Measure/Slice/Segment, toast default, dan 3 screenshot light/dark), serta audit lintas halaman 39 route / 156 renders lulus tanpa finding.
+
 ## Batasan
 
 - Vite masih memberi warning chunk besar (main sekitar 1.87 MB; editor sekitar 800 KB). Build berhasil; route-level bundle optimization bukan bagian perubahan ini.

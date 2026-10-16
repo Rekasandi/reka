@@ -16,6 +16,20 @@ Klik issue, lalu **Accept**, **Decline**, atau **Duplicate** pada toolbar detail
 
 In **Triage → Templates**, a team lead can create/delete a team-scoped internal form; workspace owner/admin can create workspace-wide forms. Forms are not public URLs. They define default issue type/priority and required form fields. A member chooses a form, title and answers; server validation checks required keys, select options and field bounds, then creates a real triage issue. Workspace-wide forms require the submitter to choose a team they can write to. Template visibility follows workspace and private-team membership. A template's triage state cannot be disabled while an active form uses it.
 
+## Metrics Insight aside
+
+Tombol **Insights** pada toolbar Issues (atau ikon grafik pada mobile) membuka panel aside analitik issue yang dirancang sesuai referensi Linear (`Screenshot 2026-10-16 at 10.43.44 PM.png`). Panel ini menampilkan:
+
+- **Ringkasan Total:** Jumlah issue (atau total estimate point) dalam scope filter yang sedang aktif, tautan langsung ke halaman Insights lengkap (`/insights`), serta kontrol konfigurasi dan menu aksi.
+- **Selector 3-Kolom:**
+  - `Measure`: memilih **Issue count** atau **Estimate** point.
+  - `Slice`: membagi sumbu kategori berdasarkan **Status**, **Priority**, **Assignee**, atau **Project**.
+  - `Segment`: memecah komposisi bar bertumpuk (stacked) berdasarkan **Priority**, **Status**, atau **None** (tanpa segmentasi).
+- **Stacked Bar Chart:** Menggunakan shadcn `ChartContainer` dan Recharts `BarChart` dengan batang ramping (barSize 10px), grid horizontal bergaris putus-putus, label sumbu-Y di sisi kanan dengan skala dinamis, serta tooltip interaktif.
+- **Tabel Rincian Data:** Menampilkan baris kategori slice lengkap dengan ikon status/prioritas yang sesuai, total per baris, dan rincian per segmen bertumpuk (misal breakdown prioritas Urgent, High, Medium, Low, dan No priority).
+- **Footer:** Tombol aksi **Set default for everyone** yang menyimpan konfigurasi metrik pengguna ke preferensi lokal.
+- **Responsif:** Pada desktop beroperasi sebagai aside sticky di sebelah kanan daftar issue tanpa mengganggu filter panel; pada perangkat mobile terbuka sebagai `Sheet` kanan penuh yang dapat ditutup kapan saja.
+
 ## Issue detail navigation
 
 Desktop list/board clicks open a quick-edit **Sheet**. Choose **Open full page** for a focused issue workspace. Mobile list clicks, Inbox issue links, and command-palette results open `/issues/:id` directly. **Copy issue link** copies this canonical URL; reload and direct access fetch the issue through the authorized API. The Back control returns to the originating list or Inbox, with `/issues` as the direct-entry fallback.
