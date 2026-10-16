@@ -39,6 +39,7 @@ import {
   TabsTrigger,
   TabsContent,
   toast,
+  cn,
   useIsMobile,
 } from '@reka/ui';
 import {
@@ -164,11 +165,12 @@ function LoadError({ label, retry }: { label: string; retry: () => void }) {
 
 type IssueDetailContentProps = Omit<IssueDetailSheetProps, 'issue' | 'open' | 'onOpenChange'> & {
   issue: Issue;
-  presentation?: 'sheet' | 'page';
+  presentation?: 'sheet' | 'page' | 'triage';
+  headerActions?: React.ReactNode;
   onClose: () => void;
 };
 
-export function IssueDetailContent({ issue, presentation = 'sheet', onClose, isFavorite = false, canFavorite = true, onToggleFavorite }: IssueDetailContentProps) {
+export function IssueDetailContent({ issue, presentation = 'sheet', headerActions, onClose, isFavorite = false, canFavorite = true, onToggleFavorite }: IssueDetailContentProps) {
   const location = useLocation();
   const [title, setTitle] = React.useState(issue.title);
   const [description, setDescription] = React.useState(issue.description || '');
@@ -184,7 +186,7 @@ export function IssueDetailContent({ issue, presentation = 'sheet', onClose, isF
   const attachmentInputRef = React.useRef<HTMLInputElement>(null);
   const [copiedBranch, setCopiedBranch] = React.useState(false);
   const [copiedCommand, setCopiedCommand] = React.useState(false);
-  const [activeTab, setActiveTab] = React.useState<'comments' | 'activity'>('comments');
+  const [activeTab, setActiveTab] = React.useState<'comments' | 'activity'>(presentation === 'triage' ? 'activity' : 'comments');
 
   const [newSubtaskTitle, setNewSubtaskTitle] = React.useState('');
   const [isAddingSubtask, setIsAddingSubtask] = React.useState(false);
@@ -193,7 +195,7 @@ export function IssueDetailContent({ issue, presentation = 'sheet', onClose, isF
   const [deleteTarget, setDeleteTarget] = React.useState<{ title: string; confirm: () => void } | null>(null);
   const currentUser = useAuthStore(state => state.user);
   const { data: team } = useTeam(issue.teamId);
-  const canEdit = !!currentUser && !['guest', 'client'].includes(currentUser.role) && team?.canWrite !== false;
+  const canEdit = !!currentUser && !['guest', 'client'].includes(currentUser.role) && (presentation === 'triage' ? team?.canWrite === true : team?.canWrite !== false);
   const readOnly = !canEdit || !!issue.archivedAt;
 
   React.useEffect(() => { setTitle(issue.title); }, [issue.title]);
@@ -210,8 +212,8 @@ export function IssueDetailContent({ issue, presentation = 'sheet', onClose, isF
     setIsAddingSubtask(false);
     setIsLinkPrOpen(false);
     setDeleteTarget(null);
-    setActiveTab('comments');
-  }, [issue.id]);
+    setActiveTab(presentation === 'triage' ? 'activity' : 'comments');
+  }, [issue.id, presentation]);
 
   const updateMutation = useUpdateIssue();
   const deleteMutation = useDeleteIssue();
@@ -364,16 +366,16 @@ export function IssueDetailContent({ issue, presentation = 'sheet', onClose, isF
 
   const renderPanel = () => (
     <div data-issue-detail={presentation} className="flex min-h-0 flex-1 flex-col bg-background">
-      <header className="flex shrink-0 items-center justify-between gap-2 border-b border-border px-4 py-3 sm:px-6">
-        <div className="flex min-w-0 items-center gap-2">
-          {presentation === 'page' && <Button type="button" variant="ghost" size="icon-sm" aria-label="Back to issues" onClick={onClose}><ArrowLeft /></Button>}
+      <header className={cn('flex shrink-0 items-center justify-between gap-2 border-b border-border px-4 py-3 sm:px-6', presentation === 'triage' && 'flex-wrap')}>
+        <div className={cn('flex min-w-0 items-center gap-2', presentation === 'triage' && 'flex-1')}>
+          {presentation !== 'sheet' && <Button type="button" variant="ghost" size="icon-sm" className={presentation === 'triage' ? 'triage-back' : undefined} aria-label={presentation === 'triage' ? 'Back to queue' : 'Back to issues'} onClick={onClose}><ArrowLeft /></Button>}
           <span className="truncate font-mono text-xs text-muted-foreground">{issue.identifier}</span>
           {issue.archivedAt && <Badge variant="secondary">Archived</Badge>}
         </div>
         <div className="flex shrink-0 items-center gap-1">
           <Button type="button" variant="ghost" size="icon-sm" aria-label={subscriptionError ? 'Retry follow status' : subscription?.subscribed ? 'Unfollow issue' : 'Follow issue'} title={subscription?.subscribed ? 'Unfollow issue' : 'Follow issue'} disabled={subscriptionLoading || subscriptionMutation.isPending} onClick={() => subscriptionError ? void refetchSubscription() : subscriptionMutation.mutate(!subscription?.subscribed)}><Bell className={subscription?.subscribed ? 'fill-current' : ''} /></Button>
           <Button type="button" variant="ghost" size="icon-sm" aria-label={isFavorite ? 'Remove issue from favorites' : 'Add issue to favorites'} title="Favorite" disabled={!canFavorite || !onToggleFavorite} onClick={onToggleFavorite}><Star className={isFavorite ? 'fill-current' : ''} /></Button>
-          {presentation === 'sheet' && <Button variant="ghost" size="icon-sm" asChild><Link to={`/issues/${issue.id}`} state={{ returnTo: location.pathname + location.search }} aria-label="Open full page" title="Open full page"><ArrowUpRight /></Link></Button>}
+          {presentation !== 'page' && <Button variant="ghost" size="icon-sm" asChild><Link to={`/issues/${issue.id}`} state={{ returnTo: location.pathname + location.search }} aria-label="Open full page" title="Open full page"><ArrowUpRight /></Link></Button>}
           <DropdownMenu>
             <DropdownMenuTrigger asChild><Button type="button" variant="ghost" size="icon-sm" aria-label="Issue actions"><MoreHorizontal /></Button></DropdownMenuTrigger>
             <DropdownMenuContent align="end">
@@ -392,11 +394,12 @@ export function IssueDetailContent({ issue, presentation = 'sheet', onClose, isF
           </DropdownMenu>
           {presentation === 'sheet' && <Button type="button" variant="ghost" size="icon-sm" aria-label="Close" onClick={onClose}><X /></Button>}
         </div>
+        {headerActions && <div className="issue-triage-actions flex w-full flex-wrap items-center justify-end gap-2">{headerActions}</div>}
       </header>
 
       {/* Main Content Area */}
-      <div className={presentation === 'sheet' ? 'min-h-0 flex-1 overflow-y-auto px-5 py-6 sm:px-8' : 'px-1 py-6 sm:px-6 sm:py-8'}>
-        <div className={presentation === 'page' ? 'mx-auto grid w-full max-w-6xl grid-cols-1 gap-x-12 gap-y-7 lg:grid-cols-[minmax(0,1fr)_260px] [&>*:not(.issue-properties)]:min-w-0 [&>*:not(.issue-properties)]:lg:col-start-1' : 'mx-auto flex w-full max-w-2xl flex-col gap-6'}>
+      <div className={presentation === 'sheet' ? 'min-h-0 flex-1 overflow-y-auto px-5 py-6 sm:px-8' : presentation === 'triage' ? 'px-4 py-6 sm:px-6' : 'px-1 py-6 sm:px-6 sm:py-8'}>
+        <div className={presentation === 'triage' ? 'issue-content-grid mx-auto w-full max-w-6xl [&>*]:min-w-0' : presentation === 'page' ? 'mx-auto grid w-full max-w-6xl grid-cols-1 gap-x-12 gap-y-7 lg:grid-cols-[minmax(0,1fr)_260px] [&>*:not(.issue-properties)]:min-w-0 [&>*:not(.issue-properties)]:lg:col-start-1' : 'mx-auto flex w-full max-w-2xl flex-col gap-6'}>
           {/* Title: Geist display style with tight negative tracking, borderless default */}
           <div className="flex min-w-0 flex-col gap-1.5">
             <h1 className="sr-only">{issue.title}</h1>
@@ -414,10 +417,10 @@ export function IssueDetailContent({ issue, presentation = 'sheet', onClose, isF
           </div>
 
           {/* Properties are moved to a side column on the full page. */}
-          <aside aria-label="Issue properties" className={presentation === 'page' ? 'issue-properties min-w-0 lg:col-start-2 lg:row-start-1 lg:row-span-6 lg:border-l lg:border-border lg:pl-8' : 'min-w-0'}>
+          <aside aria-label="Issue properties" className={presentation === 'triage' ? 'issue-properties min-w-0' : presentation === 'page' ? 'issue-properties min-w-0 lg:col-start-2 lg:row-start-1 lg:row-span-6 lg:border-l lg:border-border lg:pl-8' : 'min-w-0'}>
           <h2 className="mb-4 text-sm font-medium">Properties</h2>
           <fieldset disabled={readOnly} className="min-w-0">
-          <FieldGroup className={presentation === 'page' ? 'grid grid-cols-2 gap-3 lg:grid-cols-1' : 'grid grid-cols-2 gap-3 sm:grid-cols-3'}>
+          <FieldGroup className={presentation === 'triage' ? 'issue-properties-grid' : presentation === 'page' ? 'grid grid-cols-2 gap-3 lg:grid-cols-1' : 'grid grid-cols-2 gap-3 sm:grid-cols-3'}>
             <Field><FieldLabel htmlFor="detail-status">Status</FieldLabel>
               <StatusPicker id="detail-status" teamId={issue.teamId} status={issue.status} appearance="badge" onStatusChange={status => updateMutation.mutate({ id: issue.id, data: { status } })} />
             </Field>
@@ -448,7 +451,7 @@ export function IssueDetailContent({ issue, presentation = 'sheet', onClose, isF
           </aside>
 
           {/* Description Section */}
-          <div className="flex flex-col gap-1.5">
+          <div className="issue-description flex flex-col gap-1.5">
             <label htmlFor="issue-description" className="text-xs text-muted-foreground">Description</label>
             <Textarea
               id="issue-description"
@@ -457,8 +460,8 @@ export function IssueDetailContent({ issue, presentation = 'sheet', onClose, isF
               onChange={(e) => setDescription(e.target.value)}
               onBlur={handleSaveDescription}
               placeholder="Add description, acceptance criteria, or context..."
-              rows={5}
-              className="min-h-32 resize-y leading-relaxed"
+              rows={presentation === 'triage' ? 2 : 5}
+              className={presentation === 'triage' ? 'triage-description min-h-0 resize-none rounded-none border-0 p-0 shadow-none focus-visible:ring-1' : 'min-h-32 resize-y leading-relaxed'}
             />
           </div>
 

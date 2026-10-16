@@ -41,6 +41,8 @@ export function useTriageAction() {
   }, onSuccess: (_issue, input) => {
     client.invalidateQueries({ queryKey: ['triage'] }); client.invalidateQueries({ queryKey: ['issues'] });
     client.invalidateQueries({ queryKey: ['issue-relations'] });
+    client.invalidateQueries({ queryKey: ['activities', input.id] });
+    client.invalidateQueries({ queryKey: ['teams'] });
     toast.success(input.action === 'accept' ? 'Issue routed from triage' : input.action === 'decline' ? 'Intake declined' : 'Duplicate linked and archived');
   }, onError: error => toast.error('Triage action failed', { description: error.message }) });
 }

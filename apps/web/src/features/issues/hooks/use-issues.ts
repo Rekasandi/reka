@@ -76,6 +76,7 @@ export function useCreateIssue() {
     mutationFn: (input: CreateIssueInput) => createIssue(input),
     onSuccess: (newIssue) => {
       queryClient.invalidateQueries({ queryKey: ISSUES_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: ['triage'] });
       toast.success(`Issue ${newIssue.identifier} created`, {
         description: newIssue.title,
       });
@@ -95,6 +96,7 @@ export function useUpdateIssue() {
     mutationFn: ({ id, data }: { id: string; data: IssuePatch }) => updateIssue(id, data),
     onSuccess: (updated, { data }) => {
       queryClient.invalidateQueries({ queryKey: ISSUES_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: ['triage'] });
       queryClient.invalidateQueries({ queryKey: ['subtasks'] });
       if (data.cycleId !== undefined) {
         queryClient.invalidateQueries({ queryKey: ['cycles'] });
@@ -118,6 +120,7 @@ export function useBulkUpdateIssues() {
     mutationFn: (input: BulkIssueUpdate) => updateIssues(input),
     onSuccess: (updated) => {
       queryClient.invalidateQueries({ queryKey: ISSUES_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: ['triage'] });
       toast.success(`Updated ${updated.length} issues`);
     },
     onError: (error) => toast.error('Bulk update failed', { description: (error as Error).message }),
@@ -130,6 +133,7 @@ export function useArchiveIssue() {
     mutationFn: ({ id, restore = false }: { id: string; restore?: boolean }) => archiveIssue(id, restore),
     onSuccess: (issue, { restore }) => {
       queryClient.invalidateQueries({ queryKey: ISSUES_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: ['triage'] });
       toast.success(restore ? `Restored ${issue.identifier}` : `Archived ${issue.identifier}`);
     },
     onError: (error) => toast.error('Issue action failed', { description: (error as Error).message }),
@@ -152,6 +156,7 @@ export function useDeleteIssue() {
     mutationFn: (id: string) => deleteIssue(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ISSUES_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: ['triage'] });
       queryClient.invalidateQueries({ queryKey: ['subtasks'] });
       toast.success('Issue deleted');
     },

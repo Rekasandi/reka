@@ -226,12 +226,16 @@ Alur ini **tidak wajib untuk setiap issue**. Pekerjaan yang sudah jelas dapat la
 
 ### Langkah 1 — Intake dan triage
 
-- Pilih form internal pada **Triage**, isi judul dan field wajib, lalu kirim.
+- Klik **+ / New intake** pada header antrean **Triage**, pilih form internal, isi judul dan field wajib, lalu kirim. Ikon **Templates** membuka pengelolaan form sesuai izin.
 - Pengelola form menetapkan properti default; hasil pengiriman masuk ke kategori triage tim.
-- Buka **Review** untuk memilih:
+- Antrean berada di kiri; klik judul issue untuk membaca detail, description, properties, activity, dan comments tanpa meninggalkan triage. Di desktop lebar, properties berada di kanan. Pada layar sempit, antrean dan detail bergantian; **Back to queue** mengembalikan fokus ke issue yang dipilih.
+- Cari judul atau identifier melalui **Search triage**. Pilihan issue memakai URL `?issueId=...`, tetap mempertahankan `teamId`, serta mendukung reload dan Back/Forward. **Open full page** membuka detail kanonis dan dapat kembali ke pilihan triage semula.
+- Dari toolbar detail, pilih tindakan berikut; form konfirmasi hanya menampilkan input yang sesuai:
   - **Accept:** menerima pekerjaan, memilih status kerja, tim tujuan, dan assignee yang memenuhi izin.
   - **Decline:** menolak dengan alasan; intake diarsipkan dan keputusan tercatat.
   - **Duplicate:** menghubungkan ke issue yang sudah ada; sumber intake tetap memiliki provenance dan diarsipkan.
+
+Setelah keputusan berhasil, antrean diperbarui dan pilihan berpindah ke intake berikutnya bila tersedia. Jika gagal, form dan input tetap terbuka dengan pesan error; keputusan tidak bisa dikirim ulang atau ditutup ketika masih diproses. Pengguna read-only tetap dapat membaca intake yang diizinkan, tetapi tidak dapat mengubah properties atau membuat keputusan.
 
 Triage adalah antrean pekerjaan **tim**, bukan notifikasi pribadi di Inbox. Form hanya untuk pengguna internal; tidak ada URL intake publik.
 

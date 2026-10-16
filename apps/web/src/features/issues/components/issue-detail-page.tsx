@@ -18,7 +18,7 @@ export function IssueDetailPage() {
   const returnTo = location.state?.returnTo as string | undefined;
   const close = () => {
     const target = returnTo?.startsWith('/') && !returnTo.startsWith('//') ? new URL(returnTo, window.location.origin) : null;
-    target?.searchParams.delete('issueId');
+    if (target?.pathname !== '/triage') target?.searchParams.delete('issueId');
     navigate(target ? target.pathname + target.search : '/issues');
   };
   React.useEffect(() => {

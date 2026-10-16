@@ -16,6 +16,7 @@ const teams = [{ id: 't1', canWrite: true, canManage: true, currentMemberRole: '
 const projects = [{ id: 'p1', teamId: 't1', name: 'Guest booking platform', slug: 'guest-booking', description: 'Booking, payments, and guest support.', ownerId: 'u1', status: 'in_progress', health: 'on_track', priority: 'medium', updatedAt: '2026-10-13', targetDate: '2027-02-27', progress: 33, totalIssues: 3, completedIssues: 1 }];
 const cycles = [{ id: 'cy1', teamId: 't1', name: 'October delivery', number: 12, description: 'Finish booking flow and payment testing.', status: 'active', isCompleted: false, startDate: '2026-10-01', endDate: '2026-10-20', progress: 33, totalIssues: 3, completedIssues: 1 }];
 const issues = ['in_progress', 'todo', 'done'].map((status, index) => ({ id: `i${index}`, identifier: `ENG-${index+1}`, number: index+1, title: ['Implement booking confirmation', 'Test payment reconciliation', 'Review guest checkout'][index], teamId: 't1', projectId: 'p1', cycleId: 'cy1', assigneeId: 'u1', reporterId: 'u1', priority: 'medium', type: 'task', labels: [], sortOrder: index, status, parentId: index === 1 ? 'i0' : null, createdAt: '2026-10-01', updatedAt: '2026-10-13' }));
+const triageIssue = { ...issues[0], id: 'intake1', identifier: 'ENG-4', number: 4, status: 'triage', statusCategory: 'triage', statusLabel: 'Triage', description: 'Investigate the steps supplied in the intake form.' };
 const clients = [{ id: 'c1', name: 'Bukit Vista Hospitality', industry: 'Travel & Hospitality', notes: 'Guest booking platform.', contactCount: 1, projectCount: 1, contacts: [{ id: 'ct1', name: 'Nadia Putri', email: 'nadia@example.com', role: 'Product lead' }], createdAt: '2026-09-27' }];
 const notifications = [{ id: 'n1', userId: 'u1', type: 'assignment', title: 'Booking confirmation assigned to you', body: 'Review the booking confirmation flow before the next release.', read: false, metadata: { issueIdentifier: 'ENG-1' }, createdAt: '2026-10-13T08:00:00Z' }];
 const documents = [{ id: 'd1', title: 'Delivery decision log', content: '# Delivery decisions\n\nCapture context, acceptance criteria, and next actions.', projectId: 'p1', teamId: null, archivedAt: null, updatedAt: '2026-10-13' }];
@@ -64,12 +65,13 @@ try {
       : path === '/api/initiatives/roadmap' ? roadmap : path === '/api/initiatives' ? initiatives : path === '/api/initiatives/in1' ? initiatives[0]
       : path.endsWith('/recurrence') ? null
       : path === '/api/views' ? views.filter(view => !requestUrl.searchParams.get('teamId') || !view.teamId || view.teamId === requestUrl.searchParams.get('teamId'))
-      : path === '/api/favorites' ? (favoritesMode === 'empty' ? [] : favorites) : path === '/api/triage' ? [{ ...issues[0], status: 'triage', statusLabel: 'Triage', description: 'Investigate the steps supplied in the intake form.' }]
+      : path === '/api/favorites' ? (favoritesMode === 'empty' ? [] : favorites) : path === '/api/triage' ? [triageIssue]
       : path === '/api/issue-templates' ? [{ id: 'it1', teamId: 't1', name: 'Bug report', fields: [{ key: 'details', label: 'Details', type: 'textarea', required: true }] }]
       : path === '/api/insights/overview' ? overview
       : path === '/api/insights/cycles' ? { velocity: { points: [], unmeasuredCompletedCycles: 0 }, burndown: { hasHistory: false, points: [] }, quality: { message: 'No snapshots yet.' } }
       : path === '/api/users' ? users : path === '/api/teams' ? (teamsMode === 'empty' ? [] : teams) : path === '/api/teams/t1' ? teams[0]
       : path === '/api/projects' ? projects : path === '/api/projects/p1' ? projects[0] : path === '/api/issues' ? issues
+      : path === '/api/issues/intake1' ? triageIssue
       : /^\/api\/issues\/i\d$/.test(path) ? issues.find(issue => issue.id === path.split('/').at(-1))
       : path === '/api/cycles' ? cycles : path === '/api/cycles/cy1' ? cycles[0] : path === '/api/clients' ? clients
       : path === '/api/notifications' ? notifications : path.endsWith('/unread-count') ? { count: 1 }

@@ -589,9 +589,9 @@ try {
   const [intakeIssue] = await postgres.db.select().from(issues).where(eq(issues.title, 'New browser report'));
   assert.equal(intakeIssue.status, 'triage');
   assert.match(intakeIssue.description, /Template answer persists/);
-  await page.getByText('New browser report', { exact: true }).waitFor();
-  await page.getByRole('button', { name: 'Review' }).last().click();
-  const review = page.getByRole('dialog', { name: `Review ${intakeIssue.identifier}` });
+  await page.getByRole('button', { name: `Review ${intakeIssue.identifier}: ${intakeIssue.title}`, exact: true }).click();
+  await page.getByRole('button', { name: 'Accept', exact: true }).click();
+  const review = page.getByRole('dialog', { name: `Accept ${intakeIssue.identifier}`, exact: true });
   await review.locator(`option[value="${member.id}"]`).waitFor({ state: 'attached' });
   await review.getByLabel('Route assignee').selectOption(member.id);
   const acceptRequest = page.waitForResponse(response => response.request().method() === 'POST' && new URL(response.url()).pathname === `/api/triage/${intakeIssue.id}/accept`);
@@ -610,9 +610,9 @@ try {
   await declineDialog.getByRole('button', { name: 'Submit to triage' }).click();
   assert.equal((await declinedSubmit).status(), 201);
   const [declinedIssue] = await postgres.db.select().from(issues).where(eq(issues.title, 'Decline browser report'));
-  await page.getByText('Decline browser report', { exact: true }).waitFor();
-  await page.getByRole('button', { name: 'Review' }).last().click();
-  const declineReview = page.getByRole('dialog', { name: `Review ${declinedIssue.identifier}` });
+  await page.getByRole('button', { name: `Review ${declinedIssue.identifier}: ${declinedIssue.title}`, exact: true }).click();
+  await page.getByRole('button', { name: 'Decline', exact: true }).click();
+  const declineReview = page.getByRole('dialog', { name: `Decline ${declinedIssue.identifier}`, exact: true });
   await declineReview.getByLabel('Decline reason').fill('Not actionable');
   const declineRequest = page.waitForResponse(response => response.request().method() === 'POST' && new URL(response.url()).pathname === `/api/triage/${declinedIssue.id}/decline`);
   await declineReview.getByRole('button', { name: 'Decline', exact: true }).click();
@@ -627,9 +627,9 @@ try {
   await duplicateSubmitDialog.getByRole('button', { name: 'Submit to triage' }).click();
   assert.equal((await duplicateSubmit).status(), 201);
   const [duplicateIssue] = await postgres.db.select().from(issues).where(eq(issues.title, 'Duplicate browser report'));
-  await page.getByText('Duplicate browser report', { exact: true }).waitFor();
-  await page.getByRole('button', { name: 'Review' }).last().click();
-  const duplicateReview = page.getByRole('dialog', { name: `Review ${duplicateIssue.identifier}` });
+  await page.getByRole('button', { name: `Review ${duplicateIssue.identifier}: ${duplicateIssue.title}`, exact: true }).click();
+  await page.getByRole('button', { name: 'Duplicate', exact: true }).click();
+  const duplicateReview = page.getByRole('dialog', { name: `Mark duplicate ${duplicateIssue.identifier}`, exact: true });
   await duplicateReview.getByLabel('Duplicate target').selectOption(persisted.id);
   const duplicateRequest = page.waitForResponse(response => response.request().method() === 'POST' && new URL(response.url()).pathname === `/api/triage/${duplicateIssue.id}/duplicate`);
   await duplicateReview.getByRole('button', { name: 'Mark duplicate' }).click();

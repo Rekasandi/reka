@@ -1,62 +1,128 @@
 import * as React from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Alert, AlertDescription, Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Input, Skeleton, Textarea } from '@reka/ui';
+import { Alert, AlertDescription, Avatar, AvatarFallback, AvatarImage, Badge, Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Field, FieldGroup, FieldLabel, Input, Skeleton, Textarea, cn } from '@reka/ui';
 import { Archive, Check, ClipboardList, Copy, Plus, Trash2 } from 'lucide-react';
+import { formatDistanceToNow } from 'date-fns';
+import { IssueDetailContent } from './issue-detail-sheet';
+import { useFavorites, useToggleFavorite } from '../../views/hooks/use-views';
 import { useTeams } from '../../teams/hooks/use-teams';
 import { useTeamWorkflowStates } from '../../teams/hooks/use-teams';
-import { useIssues } from '../hooks/use-issues';
+import { useIssue, useIssues } from '../hooks/use-issues';
 import { useUsers } from '../../users/hooks/use-users';
 import { useAuthStore } from '../../../stores/auth.store';
 import { useCreateIssueTemplate, useDeleteIssueTemplate, useIssueTemplates, useSubmitIssueTemplate, useTriage, useTriageAction } from '../hooks/use-triage';
 import type { IntakeField, IssueTemplate } from '../api/triage.api';
-import type { Issue } from '@reka/types';
+import { getIssueStatusCategory, type Issue } from '@reka/types';
+
+type Decision = 'accept' | 'decline' | 'duplicate';
 
 const formFields: IntakeField[] = [{ key: 'details', label: 'What should we know?', type: 'textarea', required: true }];
 const templateDefaults = { titlePrefix: '', description: '', defaultStatus: 'triage', defaultType: 'task', defaultPriority: 'no_priority', defaultEstimate: null, fields: formFields };
 
 export function TriagePage() {
-  const [params] = useSearchParams();
+  const [params, setParams] = useSearchParams();
   const teamId = params.get('teamId');
   const { user } = useAuthStore();
   const { data: teams = [] } = useTeams();
   const { data: allTriage = [], isLoading, isError, refetch } = useTriage();
   const queue = teamId ? allTriage.filter(issue => issue.teamId === teamId) : allTriage;
   const { data: templates = [], isError: templatesError, isLoading: templatesLoading, refetch: refetchTemplates } = useIssueTemplates();
-  const { data: issues = [] } = useIssues();
+  const { data: users = [] } = useUsers();
   const createTemplate = useCreateIssueTemplate();
   const deleteTemplate = useDeleteIssueTemplate();
   const submitTemplate = useSubmitIssueTemplate();
   const action = useTriageAction();
   const [templateManagerOpen, setTemplateManagerOpen] = React.useState(false);
   const [submitOpen, setSubmitOpen] = React.useState(false);
-  const [reviewIssue, setReviewIssue] = React.useState<Issue | null>(null);
+  const [decision, setDecision] = React.useState<{ issue: Issue; mode: Decision } | null>(null);
+  const [search, setSearch] = React.useState('');
+  const [returnFocusId, setReturnFocusId] = React.useState<string | null>(null);
+  const selectedId = params.get('issueId');
+  const visibleQueue = queue.filter(issue => `${issue.identifier} ${issue.title}`.toLowerCase().includes(search.trim().toLowerCase()));
+  const selectedIssue = selectedId ? queue.find(issue => issue.id === selectedId) : visibleQueue[0];
+  const selectIssue = (id?: string, replace = false) => {
+    const next = new URLSearchParams(params);
+    if (id) next.set('issueId', id); else next.delete('issueId');
+    setParams(next, { replace, preventScrollReset: true });
+  };
+  const closeReview = () => {
+    setReturnFocusId(selectedIssue?.id ?? null);
+    selectIssue();
+  };
+  React.useEffect(() => {
+    if (selectedId || !returnFocusId) return;
+    const button = document.querySelector<HTMLButtonElement>(`[data-triage-item="${CSS.escape(returnFocusId)}"]`);
+    if (button?.checkVisibility()) {
+      button.focus({ preventScroll: true });
+      setReturnFocusId(null);
+    }
+  }, [selectedId, returnFocusId]);
+  const resolved = (id: string) => {
+    const index = visibleQueue.findIndex(issue => issue.id === id);
+    const next = visibleQueue[index + 1] ?? visibleQueue[index - 1];
+    selectIssue(next?.id, true);
+    setDecision(null);
+  };
   const canManage = user?.role === 'owner' || user?.role === 'admin' || teams.some(team => team.canManage);
   const writableTeams = teams.filter(team => team.canWrite);
   const intakeTemplates = templates.filter(template => !template.teamId || writableTeams.some(team => team.id === template.teamId));
 
-  return <main className="flex w-full min-w-0 flex-col gap-5 pb-10">
-    <header className="flex flex-wrap items-end justify-between gap-4">
-      <div><h1 className="text-xl font-semibold tracking-tight sm:text-2xl">Triage</h1><p className="mt-1 max-w-xl text-xs text-muted-foreground">Review incoming work, route it to a team, or close the loop with a decline or duplicate.</p></div>
-      <div className="flex gap-2"><Button type="button" variant="outline" onClick={() => setTemplateManagerOpen(true)} disabled={!canManage}><ClipboardList />Templates</Button><Button type="button" onClick={() => setSubmitOpen(true)} disabled={templatesLoading || !intakeTemplates.length || !writableTeams.length}><Plus />New intake</Button></div>
-    </header>
+  const canSubmit = !templatesLoading && intakeTemplates.length > 0 && writableTeams.length > 0 && !!user && !['guest', 'client'].includes(user.role);
 
-    {isError && <Alert variant="destructive"><AlertDescription className="flex items-center justify-between gap-3">Triage queue could not be loaded.<Button type="button" variant="outline" size="sm" onClick={() => void refetch()}>Retry</Button></AlertDescription></Alert>}
-    {templatesError && <Alert variant="destructive"><AlertDescription className="flex items-center justify-between gap-3">Intake forms could not be loaded.<Button type="button" variant="outline" size="sm" onClick={() => void refetchTemplates()}>Retry</Button></AlertDescription></Alert>}
-    <section aria-label="Triage queue" className="overflow-hidden rounded-lg border border-border/70 bg-card/30">
-      <div className="flex items-center justify-between border-b border-border/70 px-4 py-3"><div><h2 className="text-sm font-medium">Needs review</h2><p className="text-xs text-muted-foreground">{queue.length} incoming {queue.length === 1 ? 'issue' : 'issues'}</p></div><span className="text-xs text-muted-foreground">Team triage</span></div>
-      {isLoading ? <div role="status" aria-label="Loading triage queue" className="flex flex-col gap-3 p-4">{[0, 1, 2].map(item => <Skeleton key={item} className="h-14 w-full" />)}</div> : isError ? null : queue.length === 0 ? <div className="flex flex-col items-center gap-2 px-6 py-12 text-center"><ClipboardList className="size-6 text-muted-foreground/60" /><p className="text-sm font-medium">Nothing waiting for review</p><p className="text-xs text-muted-foreground">Use an internal intake form to submit the first issue.</p><Button type="button" size="sm" onClick={() => setSubmitOpen(true)} disabled={templatesLoading || !intakeTemplates.length || !writableTeams.length}>New intake</Button></div> : <ul className="divide-y divide-border/70">{queue.map((issue: Issue) => {
-        const team = teams.find(item => item.id === issue.teamId);
-        return <li key={issue.id} className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="min-w-0"><div className="flex items-center gap-2"><span className="font-mono text-[11px] text-muted-foreground">{team?.key}-{issue.number}</span><span className="rounded bg-orange-500/10 px-1.5 py-0.5 text-[10px] font-medium text-orange-700 dark:text-orange-300">{issue.statusLabel ?? 'Triage'}</span></div><p className="mt-1 truncate text-sm font-medium">{issue.title}</p><p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">{issue.description || 'No intake details provided.'}</p></div>
-          <Button type="button" variant="outline" size="sm" className="shrink-0" onClick={() => setReviewIssue(issue)} disabled={!team?.canWrite}>Review</Button>
-        </li>;
-      })}</ul>}
-    </section>
-
+  return <div className="triage-page @container/triage -m-4 flex min-w-0 flex-col bg-background sm:-m-6">
+    {(isError || templatesError) && <div className="flex shrink-0 flex-col gap-2 p-4">
+      {isError && <Alert variant="destructive"><AlertDescription className="flex items-center justify-between gap-3">Triage queue could not be loaded.<Button type="button" variant="outline" size="sm" onClick={() => void refetch()}>Retry</Button></AlertDescription></Alert>}
+      {templatesError && <Alert variant="destructive"><AlertDescription className="flex items-center justify-between gap-3">Intake forms could not be loaded.<Button type="button" variant="outline" size="sm" onClick={() => void refetchTemplates()}>Retry</Button></AlertDescription></Alert>}
+    </div>}
+    <div className="grid min-h-0 flex-1 grid-cols-1 @min-[48rem]/triage:grid-cols-[18rem_minmax(0,1fr)] @min-[72rem]/triage:grid-cols-[20rem_minmax(0,1fr)]">
+      <section aria-label="Triage queue" className={cn('min-h-0 min-w-0 flex-col border-border @min-[48rem]/triage:flex @min-[48rem]/triage:border-r', selectedId ? 'hidden' : 'flex')}>
+        <header className="flex shrink-0 items-center justify-between gap-3 border-b border-border px-4 py-3">
+          <div className="min-w-0"><div className="flex items-center gap-2"><h1 className="text-xl font-semibold tracking-[-0.02em]">Triage</h1><Badge variant="outline" className="tabular-nums">{queue.length}</Badge></div><p className="mt-1 truncate text-xs text-muted-foreground">{teamId ? teams.find(team => team.id === teamId)?.name ?? 'Team triage' : 'Team triage'}</p></div>
+          <div className="flex shrink-0 gap-1"><Button type="button" variant="ghost" size="icon-sm" aria-label="Templates" title="Templates" onClick={() => setTemplateManagerOpen(true)} disabled={!canManage}><ClipboardList /></Button><Button type="button" size="icon-sm" aria-label="New intake" title="New intake" onClick={() => setSubmitOpen(true)} disabled={!canSubmit}><Plus /></Button></div>
+        </header>
+        <div className="shrink-0 px-3 py-3"><Input type="search" aria-label="Search triage" placeholder="Search triage…" value={search} onChange={event => setSearch(event.target.value)} /></div>
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 pb-3">
+          {isLoading ? <div role="status" aria-label="Loading triage queue" className="flex flex-col gap-2">{[0, 1, 2, 3].map(item => <Skeleton key={item} className="h-16 w-full rounded-[6px]" />)}</div> : isError ? null : !queue.length ? <div className="flex flex-col items-center gap-3 px-4 py-12 text-center"><ClipboardList className="size-6 text-muted-foreground" /><h2 className="text-sm font-medium">Nothing waiting for review</h2><p className="text-xs text-muted-foreground">New internal submissions will appear here.</p><Button type="button" size="sm" variant="outline" onClick={() => setSubmitOpen(true)} disabled={!canSubmit}>New intake</Button></div> : !visibleQueue.length ? <div className="flex flex-col items-center gap-3 px-4 py-8 text-center text-sm"><p>No matching intake.</p><Button variant="outline" size="sm" onClick={() => setSearch('')}>Clear search</Button></div> : <ul aria-label="Incoming issues" className="flex flex-col gap-1">{visibleQueue.map(issue => {
+            const reporter = users.find(person => person.id === issue.reporterId);
+            const date = new Date(issue.createdAt);
+            const hasDate = Number.isFinite(date.getTime());
+            return <li key={issue.id}><button type="button" data-triage-item={issue.id} aria-label={`Review ${issue.identifier}: ${issue.title}`} aria-current={selectedIssue?.id === issue.id ? 'true' : undefined} onClick={() => selectIssue(issue.id)} className={cn('flex w-full min-w-0 flex-col gap-2 rounded-[6px] px-3 py-3 text-left transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset', selectedIssue?.id === issue.id && 'bg-secondary')}>
+              <span className="flex w-full min-w-0 items-baseline gap-2"><span className="min-w-0 flex-1 truncate text-sm" title={issue.title}>{issue.title}</span><span className="shrink-0 text-xs tabular-nums text-muted-foreground">{issue.identifier}</span></span>
+              <span className="flex w-full min-w-0 items-center justify-between gap-2 text-xs text-muted-foreground"><span className="flex min-w-0 items-center gap-2"><Avatar className="size-4"><AvatarImage src={reporter?.avatarUrl ?? undefined} /><AvatarFallback>{reporter?.name.slice(0, 1) ?? '?'}</AvatarFallback></Avatar><span className="truncate">{reporter?.name ?? 'Unknown reporter'}</span></span><time className="shrink-0" dateTime={hasDate ? date.toISOString() : undefined} title={hasDate ? date.toLocaleString() : undefined}>{hasDate ? formatDistanceToNow(date, { addSuffix: true }) : 'Date unavailable'}</time></span>
+            </button></li>;
+          })}</ul>}
+        </div>
+      </section>
+      <section aria-label="Triage review" className={cn('min-h-0 min-w-0 overflow-y-auto overscroll-contain @min-[48rem]/triage:block', selectedId ? 'block' : 'hidden')}>
+        {selectedIssue && !isError ? <TriageDetail key={selectedIssue.id} issueId={selectedIssue.id} onClose={closeReview} onDecision={(issue, mode) => setDecision({ issue, mode })} /> : <div className="flex h-full flex-col items-center justify-center gap-3 px-6 py-12 text-center"><ClipboardList className="size-6 text-muted-foreground" /><h2 className="text-sm font-medium">{selectedId && !isLoading && !isError ? 'Intake unavailable' : isLoading ? 'Loading incoming work…' : isError ? 'Queue unavailable' : 'Select an intake to review'}</h2><p className="max-w-sm text-sm text-muted-foreground">{selectedId ? 'This issue may have left triage, or is not available in this team.' : 'Review the details, then accept, decline, or mark it as a duplicate.'}</p>{selectedId && <Button variant="outline" onClick={() => selectIssue()}>Back to queue</Button>}</div>}
+      </section>
+    </div>
     <TemplateManager open={templateManagerOpen} onOpenChange={setTemplateManagerOpen} teams={teams} templates={templates} createTemplate={createTemplate} deleteTemplate={deleteTemplate} canManage={canManage} canManageWorkspace={user?.role === 'owner' || user?.role === 'admin'} />
     <IntakeDialog open={submitOpen} onOpenChange={setSubmitOpen} templates={intakeTemplates} teams={writableTeams} submitTemplate={submitTemplate} />
-    {reviewIssue && <ReviewDialog issue={reviewIssue} open={!!reviewIssue} onOpenChange={open => { if (!open) setReviewIssue(null); }} teams={writableTeams} issues={issues} action={action} />}
-  </main>;
+    {decision && <ReviewDialog key={`${decision.issue.id}:${decision.mode}`} issue={decision.issue} mode={decision.mode} open onOpenChange={open => { if (!open) setDecision(null); }} onResolved={() => resolved(decision.issue.id)} teams={writableTeams} action={action} />}
+  </div>;
+}
+
+function TriageDetail({ issueId, onClose, onDecision }: { issueId: string; onClose: () => void; onDecision: (issue: Issue, mode: Decision) => void }) {
+  const query = useIssue(issueId);
+  const favorites = useFavorites();
+  const toggle = useToggleFavorite();
+  const user = useAuthStore(state => state.user);
+  const { data: teams = [] } = useTeams();
+  React.useEffect(() => {
+    if (!query.isSuccess) return;
+    const back = document.querySelector<HTMLButtonElement>('[data-issue-detail="triage"] .triage-back');
+    if (back?.checkVisibility()) back.focus({ preventScroll: true });
+  }, [query.isSuccess, issueId]);
+  if (query.isPending) return <div role="status" aria-label="Loading intake details" className="flex flex-col gap-6 p-6"><Skeleton className="h-8 w-3/4" /><Skeleton className="h-32 w-full" /><Skeleton className="h-20 w-full" /></div>;
+  if (query.isError || !query.data) return <div className="flex flex-col gap-4 p-6"><Button variant="outline" className="w-fit" onClick={onClose}>Back to queue</Button><Alert variant="destructive"><AlertDescription>Could not load intake details. It may have been removed or you may not have access.</AlertDescription></Alert><Button variant="outline" className="w-fit" onClick={() => void query.refetch()}>Retry details</Button></div>;
+  const issue = query.data;
+  const isFavorite = favorites.data?.some(item => item.resourceType === 'issue' && item.resourceId === issue.id) ?? false;
+  const canReview = !!user && !['guest', 'client'].includes(user.role) && teams.some(team => team.id === issue.teamId && team.canWrite) && !issue.archivedAt && getIssueStatusCategory(issue) === 'triage';
+  return <IssueDetailContent key={issue.id} issue={issue} presentation="triage" onClose={onClose} isFavorite={isFavorite}
+    canFavorite={!!user && !['guest', 'client'].includes(user.role) && favorites.isSuccess && !toggle.isPending}
+    onToggleFavorite={() => toggle.mutate({ resourceType: 'issue', resourceId: issue.id, favorite: !isFavorite })}
+    headerActions={<><Button size="sm" variant="outline" disabled={!canReview} onClick={() => onDecision(issue, 'accept')}><Check data-icon="inline-start" />Accept</Button><Button size="sm" variant="ghost" disabled={!canReview} onClick={() => onDecision(issue, 'decline')}><Archive data-icon="inline-start" />Decline</Button><Button size="sm" variant="ghost" disabled={!canReview} onClick={() => onDecision(issue, 'duplicate')}><Copy data-icon="inline-start" />Duplicate</Button></>} />;
 }
 
 function TemplateManager({ open, onOpenChange, teams, templates, createTemplate, deleteTemplate, canManage, canManageWorkspace }: {
@@ -116,11 +182,12 @@ function IntakeDialog({ open, onOpenChange, templates, teams, submitTemplate }: 
   </DialogContent></Dialog>;
 }
 
-function ReviewDialog({ issue, open, onOpenChange, teams, issues, action }: {
-  issue: Issue; open: boolean; onOpenChange: (open: boolean) => void;
-  teams: { id: string; name: string; key: string; canWrite?: boolean; isPrivate?: boolean; members?: { userId: string }[] }[]; issues: Issue[]; action: ReturnType<typeof useTriageAction>;
+function ReviewDialog({ issue, mode, open, onOpenChange, onResolved, teams, action }: {
+  issue: Issue; mode: Decision; open: boolean; onOpenChange: (open: boolean) => void; onResolved: () => void;
+  teams: { id: string; name: string; key: string; canWrite?: boolean; isPrivate?: boolean; members?: { userId: string }[] }[]; action: ReturnType<typeof useTriageAction>;
 }) {
-  const { data: users = [] } = useUsers();
+  const { data: users = [], isError: usersError, refetch: refetchUsers } = useUsers();
+  const { data: issues = [], isPending: issuesLoading, isError: issuesError, refetch: refetchIssues } = useIssues();
   const [teamId, setTeamId] = React.useState(issue.teamId);
   const [assigneeId, setAssigneeId] = React.useState(issue.assigneeId ?? '');
   const [status, setStatus] = React.useState('');
@@ -129,8 +196,8 @@ function ReviewDialog({ issue, open, onOpenChange, teams, issues, action }: {
   const workflow = useTeamWorkflowStates(teamId);
   React.useEffect(() => {
     if (!open) return;
-    setTeamId(issue.teamId); setAssigneeId(issue.assigneeId ?? ''); setStatus(''); setReason(''); setTargetId('');
-  }, [open, issue.id]);
+    setTeamId(issue.teamId); setAssigneeId(issue.assigneeId ?? ''); setStatus(''); setReason(''); setTargetId(''); action.reset();
+  }, [open, issue.id, mode]);
   React.useEffect(() => {
     const state = ['unstarted', 'started', 'backlog'].map(category => workflow.data?.find(item => item.isActive && item.category === category)).find(Boolean);
     if (state) setStatus(current => workflow.data?.some(item => item.key === current && item.isActive) ? current : state.key);
@@ -141,18 +208,33 @@ function ReviewDialog({ issue, open, onOpenChange, teams, issues, action }: {
     if (assigneeId && users.length && !availableUsers.some(user => user.id === assigneeId)) setAssigneeId('');
   }, [teamId, users, assigneeId]);
   const targetTeamIssues = issues.filter(item => item.id !== issue.id && item.teamId === issue.teamId && !item.archivedAt);
-  const accept = async () => { try { await action.mutateAsync({ action: 'accept', id: issue.id, teamId, status, assigneeId: assigneeId || null }); onOpenChange(false); } catch { /* mutation toast reports API errors */ } };
-  const decline = async () => { try { await action.mutateAsync({ action: 'decline', id: issue.id, reason }); onOpenChange(false); } catch { /* mutation toast reports API errors */ } };
-  const duplicate = async () => { if (!targetId) return; try { await action.mutateAsync({ action: 'duplicate', id: issue.id, targetId }); onOpenChange(false); } catch { /* mutation toast reports API errors */ } };
-  return <Dialog open={open} onOpenChange={onOpenChange}><DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-xl"><DialogHeader><DialogTitle>Review {issue.identifier}</DialogTitle><DialogDescription>Inspect the incoming details and choose a team workflow outcome.</DialogDescription></DialogHeader>
-    <div className="flex flex-col gap-3"><div className="rounded-md border border-border/70 bg-muted/20 p-3"><h3 className="text-sm font-medium">{issue.title}</h3><p className="mt-2 whitespace-pre-wrap text-sm text-muted-foreground">{issue.description || 'No details supplied.'}</p></div>
-      <label className="flex flex-col gap-1 text-xs font-medium">Route to team<select aria-label="Route to team" value={teamId} onChange={event => { setTeamId(event.target.value); setStatus(''); }} className="h-9 rounded-md border border-input bg-background px-2 text-sm">{teams.map(team => <option key={team.id} value={team.id}>{team.name} ({team.key})</option>)}</select></label>
-      <label className="flex flex-col gap-1 text-xs font-medium">Accepted status<select aria-label="Accepted status" value={status} onChange={event => setStatus(event.target.value)} className="h-9 rounded-md border border-input bg-background px-2 text-sm">{(workflow.data ?? []).filter(state => state.isActive && ['backlog', 'unstarted', 'started'].includes(state.category)).map(state => <option key={state.key} value={state.key}>{state.name}</option>)}</select></label>
-      <label className="flex flex-col gap-1 text-xs font-medium">Assignee<select aria-label="Route assignee" value={assigneeId || 'none'} onChange={event => setAssigneeId(event.target.value === 'none' ? '' : event.target.value)} className="h-9 rounded-md border border-input bg-background px-2 text-sm"><option value="none">Unassigned</option>{availableUsers.map(user => <option key={user.id} value={user.id}>{user.name} ({user.role})</option>)}</select></label>
-      {workflow.isError && <div role="alert" className="flex items-center justify-between rounded-md border border-destructive/40 px-3 py-2 text-xs text-destructive">Could not load destination workflow.<Button type="button" variant="ghost" size="xs" onClick={() => void workflow.refetch()}>Retry</Button></div>}
-      <label className="flex flex-col gap-1 text-xs font-medium">Decline reason (optional)<Textarea aria-label="Decline reason" maxLength={500} value={reason} onChange={event => setReason(event.target.value)} /></label>
-      <label className="flex flex-col gap-1 text-xs font-medium">Duplicate of<select aria-label="Duplicate target" value={targetId} onChange={event => setTargetId(event.target.value)} className="h-9 rounded-md border border-input bg-background px-2 text-sm"><option value="">Choose existing issue</option>{targetTeamIssues.map(target => <option key={target.id} value={target.id}>{target.identifier} · {target.title}</option>)}</select></label>
-    </div>
-    <DialogFooter className="flex-wrap sm:justify-between"><Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Close</Button><div className="flex flex-wrap gap-2"><Button type="button" variant="ghost" onClick={() => void decline()} disabled={action.isPending}><Archive />Decline</Button><Button type="button" variant="outline" onClick={() => void duplicate()} disabled={action.isPending || !targetId}><Copy />Mark duplicate</Button><Button type="button" onClick={() => void accept()} disabled={action.isPending || !teamId || !status}><Check />Accept & route</Button></div></DialogFooter>
+  const workStates = (workflow.data ?? []).filter(state => state.isActive && ['backlog', 'unstarted', 'started'].includes(state.category));
+  const submit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    try {
+      if (mode === 'accept') await action.mutateAsync({ action: mode, id: issue.id, teamId, status, assigneeId: assigneeId || null });
+      else if (mode === 'decline') await action.mutateAsync({ action: mode, id: issue.id, reason });
+      else await action.mutateAsync({ action: mode, id: issue.id, targetId });
+      onResolved();
+    } catch { /* Keep the form and its values open; the inline error and mutation toast explain the failure. */ }
+  };
+  const disabled = action.isPending || (mode === 'accept' ? !teamId || workflow.isPending || workflow.isError || !workStates.some(state => state.key === status) || (!!assigneeId && (usersError || !availableUsers.some(user => user.id === assigneeId))) : mode === 'duplicate' ? issuesLoading || issuesError || !targetTeamIssues.some(target => target.id === targetId) : false);
+  const heading = mode === 'accept' ? 'Accept' : mode === 'decline' ? 'Decline' : 'Mark duplicate';
+  return <Dialog open={open} onOpenChange={next => { if (!action.isPending) onOpenChange(next); }}><DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-lg"><DialogHeader><DialogTitle>{heading} {issue.identifier}</DialogTitle><DialogDescription>{mode === 'accept' ? 'Choose a destination team, work status, and assignee. The issue will leave triage.' : mode === 'decline' ? 'This intake will be archived, not deleted. Add an optional reason to the activity record.' : 'Link this intake to an existing issue in the same team, then archive the duplicate.'}</DialogDescription></DialogHeader>
+    <form onSubmit={submit} className="flex flex-col gap-4">
+      <p className="break-words text-sm font-medium">{issue.title}</p>
+      {mode === 'accept' && <FieldGroup>
+        <Field><FieldLabel htmlFor="triage-route-team">Route to team</FieldLabel><select id="triage-route-team" aria-label="Route to team" value={teamId} disabled={action.isPending} onChange={event => { setTeamId(event.target.value); setStatus(''); }} className="h-9 rounded-[6px] border border-input bg-background px-2 text-sm">{teams.map(team => <option key={team.id} value={team.id}>{team.name} ({team.key})</option>)}</select></Field>
+        <Field><FieldLabel htmlFor="triage-route-status">Accepted status</FieldLabel><select id="triage-route-status" aria-label="Accepted status" value={status} disabled={action.isPending || workflow.isPending || workflow.isError} onChange={event => setStatus(event.target.value)} className="h-9 rounded-[6px] border border-input bg-background px-2 text-sm">{workStates.map(state => <option key={state.key} value={state.key}>{state.name}</option>)}</select></Field>
+        {workflow.isError && <Alert variant="destructive"><AlertDescription>Could not load destination workflow.<Button type="button" variant="outline" size="sm" onClick={() => void workflow.refetch()}>Retry workflow</Button></AlertDescription></Alert>}
+        {!workflow.isPending && !workflow.isError && !workStates.length && <p className="text-xs text-muted-foreground">Configure an active work state for this team before accepting intake.</p>}
+        <Field><FieldLabel htmlFor="triage-route-assignee">Assignee</FieldLabel><select id="triage-route-assignee" aria-label="Route assignee" value={assigneeId || 'none'} disabled={action.isPending} onChange={event => setAssigneeId(event.target.value === 'none' ? '' : event.target.value)} className="h-9 rounded-[6px] border border-input bg-background px-2 text-sm"><option value="none">Unassigned</option>{availableUsers.map(user => <option key={user.id} value={user.id}>{user.name} ({user.role})</option>)}</select></Field>
+        {usersError && <Alert variant="destructive"><AlertDescription>Could not load assignees.<Button type="button" variant="outline" size="sm" onClick={() => void refetchUsers()}>Retry assignees</Button></AlertDescription></Alert>}
+      </FieldGroup>}
+      {mode === 'decline' && <Field><FieldLabel htmlFor="triage-decline-reason">Decline reason (optional)</FieldLabel><Textarea id="triage-decline-reason" aria-label="Decline reason" disabled={action.isPending} maxLength={500} value={reason} onChange={event => setReason(event.target.value)} placeholder="Why is this not actionable?" /></Field>}
+      {mode === 'duplicate' && <Field><FieldLabel htmlFor="triage-duplicate-target">Duplicate of</FieldLabel><select id="triage-duplicate-target" aria-label="Duplicate target" value={targetId} disabled={action.isPending || issuesLoading || issuesError} onChange={event => setTargetId(event.target.value)} className="h-9 min-w-0 rounded-[6px] border border-input bg-background px-2 text-sm"><option value="">Choose existing issue</option>{targetTeamIssues.map(target => <option key={target.id} value={target.id}>{target.identifier} · {target.title}</option>)}</select>{issuesError ? <Alert variant="destructive"><AlertDescription>Could not load duplicate targets.<Button type="button" variant="outline" size="sm" onClick={() => void refetchIssues()}>Retry issues</Button></AlertDescription></Alert> : !issuesLoading && !targetTeamIssues.length && <p className="text-xs text-muted-foreground">No other active issue in this team is available to link.</p>}</Field>}
+      {action.isError && <Alert variant="destructive"><AlertDescription>{action.error.message}</AlertDescription></Alert>}
+      <DialogFooter><Button type="button" variant="outline" disabled={action.isPending} onClick={() => onOpenChange(false)}>Cancel</Button><Button type="submit" variant={mode === 'decline' ? 'destructive' : 'default'} disabled={disabled}>{action.isPending ? 'Saving…' : mode === 'accept' ? 'Accept & route' : heading}</Button></DialogFooter>
+    </form>
   </DialogContent></Dialog>;
 }
