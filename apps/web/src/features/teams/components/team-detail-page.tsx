@@ -16,7 +16,6 @@ import {
   SelectValue,
 } from '@reka/ui';
 import {
-  ArrowLeft,
   Plus,
   Users,
   CheckSquare,
@@ -122,28 +121,16 @@ export function TeamDetailPage() {
 
   return (
     <div className="team-detail-page flex min-w-0 flex-col gap-5 max-w-none mx-auto selection:bg-foreground selection:text-background pb-10">
-      {/* Top back navigation */}
-      <div className="flex items-center justify-between">
-        <Link
-          to="/teams"
-          className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
-        >
-          <ArrowLeft className="size-3.5" />
-          <span>Back to Teams</span>
-        </Link>
-
-        <div className="flex items-center gap-2">
-          {team.canJoin && <Button variant="outline" size="sm" disabled={joinMutation.isPending} onClick={() => joinMutation.mutate()}>{joinMutation.isPending ? 'Joining…' : 'Join team'}</Button>}
-        </div>
-      </div>
-
       <header className="flex flex-col gap-4">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex min-w-0 items-center gap-3">
             <span aria-hidden="true" className="flex size-10 shrink-0 items-center justify-center rounded-[6px] border border-border bg-secondary text-muted-foreground"><TeamIcon className="size-5" /></span>
             <div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><h1 className="min-w-0 break-words text-xl font-semibold tracking-[-0.03em] text-foreground sm:text-2xl">{team.name}</h1>{team.isPrivate && <Badge variant="outline"><LockKeyhole data-icon="inline-start" />Private</Badge>}</div>{team.description && <p className="mt-1 max-w-3xl break-words text-sm text-muted-foreground">{team.description}</p>}</div>
           </div>
-          {team.canWrite && activeTab === 'home' && <Button size="sm" onClick={() => setIsCreateIssueOpen(true)}><Plus data-icon="inline-start" /><span>New Team Issue</span></Button>}
+          {(team.canJoin || (team.canWrite && activeTab === 'home')) && <div className="flex flex-wrap items-center gap-2">
+            {team.canJoin && <Button variant="outline" size="sm" disabled={joinMutation.isPending} onClick={() => joinMutation.mutate()}>{joinMutation.isPending ? 'Joining…' : 'Join team'}</Button>}
+            {team.canWrite && activeTab === 'home' && <Button size="sm" onClick={() => setIsCreateIssueOpen(true)}><Plus data-icon="inline-start" /><span>New Team Issue</span></Button>}
+          </div>}
         </div>
         <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-muted-foreground">
           <span className="inline-flex items-center gap-1.5"><Users aria-hidden="true" className="size-3.5" />{memberCount} {memberCount === 1 ? 'member' : 'members'}</span>

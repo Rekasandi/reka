@@ -199,6 +199,10 @@ Audit elemen pilihan pengguna pada `/teams/:id` menemukan header/key berulang, t
 - Saat salah satu save pending, input/checkbox/add-state/save terkait dinonaktifkan; Delete team pada halaman utama juga menunggu save selesai. Add state tidak aktif jika workflow gagal/belum berhasil dimuat. Error save workflow mempertahankan draft. Delete tetap hanya pada capability existing dan membutuhkan konfirmasi, tidak ada penghapusan data asli.
 - Verifikasi: web type-check/production build, `settings-navigation.mjs` (save/reload/privacy/workflow error/pending/retry, role help/last-lead, keyboard/history, serta **20 tambahan viewport/theme/tab renders**), audit seluruh app **39 route / 156 renders** tanpa findings. `workspace-access-real-api.mjs` memverifikasi UI → Nest → isolated Postgres untuk create/anggota/role/remove/leave/private access/restart dan non-admin lead; `pnpm test:workspace-access` **29/29** lulus. Evidence `/tmp/reka-team-polish-*` dan `/tmp/reka-team-polish/`. Tidak ada perubahan backend/schema/produksi/deployment; fixture success tidak membuktikan OAuth/GitHub live atau audit aksesibilitas menyeluruh.
 
+## Baris Back to Teams dihapus
+
+Sesuai pemilihan pengguna, baris navigasi **Back to Teams** pada `TeamDetailPage` dihapus beserta import ikon yang tidak terpakai. Header tim kini menjadi konten pertama; **Join team** tetap tersedia sesuai capability pada action area header, berdampingan dengan New Team Issue bila tersedia. Breadcrumb dan navigasi Teams existing tidak dihapus; Back to teams pada Settings administration tidak termasuk target. Web type-check/build, regresi Settings/team (termasuk assertion link yang dihapus pada desktop/mobile) dan isolated workspace browser flow lulus. Evidence `/tmp/reka-remove-team-back-*`.
+
 ## Batasan
 
 - Vite masih memberi warning chunk besar (main sekitar 1.87 MB; editor sekitar 800 KB). Build berhasil; route-level bundle optimization bukan bagian perubahan ini.

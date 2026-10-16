@@ -153,6 +153,7 @@ try {
   await page.getByRole('heading', { name: 'Engineering', exact: true, level: 1 }).waitFor();
   await page.getByRole('link', { name: 'Open team', exact: true }).click();
   await page.waitForURL('**/teams/t1?tab=members');
+  assert.equal(await page.getByRole('link', { name: 'Back to Teams', exact: true }).count(), 0, 'Team detail no longer renders a separate back-navigation row');
   await page.getByRole('link', { name: 'My issues', exact: true }).waitFor();
   const workspaceSidebar = page.locator('[data-slot="sidebar-content"]');
   assert.equal(await workspaceSidebar.getByRole('link', { name: 'Members', exact: true }).count(), 0, 'Members stays a page tab, not a sidebar menu');
@@ -285,6 +286,7 @@ try {
       await page.getByRole('tabpanel', { name: tab === 'members' ? 'Members' : 'Settings', exact: true }).waitFor();
       await (tab === 'members' ? page.getByRole('combobox', { name: 'Team role for Dimas Pratama' }) : page.getByLabel('todo state name', { exact: true })).waitFor();
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
+      assert.equal(await page.getByRole('link', { name: 'Back to Teams', exact: true }).count(), 0);
       const clipped = await page.evaluate(() => [...document.querySelectorAll('.team-detail-page input, .team-detail-page select, .team-detail-page button')].filter(element => { const rect = element.getBoundingClientRect(); return element.checkVisibility() && (rect.left < 0 || rect.right > innerWidth + 1); }).map(element => element.getAttribute('aria-label') || element.textContent));
       assert.deepEqual(clipped, [], `${theme} ${width} ${tab}: controls are not clipped`);
       if (tab === 'members') {
