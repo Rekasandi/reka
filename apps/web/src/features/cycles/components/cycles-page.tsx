@@ -1,10 +1,9 @@
 import * as React from 'react';
 import { Alert, AlertDescription, Badge, Button, Collapsible, CollapsibleContent, CollapsibleTrigger, DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuTrigger, Skeleton, Tabs, TabsList, TabsTrigger } from '@reka/ui';
-import { CalendarClock, CircleCheck, CircleDashed, CirclePause, CirclePlay, MoreHorizontal, Plus, RefreshCw, Triangle } from 'lucide-react';
+import { CalendarClock, CircleCheck, CircleDashed, CirclePause, CirclePlay, MoreHorizontal, RefreshCw, Triangle } from 'lucide-react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useCycles, useReopenCycle } from '../hooks/use-cycles';
 import { useTeams } from '../../teams/hooks/use-teams';
-import { CreateCycleDialog } from './create-cycle-dialog';
 import { CompleteCycleDialog } from './complete-cycle-dialog';
 import { CycleScheduleDialog } from './cycle-schedule-dialog';
 import { CycleProgressChart } from './cycle-progress-chart';
@@ -32,7 +31,6 @@ function TimelineDate({ date }: { date: string }) {
 }
 
 export function CyclesPage() {
-  const [isCreateOpen, setIsCreateOpen] = React.useState(false);
   const [isScheduleOpen, setIsScheduleOpen] = React.useState(false);
   const [completeCycleTarget, setCompleteCycleTarget] = React.useState<Cycle | null>(null);
   const [expandedId, setExpandedId] = React.useState<string | null>();
@@ -56,7 +54,7 @@ export function CyclesPage() {
   return <div className="cycles-timeline-page flex min-w-0 flex-col gap-5 pb-10">
     <header className="flex flex-wrap items-center justify-between gap-3">
       <div className="flex items-center gap-2.5"><h1 className="text-xl font-semibold tracking-tight sm:text-2xl">Cycles</h1><Badge variant="outline">{scopedCycles.length}</Badge></div>
-      {canManage && <div className="flex flex-wrap gap-2"><Button variant="outline" size="sm" onClick={() => setIsScheduleOpen(true)}><CalendarClock data-icon="inline-start" />Schedule settings</Button><Button size="sm" onClick={() => setIsCreateOpen(true)}><Plus data-icon="inline-start" />New Cycle</Button></div>}
+      {canManage && <Button variant="outline" size="sm" onClick={() => setIsScheduleOpen(true)}><CalendarClock data-icon="inline-start" />Schedule settings</Button>}
     </header>
     <Tabs value={filterTab} onValueChange={setFilterTab} activationMode="manual">
       <TabsList variant="line" aria-label="Cycle filters" className="w-full justify-start gap-3 border-b border-border p-0 sm:gap-5">
@@ -96,8 +94,12 @@ export function CyclesPage() {
           {hasBreak && <li className="cycle-timeline-entry cycle-timeline-break"><TimelineDate date={older.endDate} /><div className="cycle-timeline-content flex min-h-12 items-center gap-3 text-sm text-muted-foreground"><CirclePause aria-hidden="true" className="size-4" />Cycle break</div></li>}
         </React.Fragment>;
       })}
-    </ol> : <div className="flex flex-col items-center gap-2 py-16"><p className="text-sm font-medium">{scopedCycles.length ? 'No matching cycles' : 'No cycles yet'}</p><p className="text-sm text-muted-foreground">{scopedCycles.length ? 'Choose another filter to see your cycles.' : 'Cycles will appear here when your team schedules work.'}</p></div>}
-    <CreateCycleDialog key={`create-${teamId ?? 'all'}`} open={isCreateOpen} onOpenChange={setIsCreateOpen} defaultTeamId={teamId ?? undefined} />
+    </ol> : <div className="flex flex-col items-center gap-3 py-16 text-center">
+      <div className="flex size-10 items-center justify-center rounded-lg border border-border bg-muted/40 text-muted-foreground"><CalendarClock className="size-5" /></div>
+      <p className="text-sm font-medium">{scopedCycles.length ? 'No matching cycles' : 'No cycles yet'}</p>
+      <p className="max-w-md text-xs text-muted-foreground">{scopedCycles.length ? 'Choose another filter to see your cycles.' : "Cycles run automatically based on your team's repeating cadence, just like in Linear. Configure your schedule to start generating cycles."}</p>
+      {!scopedCycles.length && canManage && <Button size="sm" onClick={() => setIsScheduleOpen(true)}><CalendarClock data-icon="inline-start" />Configure schedule</Button>}
+    </div>}
     <CycleScheduleDialog key={`schedule-${teamId ?? 'all'}`} open={isScheduleOpen} onOpenChange={setIsScheduleOpen} defaultTeamId={teamId ?? undefined} />
     <CompleteCycleDialog cycle={completeCycleTarget} open={!!completeCycleTarget} onOpenChange={open => !open && setCompleteCycleTarget(null)} />
   </div>;

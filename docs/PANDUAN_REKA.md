@@ -347,13 +347,13 @@ Mengedit update lama tidak menimpa health yang berasal dari update terbaru. Pemi
 
 ### 6.3 Cycles
 
-Menu **Cycles** kini menampilkan timeline seperti ledger: tanggal di kiri, cycle terbaru di atas, serta status, kapasitas dan scope di kanan. Cycle **Current** terbuka otomatis; klik baris atau Enter/Space untuk membuka/menutup grafik. Filter **All / Current / Upcoming / Completed** mempertahankan scope tim pada URL. Buka **Open cycle details** untuk perencanaan issue existing; menu `…` menyediakan tindakan sesuai izin. Grafik memakai shadcn Chart/Recharts, dengan ringkasan **Scope / Started / Completed** di kanan desktop dan di bawah grafik pada mobile.
+Menu **Cycles** menampilkan timeline seperti ledger: tanggal di kiri, cycle terbaru di atas, serta status, kapasitas dan scope di kanan. Cycle **Current** terbuka otomatis; klik baris atau Enter/Space untuk membuka/menutup grafik. Filter **All / Current / Upcoming / Completed** mempertahankan scope tim pada URL. Buka **Open cycle details** untuk perencanaan issue existing; menu `…` menyediakan tindakan sesuai izin. Grafik memakai shadcn Chart/Recharts, dengan ringkasan **Scope / Started / Completed** di kanan desktop dan di bawah grafik pada mobile.
 
-- Buat cycle pada tim yang tepat, tentukan periode dan capacity jika dibutuhkan.
-- Assign issue melalui properti **Cycle**.
+- Mengikuti sistem Linear, cycle tidak dibuat secara manual satu per satu: sprint berjalan berulang otomatis berdasarkan jadwal/cadence tim yang dikonfigurasi melalui **Schedule settings** (durasi, jeda cooldown, timezone, dan auto-create).
+- Assign issue ke cycle melalui properti **Cycle** pada issue.
 - Periksa planned/completed/remaining estimate dan jumlah issue tanpa estimate.
-- Melalui **Schedule settings**, pengelola dapat mengatur timezone, durasi, cooldown, next start, dan auto-create.
-- Tutup cycle ketika evaluasi periode selesai; pilih backlog atau cycle berikutnya untuk pekerjaan belum selesai.
+- Edit nama, deskripsi/tujuan, atau kapasitas dari detail cycle yang sudah dijadwalkan.
+- Tutup cycle ketika evaluasi periode selesai (*End Cycle*); pilih backlog atau cycle berikutnya untuk pekerjaan belum selesai.
 
 Cycle tidak boleh memiliki rentang tanggal kosong atau overlap dengan cycle terbuka pada tim yang sama. Pekerjaan completed/canceled/triage/backlog/archived tidak ikut rollover pekerjaan aktif. Reopen mempertahankan histori dan tetap memeriksa overlap.
 

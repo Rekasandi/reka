@@ -90,10 +90,7 @@ try {
   await page.getByRole('button', { name: 'Design (DES)', exact: true }).click();
   await page.locator('a[href="/cycles?teamId=t2"]').click();
   await page.getByLabel('Progress for Design sprint', { exact: true }).waitFor();
-  await page.getByRole('button', { name: 'New Cycle', exact: true }).click();
-  const designCreate = page.getByRole('dialog', { name: 'New Cycle', exact: true });
-  assert.match(await designCreate.getByRole('combobox').innerText(), /Design/);
-  await designCreate.getByRole('button', { name: 'Cancel', exact: true }).click();
+  assert.equal(await page.getByRole('button', { name: 'New Cycle', exact: true }).count(), 0, 'No manual New Cycle button, cycles are driven by automated schedule cadence');
   await page.getByRole('button', { name: 'Schedule settings', exact: true }).click();
   const designSchedule = page.getByRole('dialog', { name: 'Cycle schedule', exact: true });
   assert.match(await designSchedule.getByRole('combobox', { name: 'Cycle schedule team', exact: true }).innerText(), /Design/);
@@ -113,11 +110,7 @@ try {
   await page.goBack();
   await page.waitForURL(url => url.searchParams.get('status') === 'active');
   assert.equal(new URL(page.url()).searchParams.get('status'), 'active');
-  await page.getByRole('button', { name: 'New Cycle', exact: true }).click();
-  const create = page.getByRole('dialog', { name: 'New Cycle', exact: true });
-  await create.waitFor();
-  assert.match(await create.getByRole('combobox').innerText(), /Engineering/);
-  await create.getByRole('button', { name: 'Cancel', exact: true }).click();
+  assert.equal(await page.getByRole('button', { name: 'New Cycle', exact: true }).count(), 0);
   for (const theme of ['dark', 'light']) for (const width of [2400, 1440, 900, 390, 320]) {
     await page.addInitScript(theme => localStorage.setItem('reka-theme', theme), theme);
     await page.setViewportSize({ width, height: width === 2400 ? 1632 : 1000 });
@@ -149,6 +142,11 @@ try {
   empty = true;
   await page.reload();
   await page.getByText('No cycles yet', { exact: true }).waitFor();
+  assert.equal(await page.getByRole('button', { name: 'Configure schedule', exact: true }).count(), 0, 'Read-only users cannot configure schedule');
+  readOnly = false;
+  await page.reload();
+  await page.getByText('No cycles yet', { exact: true }).waitFor();
+  assert.equal(await page.getByRole('button', { name: 'Configure schedule', exact: true }).count(), 1, 'Manager gets configure schedule in empty state');
   fail = true;
   await page.reload();
   await page.getByRole('alert').filter({ hasText: 'Could not load cycles.' }).waitFor();
