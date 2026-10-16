@@ -179,6 +179,16 @@ Web type-check/build, `triage-workbench.mjs` (**14 layout/theme**, tambahan scro
 
 Permintaan berikutnya menggantikan refinement 480px: batas lebar artikel, `max-w-6xl`, `mx-auto`, dan pemusatan grid triage dihapus. Artikel mengisi ruang tersisa dan rata kiri dengan gutter aplikasi. Properties tetap **220px**, sticky tanpa border kiri; antrean serta layout inline mobile/tablet tidak berubah. `triage-workbench.mjs` memeriksa full width/rata kiri pada **16 layout/theme**, termasuk viewport **1920px**, serta sticky pada konten panjang/jendela pendek. Web type-check/build dan browser regression lulus; evidence `/tmp/reka-triage-full-width-*` dan `/tmp/reka-triage-workbench/`.
 
+## Properties inline di bawah judul triage
+
+Referensi terbaru `Screenshot 2026-10-16 at 6.15.38 PM.png` menggantikan treatment panel kanan/pinned properties pada catatan sebelumnya. Judul **24/32px, 600, −0.48px**, full width/rata kiri; di bawahnya terdapat satu baris chip status, priority, assignee, project, estimate, label aktual, cycle, dan More properties. Pada container sempit chip membungkus tanpa horizontal overflow.
+
+- Picker status/priority/assignee/project/cycle/type dan labels tetap memakai komponen/hooks existing. `IssueDetailContent` membagikan instance picker antara presentation triage dan field layout sheet/page; tidak menggandakan logika mutasi. Sheet/full-page mempertahankan tampilan sebelumnya.
+- Estimate membuka Popover dengan input 0–100 dan **Save estimate**, termasuk nilai 0/clear; badge membaca nilai tersimpan, bukan draft. Type dan Due date tetap tersedia melalui **More properties** dengan **Save due date**. Portal diberi accessible name dan kontrol tetap disabled untuk read-only; tombol More properties tetap dapat dibuka untuk membaca nilai.
+- `IssueLabelsPicker` mendapat appearance badge khusus triage: nama label pertama/warna asli dan jumlah tambahan. Trigger button/compact existing tetap default. Tidak ada label/data contoh yang ditambahkan ke aplikasi.
+- Sidebar properties 220px, sticky/grid-span, dan size containment yang khusus menopangnya dihapus. Toolbar keputusan tetap sticky; antrean, scope, URL/history, Accept/Decline/Duplicate, serta aktivitas/komentar tetap tersedia.
+- Verifikasi: web type-check/build; `triage-workbench.mjs` **16 viewport/theme**, urutan title→chips→description, satu baris desktop/wrap mobile, estimate 5/0/clear, edit Type/Due date, toggle label, portal, read-only, serta seluruh alur triage. `issue-detail-navigation.mjs`, `issue-row-properties.mjs` (grouped/flat/board), dan browser→Nest→isolated Postgres `workflow-foundation-real-api.mjs` lulus. Audit **156 renders** bersih. Evidence `/tmp/reka-triage-chips-*` dan `/tmp/reka-triage-workbench/`. Tidak ada perubahan database produksi/deployment/live provider.
+
 ## Batasan
 
 - Vite masih memberi warning chunk besar (main sekitar 1.87 MB; editor sekitar 800 KB). Build berhasil; route-level bundle optimization bukan bagian perubahan ini.

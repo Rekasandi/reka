@@ -1,26 +1,34 @@
 import * as React from 'react';
-import { Button, DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuCheckboxItem, Input } from '@reka/ui';
+import { Badge, Button, DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuCheckboxItem, Input } from '@reka/ui';
 import { Tag, Plus } from 'lucide-react';
 import { useCreateLabel, useIssueLabels } from '../hooks/use-issues';
 
-export function IssueLabelsPicker({ teamId, projectId, value, onChange, compact = false }: {
+export function IssueLabelsPicker({ teamId, projectId, value, onChange, compact = false, appearance = 'button' }: {
   teamId: string;
   projectId?: string | null;
   value: string[];
   onChange: (ids: string[]) => void;
   compact?: boolean;
+  appearance?: 'button' | 'badge';
 }) {
   const { data: labels = [], isLoading, isError, refetch } = useIssueLabels();
   const createLabel = useCreateLabel();
   const [name, setName] = React.useState('');
   const available = labels.filter((label) => (!label.teamId || label.teamId === teamId) && (!label.projectId || label.projectId === projectId));
 
+  const selected = available.filter(label => value.includes(label.id));
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button type="button" variant="outline" size={compact ? 'icon-xs' : 'sm'} aria-label="Issue labels" className={compact ? 'size-7' : 'justify-start'}>
+        {appearance === 'badge' ? <Badge asChild variant="outline" className="h-6 max-w-52 gap-1.5 px-2 hover:bg-secondary/70">
+          <button type="button" aria-label="Issue labels" title={selected.map(label => label.name).join(', ') || 'Add label'}>
+            {selected[0] ? <span aria-hidden="true" className="size-2 shrink-0 rounded-full" style={{ backgroundColor: selected[0].color }} /> : <Tag aria-hidden="true" />}
+            <span className="truncate">{selected[0]?.name ?? 'Labels'}{value.length > 1 ? ` +${value.length - 1}` : ''}</span>
+          </button>
+        </Badge> : <Button type="button" variant="outline" size={compact ? 'icon-xs' : 'sm'} aria-label="Issue labels" className={compact ? 'size-7' : 'justify-start'}>
           <Tag />{!compact && <span>Labels{value.length ? ` (${value.length})` : ''}</span>}
-        </Button>
+        </Button>}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-64 p-2" onClick={(event) => event.stopPropagation()}>
         <div className="max-h-56 overflow-y-auto">
