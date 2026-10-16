@@ -347,6 +347,8 @@ Mengedit update lama tidak menimpa health yang berasal dari update terbaru. Pemi
 
 ### 6.3 Cycles
 
+Menu **Cycles** kini menampilkan timeline seperti ledger: tanggal di kiri, cycle terbaru di atas, serta status, kapasitas dan scope di kanan. Cycle **Current** terbuka otomatis; klik baris atau Enter/Space untuk membuka/menutup grafik. Filter **All / Current / Upcoming / Completed** mempertahankan scope tim pada URL. Buka **Open cycle details** untuk perencanaan issue existing; menu `…` menyediakan tindakan sesuai izin. Grafik memakai shadcn Chart/Recharts, dengan ringkasan **Scope / Started / Completed** di kanan desktop dan di bawah grafik pada mobile.
+
 - Buat cycle pada tim yang tepat, tentukan periode dan capacity jika dibutuhkan.
 - Assign issue melalui properti **Cycle**.
 - Periksa planned/completed/remaining estimate dan jumlah issue tanpa estimate.
@@ -355,7 +357,7 @@ Mengedit update lama tidak menimpa health yang berasal dari update terbaru. Pemi
 
 Cycle tidak boleh memiliki rentang tanggal kosong atau overlap dengan cycle terbuka pada tim yang sama. Pekerjaan completed/canceled/triage/backlog/archived tidak ikut rollover pekerjaan aktif. Reopen mempertahankan histori dan tetap memeriksa overlap.
 
-Kapasitas tidak wajib. Nilai kosong berarti belum ditetapkan; nilai `0` adalah kapasitas yang secara eksplisit nol. Grafik cycle hanya menampilkan snapshot yang benar-benar tercatat.
+Kapasitas tidak wajib. Nilai kosong berarti belum ditetapkan; nilai `0` adalah kapasitas yang secara eksplisit nol. Riwayat grafik hanya memakai snapshot yang benar-benar tercatat. Timeline juga menampilkan observasi saat ini untuk cycle aktif; **Started** merupakan nilai saat ini, bukan riwayat buatan. Garis putus-putus hanya panduan jadwal, bukan prediksi. Nilai yang belum tersedia tetap dijelaskan.
 
 ### 6.4 Initiatives dan Roadmap
 

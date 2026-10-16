@@ -387,13 +387,14 @@ try {
     if (width < 768) assert.ok(await nav.locator('a[href="/cycles?teamId=t1&status=active"]').evaluate(el => el.getBoundingClientRect().height >= 44));
     await nav.locator('a[href="/cycles?teamId=t1&status=active"]').click();
     await page.getByRole('heading', { name: 'Cycles', exact: true }).waitFor();
-    await page.getByRole('button', { name: 'Active', exact: true }).waitFor();
-    assert.equal(await page.getByRole('button', { name: 'Active', exact: true }).getAttribute('aria-pressed'), 'true');
+    await page.getByRole('tab', { name: 'Current', exact: true }).waitFor();
+    assert.equal(await page.getByRole('tab', { name: 'Current', exact: true }).getAttribute('aria-selected'), 'true');
     await page.getByRole('link', { name: 'Open cycle October delivery', exact: true }).waitFor();
     assert.equal(await page.getByRole('link', { name: 'Open cycle Design current cycle', exact: true }).count(), 0);
     assert.equal(await page.getByRole('link', { name: 'Open cycle Engineering upcoming cycle', exact: true }).count(), 0);
     if (width < 768) { await page.getByRole('dialog', { name: 'Sidebar', exact: true }).waitFor({ state: 'hidden' }); await page.getByRole('button', { name: 'Toggle Sidebar', exact: true }).click(); }
     await nav.locator('a[href="/cycles?teamId=t1&status=upcoming"]').click();
+    await page.getByRole('button', { name: 'Toggle Engineering upcoming cycle summary', exact: true }).click();
     await page.getByRole('link', { name: 'Open cycle Engineering upcoming cycle', exact: true }).waitFor();
     assert.equal(await page.getByRole('link', { name: 'Open cycle October delivery', exact: true }).count(), 0);
     if (width < 768) await page.getByRole('button', { name: 'Toggle Sidebar', exact: true }).click();

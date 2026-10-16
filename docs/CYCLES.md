@@ -2,6 +2,16 @@
 
 REKA's cycle implementation covers team scheduling, explicit estimate capacity, unfinished-work rollover and measured delivery history. It is workflow parity for the agreed scope, not a claim to match every Linear cycle feature.
 
+## Cycle timeline
+
+Opening **Cycles** shows a date rail with newest scheduled cycles first. The current cycle opens automatically; click a row or use Enter/Space to expand or collapse its chart. The nearest future cycle per team is **Upcoming**; later future cycles are **Planned**. **Cycle break** is a real gap of at least 24 hours between adjacent same-team cycles, not an invented pause setting.
+
+The shadcn/Radix collapsible rows show current issue scope, estimate-point capacity utilization (or current completion percentage on completed cycles), and a shadcn `ChartContainer` / Recharts progress chart. **All / Current / Upcoming / Completed** preserve the team URL filter and support reload/back/forward. Tab arrows move focus; Enter/Space activates. **Open cycle details** and the row menu retain the existing issue planning/detail route. Managers retain schedule/create/end/reopen; read-only users do not receive lifecycle controls. Server authorization remains authoritative.
+
+Chart history fetches only when a cycle is expanded. Scope and completed issue counts use recorded snapshots; an active cycle also shows current API counts at the current observation time. **Started** counts current issues in the team's actual `started` workflow category; the API does not record Started history, so there is no fabricated yellow historical area. Unknown/missing data is explicit. The dashed completion line is a labeled schedule guide, not measured history or a velocity forecast. Hatching marks local-calendar weekends. The summary stacks below the chart on narrow screens.
+
+Capacity is calculated from planned estimate points, never issue count. Unset capacity is **No capacity set**, not 0%; explicit zero with positive planned work is **Over capacity**, avoiding an infinite percentage. Completed percentages describe the current API scope, not a reconstructed historical close-time scope.
+
 ## Schedule a team
 
 Use **Cycles → Schedule settings** and select a team. Configure:
@@ -24,7 +34,7 @@ Completing a cycle is one database operation: it locks the cycle, captures a fin
 
 ## Honest history and chart
 
-The worker records one immutable sample for each active cycle per six-hour UTC window. Closing records a final sample. A snapshot contains issue counts and estimate totals at that observation time; archived, triage, backlog and canceled issues are excluded. The chart plots only recorded values and can switch between issue count and estimate points. It does not interpolate a historical curve, backfill before instrumentation, or imply a velocity forecast. A cycle without snapshots shows an explicit no-history state. Sampling gaps caused by a stopped worker remain gaps in the evidence; starting the worker does not reconstruct them.
+The worker records one immutable sample for each active cycle per six-hour UTC window. Closing records a final sample. A snapshot contains issue counts and estimate totals at that observation time; archived, triage, backlog and canceled issues are excluded. The chart plots only recorded values and can switch between issue count and estimate points. It does not interpolate a historical curve, backfill before instrumentation, or imply a velocity forecast. A cycle without snapshots shows an explicit no-history state. The timeline additionally distinguishes current observations and its labeled schedule guide from that recorded history; the detail page's measured burndown remains unchanged. Sampling gaps caused by a stopped worker remain gaps in the evidence; starting the worker does not reconstruct them.
 
 ## API and access
 
@@ -46,5 +56,7 @@ pnpm --filter @reka/api type-check
 pnpm --filter @reka/worker type-check
 pnpm --filter @reka/web type-check
 ```
+
+The timeline UI regression can be run with `node apps/web/test/cycles-timeline.mjs` (set `PLAYWRIGHT_MODULE` when needed). It covers actual app routes, lazy history, custom workflow categories, capacity/zero/unset, filter scope/history/reload, keyboard collapse, permissions, empty/error/retry, and 10 light/dark viewport captures from 320–2400px.
 
 For authenticated browser → real Nest API → isolated Postgres coverage, start the local Vite app and run `pnpm test:web:cycles-real-api` with `PLAYWRIGHT_MODULE` and `PLAYWRIGHT_CHROMIUM_EXECUTABLE` set if they are not on the default paths. The browser scenario persists team schedule settings, observes capacity and worker-generated snapshots, completes a cycle and verifies rollover/reload-backed database state; desktop/mobile light/dark captures are checked for horizontal overflow.

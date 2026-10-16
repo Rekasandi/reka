@@ -88,6 +88,10 @@ try {
   const url = process.env.WEB_URL || 'http://localhost:5173';
   await page.goto(`${url}?page=cycles`);
   await page.getByRole('heading', { name: 'Cycles', exact: true }).waitFor();
+  await page.getByLabel('Progress for Browser cycle', { exact: true }).waitFor();
+  await page.locator('[data-slot="chart"] .recharts-surface').waitFor();
+  assert.match(await page.getByLabel('Cycle progress summary', { exact: true }).innerText(), /Started\s+1\s*·\s*50%/);
+  assert.match(await page.locator('[data-cycle-status="active"] .cycle-capacity').innerText(), /40%/);
   await page.getByRole('button', { name: 'Schedule settings' }).click();
   const schedule = page.getByRole('dialog', { name: 'Cycle schedule' });
   await schedule.waitFor();

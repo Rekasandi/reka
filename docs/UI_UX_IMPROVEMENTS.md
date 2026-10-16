@@ -209,6 +209,14 @@ Gunakan composable **Dice UI Color Picker** berbasis Radix dari dokumentasi `/do
 
 Verifikasi: UI type-check/build dan `settings-navigation.mjs`, termasuk simpan dan reload hex dari workflow API mock, label color field, serta posisi popover pada 320/390px light/dark. Registry CLI Dice UI mengembalikan 404; komponen diadaptasi dari source yang tampil pada dokumentasi Radix resmi. Batasan: eyedropper hanya tersedia jika browser menyediakan EyeDropper API. Tidak membuktikan layanan provider live.
 
+## Cycles timeline sesuai referensi
+
+Menu `/cycles`, termasuk link Cycles/Current/Upcoming pada sidebar tim, mengganti list lama dengan timeline referensi `Screenshot 2026-10-16 at 7.30.50 PM.png`: rail tanggal dan titik, row tipis planned/upcoming/current/completed, capacity/success/scope sejajar, current terbuka otomatis, serta chart + ringkasan tiga baris. Memakai shadcn `Collapsible`, `Tabs`, `Badge`, menu dan `ChartContainer` dengan Recharts yang sudah terpasang; tidak menambah dependency. Header app, route detail dan alur schedule/create/complete/rollover tetap dipertahankan.
+
+Pengguna memilih **data aktual**. Scope/completed historis memakai snapshot; Started hanya titik/nilai saat ini menurut kategori workflow tim. Tidak menggambar area historis Started yang belum pernah direkam. Guide putus-putus diberi keterangan bukan forecast; weekend hatching berasal dari kalender. Kapasitas kosong/0/over tetap dibedakan. Query history lazy hanya untuk cycle terbuka; read-only tidak menampilkan aksi tulis. Tidak mengubah backend/schema/produksi.
+
+Verifikasi: web build/type-check, `cycles-timeline.mjs` (10 viewport/theme, 320–2400px, sorting, kategori custom, kapasitas, URL/history, keyboard, readonly, error/empty/retry, tanpa request mutasi), `cycles-real-api.mjs` (current Started dan capacity, schedule persisten, history, atomic rollover melalui Nest + disposable Postgres), serta audit **39 route / 156 renders** tanpa findings. Detector changed targets: `[]`. Evidence `/tmp/reka-cycles-timeline/`, `/tmp/reka-cycles-timeline-audit/`, `/tmp/reka-cycles-timeline-*.log`. Review inline, bukan reviewer independen; tidak mengklaim pixel identity untuk angka/grafik yang berbeda karena data aktual, load test, OAuth live atau audit aksesibilitas penuh. `DESIGN.md` dipertahankan sebagai sistem incumbent.
+
 ## Batasan
 
 - Vite masih memberi warning chunk besar (main sekitar 1.87 MB; editor sekitar 800 KB). Build berhasil; route-level bundle optimization bukan bagian perubahan ini.
