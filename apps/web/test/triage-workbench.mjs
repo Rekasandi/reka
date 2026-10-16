@@ -136,7 +136,7 @@ try {
   assert.equal(requests.find(request => request.path === '/api/triage/i3/duplicate').body.relatedIssueId, 'i5');
 
   reset();
-  for (const theme of ['dark', 'light']) for (const width of [1440, 1280, 1024, 900, 768, 390, 320]) {
+  for (const theme of ['dark', 'light']) for (const width of [1920, 1440, 1280, 1024, 900, 768, 390, 320]) {
     await page.setViewportSize({ width, height: 900 });
     await open('/triage', theme); await item('i1').waitFor();
     if (!(await panel.isVisible())) await item('i1').click();
@@ -144,16 +144,20 @@ try {
     const layout = await panel.evaluate(element => {
       const title = element.querySelector('[aria-label="Issue title"]'), description = element.querySelector('#issue-description');
       const style = getComputedStyle(title), body = getComputedStyle(description);
-      return { title: [style.fontSize, style.lineHeight, style.fontWeight, style.letterSpacing], description: [body.fontSize, body.lineHeight], clipped: title.scrollHeight > title.clientHeight + 2, overflow: document.documentElement.scrollWidth > innerWidth, props: element.querySelector('.issue-properties').getBoundingClientRect().x > title.getBoundingClientRect().right, widths: [title.getBoundingClientRect().width, element.querySelector('.issue-properties').getBoundingClientRect().width] };
+      const grid = element.querySelector('.issue-content-grid'), frame = grid.parentElement, padding = getComputedStyle(frame);
+      const availableWidth = frame.clientWidth - parseFloat(padding.paddingLeft) - parseFloat(padding.paddingRight);
+      return { title: [style.fontSize, style.lineHeight, style.fontWeight, style.letterSpacing], description: [body.fontSize, body.lineHeight], clipped: title.scrollHeight > title.clientHeight + 2, overflow: document.documentElement.scrollWidth > innerWidth, props: element.querySelector('.issue-properties').getBoundingClientRect().x > title.getBoundingClientRect().right, widths: [title.getBoundingClientRect().width, element.querySelector('.issue-properties').getBoundingClientRect().width], gridWidth: grid.getBoundingClientRect().width, availableWidth, leftEdges: [title.getBoundingClientRect().left, grid.getBoundingClientRect().left, frame.getBoundingClientRect().left + parseFloat(padding.paddingLeft)] };
     });
     assert.deepEqual(layout.title, ['20px', '28px', '600', '-0.4px']); assert.deepEqual(layout.description, ['14px', '20px']);
-    assert.equal(layout.clipped, false); assert.equal(layout.overflow, false); assert.equal(layout.props, width === 1440);
-    if (width === 1440) assert.deepEqual(layout.widths, [480, 220], 'Desktop middle column is capped at 480px; Properties retains its 220px width');
+    assert.equal(layout.clipped, false); assert.equal(layout.overflow, false); assert.equal(layout.props, width >= 1440);
+    assert.ok(Math.abs(layout.gridWidth - layout.availableWidth) < 1, 'Content fills its available width, including wide desktop');
+    assert.ok(layout.leftEdges.every(left => Math.abs(left - layout.leftEdges[0]) < 1), 'Article is left aligned with the content gutter, not centered');
+    if (width >= 1440) assert.deepEqual(layout.widths, [layout.gridWidth - 252, 220], 'Article fills the remaining space; Properties retains its 220px width');
     assert.deepEqual(await panel.getByRole('complementary', { name: 'Issue properties' }).evaluate(element => {
       const style = getComputedStyle(element); return [style.position, style.borderLeftWidth];
-    }), [width === 1440 ? 'sticky' : 'static', '0px'], 'Only the desktop property column is pinned; it has no left border');
+    }), [width >= 1440 ? 'sticky' : 'static', '0px'], 'Only the desktop property column is pinned; it has no left border');
     assert.equal(await page.locator('button button,button input,button textarea').count(), 0);
-    if ([1440, 390, 320].includes(width)) await page.screenshot({ path: `${out}/${theme}-${width}.png` });
+    if ([1920, 1440, 390, 320].includes(width)) await page.screenshot({ path: `${out}/${theme}-${width}.png` });
     if (width === 1440) {
       const review = page.getByRole('region', { name: 'Triage review', exact: true });
       await review.evaluate(element => { element.scrollTop = 300; });
@@ -217,5 +221,5 @@ try {
   await intake.getByLabel('Intake title').fill('New internal report'); await intake.getByLabel('What should we know?').fill('Details for review');
   await intake.getByRole('button', { name: 'Submit to triage', exact: true }).click(); await item('new').waitFor();
   assert.deepEqual(errors, []);
-  console.log('PASS: triage master/detail, URL/history/reload/scope, shared issue edits/comments, accept/private routing/decline/duplicate/error/pending, permissions, intake/states, sticky toolbar/properties without left border, long-content/short-window scrolling and DESIGN.md checks across 14 desktop/tablet/mobile light/dark layouts.');
+  console.log('PASS: triage master/detail, URL/history/reload/scope, shared issue edits/comments, accept/private routing/decline/duplicate/error/pending, permissions, intake/states, sticky toolbar/properties without left border, long-content/short-window scrolling and full-width left alignment and DESIGN.md checks across 16 desktop/tablet/mobile light/dark layouts.');
 } finally { await browser.close(); }

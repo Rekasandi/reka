@@ -399,7 +399,7 @@ export function IssueDetailContent({ issue, presentation = 'sheet', headerAction
 
       {/* Main Content Area */}
       <div className={presentation === 'sheet' ? 'min-h-0 flex-1 overflow-y-auto px-5 py-6 sm:px-8' : presentation === 'triage' ? 'px-4 py-6 sm:px-6' : 'px-1 py-6 sm:px-6 sm:py-8'}>
-        <div className={presentation === 'triage' ? 'issue-content-grid mx-auto w-full max-w-6xl [&>*]:min-w-0' : presentation === 'page' ? 'mx-auto grid w-full max-w-6xl grid-cols-1 gap-x-12 gap-y-7 lg:grid-cols-[minmax(0,1fr)_260px] [&>*:not(.issue-properties)]:min-w-0 [&>*:not(.issue-properties)]:lg:col-start-1' : 'mx-auto flex w-full max-w-2xl flex-col gap-6'}>
+        <div className={presentation === 'triage' ? 'issue-content-grid w-full [&>*]:min-w-0' : presentation === 'page' ? 'mx-auto grid w-full max-w-6xl grid-cols-1 gap-x-12 gap-y-7 lg:grid-cols-[minmax(0,1fr)_260px] [&>*:not(.issue-properties)]:min-w-0 [&>*:not(.issue-properties)]:lg:col-start-1' : 'mx-auto flex w-full max-w-2xl flex-col gap-6'}>
           {/* Title: Geist display style with tight negative tracking, borderless default */}
           <div className="flex min-w-0 flex-col gap-1.5">
             <h1 className="sr-only">{issue.title}</h1>
