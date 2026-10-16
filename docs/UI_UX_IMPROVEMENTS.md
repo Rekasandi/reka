@@ -229,6 +229,14 @@ Sesuai referensi `Screenshot 2026-10-16 at 10.43.44 PM.png`, halaman Issues kini
 - Komponen berada di `apps/web/src/features/issues/components/issue-metrics-aside.tsx` dan terintegrasi ke `issues-page.tsx`. Desktop memakai aside sticky 400px; mobile memakai Sheet drawer samping kanan.
 - Verifikasi: web type-check, build produksi, tes interaksi `issue-metrics-aside.mjs` (desktop, mobile sheet, ganti Measure/Slice/Segment, toast default, dan 3 screenshot light/dark), serta audit lintas halaman 39 route / 156 renders lulus tanpa finding.
 
+## Integrasi Dice UI Radix Timeline pada Cycles
+
+Halaman Cycles kini menggunakan komponen resmi **Dice UI Radix Timeline** (`Timeline`, `TimelineItem`, `TimelineDot`, `TimelineConnector`, `TimelineContent`, `TimelineTime`) yang dipublikasikan melalui `@reka/ui`:
+- Rail tanggal, garis penghubung (*connector*), dan titik penanda (*dot*) menggunakan elemen primitif Timeline semantik (`role="list"`, `role="listitem"`, `<time>`).
+- Titik dan garis cycle aktif menggunakan aksen ungu berkesinambungan; cycle selesai berwarna abu-abu netral.
+- Diintegrasikan mulus dengan collapsible row Linear, hover full-width, menu aksi hover, serta grafik progres shadcn + Recharts.
+- Verifikasi: `@reka/ui` type-check, build produksi, test `cycles-timeline.mjs`, `cycles-real-api.mjs`, serta audit 156 render halaman seluruh aplikasi lulus.
+
 ## Batasan
 
 - Vite masih memberi warning chunk besar (main sekitar 1.87 MB; editor sekitar 800 KB). Build berhasil; route-level bundle optimization bukan bagian perubahan ini.

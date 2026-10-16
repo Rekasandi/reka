@@ -1,5 +1,28 @@
 import * as React from 'react';
-import { Alert, AlertDescription, Badge, Button, Collapsible, CollapsibleContent, CollapsibleTrigger, DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuTrigger, Skeleton, Tabs, TabsList, TabsTrigger } from '@reka/ui';
+import {
+  Alert,
+  AlertDescription,
+  Badge,
+  Button,
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  Skeleton,
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  Timeline,
+  TimelineConnector,
+  TimelineContent,
+  TimelineDot,
+  TimelineItem,
+  TimelineTime,
+} from '@reka/ui';
 import { CalendarClock, CircleCheck, CircleDashed, CirclePause, CirclePlay, MoreHorizontal, RefreshCw, Triangle } from 'lucide-react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useCycles, useReopenCycle } from '../hooks/use-cycles';
@@ -27,7 +50,12 @@ function CapacityMetric({ cycle }: { cycle: Cycle }) {
 
 function TimelineDate({ date }: { date: string }) {
   const value = new Date(date);
-  return <time className="cycle-timeline-date" dateTime={date} title={value.toLocaleDateString([], { dateStyle: 'full' })}><span>{value.toLocaleDateString([], { month: 'short' })}</span><span>{value.getDate()}</span></time>;
+  return (
+    <TimelineTime className="cycle-timeline-date" dateTime={date} title={value.toLocaleDateString([], { dateStyle: 'full' })}>
+      <span>{value.toLocaleDateString([], { month: 'short' })}</span>
+      <span>{value.getDate()}</span>
+    </TimelineTime>
+  );
 }
 
 export function CyclesPage() {
@@ -61,7 +89,8 @@ export function CyclesPage() {
         {[['all', 'All cycles'], ['active', 'Current'], ['upcoming', 'Upcoming'], ['completed', 'Completed']].map(([value, label]) => <TabsTrigger key={value} value={value} aria-label={label} className="h-9 flex-none rounded-none border-0 px-0">{value === 'all' ? 'All' : label}</TabsTrigger>)}
       </TabsList>
     </Tabs>
-    {isLoading ? <div role="status" aria-label="Loading cycles" className="flex flex-col gap-2">{[0, 1, 2].map(i => <Skeleton key={i} className="h-20 w-full" />)}</div> : isError ? <Alert variant="destructive"><AlertDescription className="flex flex-wrap items-center gap-3">Could not load cycles.<Button variant="outline" size="sm" onClick={() => void refetch()}><RefreshCw data-icon="inline-start" />Retry</Button></AlertDescription></Alert> : filteredCycles.length ? <ol aria-label="Cycles" className="cycle-timeline">
+    {isLoading ? <div role="status" aria-label="Loading cycles" className="flex flex-col gap-2">{[0, 1, 2].map(i => <Skeleton key={i} className="h-20 w-full" />)}</div> : isError ? <Alert variant="destructive"><AlertDescription className="flex flex-wrap items-center gap-3">Could not load cycles.<Button variant="outline" size="sm" onClick={() => void refetch()}><RefreshCw data-icon="inline-start" />Retry</Button></AlertDescription></Alert> : filteredCycles.length ? <Timeline asChild aria-label="Cycles" className="cycle-timeline">
+      <ol>
       {filteredCycles.map((cycle, index) => {
         const team = teams.find(team => team.id === cycle.teamId);
         const label = cycle.name || `Cycle ${cycle.number}`;
@@ -70,31 +99,51 @@ export function CyclesPage() {
         const older = filteredCycles[index + 1];
         const hasBreak = filterTab === 'all' && older?.teamId === cycle.teamId && new Date(cycle.startDate).getTime() - new Date(older.endDate).getTime() >= 86_400_000;
         return <React.Fragment key={cycle.id}>
-          <li className="cycle-timeline-entry" data-cycle-status={cycle.status}>
-            <TimelineDate date={cycle.startDate} />
-            <Collapsible open={openId === cycle.id} onOpenChange={open => setExpandedId(open ? cycle.id : null)} className="cycle-timeline-content">
-              <div className="cycle-timeline-header">
-                <CollapsibleTrigger className="cycle-timeline-trigger" aria-label={`Toggle ${label} summary`}>
-                  <span className="cycle-timeline-name"><Icon aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" /><span className="flex min-w-0 flex-col gap-0.5"><span className="truncate font-medium">{label}</span>{!teamId && team && <span className="truncate text-xs text-muted-foreground">{team.name}</span>}</span></span>
-                  <span className="cycle-timeline-metrics"><Badge variant="secondary" className="rounded-[3px]">{state}</Badge><CapacityMetric cycle={cycle} />{cycle.status === 'completed' && <span className="cycle-completed-count inline-flex items-center gap-1.5 tabular-nums"><Triangle aria-hidden="true" className="size-3.5 text-muted-foreground" />{cycle.completedIssues ?? 0}<span className="text-muted-foreground">completed</span></span>}<span className="cycle-scope-count inline-flex items-center gap-1.5 tabular-nums"><Triangle aria-hidden="true" className="size-3.5 text-muted-foreground" />{cycle.totalIssues ?? 0}<span className="text-muted-foreground">scope</span></span></span>
-                </CollapsibleTrigger>
-                <DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" size="icon-sm" aria-label={`Actions for ${label}`} className="cycle-timeline-actions"><MoreHorizontal /></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuGroup>
-                  <DropdownMenuItem asChild><Link to={`/cycles/${cycle.id}`}>Open cycle</Link></DropdownMenuItem>
-                  {team?.canManage && <DropdownMenuItem disabled={reopenMutation.isPending} onClick={() => cycle.isCompleted ? reopenMutation.mutate(cycle.id) : setCompleteCycleTarget(cycle)}>{cycle.isCompleted ? 'Reopen' : 'End Cycle'}</DropdownMenuItem>}
-                </DropdownMenuGroup></DropdownMenuContent></DropdownMenu>
+          <TimelineItem asChild className="cycle-timeline-entry" data-cycle-status={cycle.status} id={cycle.id}>
+            <li>
+              <TimelineDate date={cycle.startDate} />
+              <div className="cycle-timeline-rail" aria-hidden="true">
+                <TimelineConnector className="cycle-timeline-connector" />
+                <TimelineDot className="cycle-timeline-dot" />
               </div>
-              <CollapsibleContent>
-                {openId === cycle.id && <div className="cycle-timeline-expanded">
-                  <CycleProgressChart cycle={cycle} />
-                  <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-muted-foreground"><span>{new Date(cycle.startDate).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })} to {new Date(cycle.endDate).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}</span><Button asChild variant="link" size="sm" className="border-0"><Link to={`/cycles/${cycle.id}`} aria-label={`Open cycle ${label}`}>Open cycle details</Link></Button></div>
-                </div>}
-              </CollapsibleContent>
-            </Collapsible>
-          </li>
-          {hasBreak && <li className="cycle-timeline-entry cycle-timeline-break"><TimelineDate date={older.endDate} /><div className="cycle-timeline-content flex min-h-12 items-center gap-3 text-sm text-muted-foreground"><CirclePause aria-hidden="true" className="size-4" />Cycle break</div></li>}
+              <TimelineContent className="cycle-timeline-content">
+                <Collapsible open={openId === cycle.id} onOpenChange={open => setExpandedId(open ? cycle.id : null)}>
+                  <div className="cycle-timeline-header">
+                    <CollapsibleTrigger className="cycle-timeline-trigger" aria-label={`Toggle ${label} summary`}>
+                      <span className="cycle-timeline-name"><Icon aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" /><span className="flex min-w-0 flex-col gap-0.5"><span className="truncate font-medium">{label}</span>{!teamId && team && <span className="truncate text-xs text-muted-foreground">{team.name}</span>}</span></span>
+                      <span className="cycle-timeline-metrics"><Badge variant="secondary" className="rounded-[3px]">{state}</Badge><CapacityMetric cycle={cycle} />{cycle.status === 'completed' && <span className="cycle-completed-count inline-flex items-center gap-1.5 tabular-nums"><Triangle aria-hidden="true" className="size-3.5 text-muted-foreground" />{cycle.completedIssues ?? 0}<span className="text-muted-foreground">completed</span></span>}<span className="cycle-scope-count inline-flex items-center gap-1.5 tabular-nums"><Triangle aria-hidden="true" className="size-3.5 text-muted-foreground" />{cycle.totalIssues ?? 0}<span className="text-muted-foreground">scope</span></span></span>
+                    </CollapsibleTrigger>
+                    <DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" size="icon-sm" aria-label={`Actions for ${label}`} className="cycle-timeline-actions"><MoreHorizontal /></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuGroup>
+                      <DropdownMenuItem asChild><Link to={`/cycles/${cycle.id}`}>Open cycle</Link></DropdownMenuItem>
+                      {team?.canManage && <DropdownMenuItem disabled={reopenMutation.isPending} onClick={() => cycle.isCompleted ? reopenMutation.mutate(cycle.id) : setCompleteCycleTarget(cycle)}>{cycle.isCompleted ? 'Reopen' : 'End Cycle'}</DropdownMenuItem>}
+                    </DropdownMenuGroup></DropdownMenuContent></DropdownMenu>
+                  </div>
+                  <CollapsibleContent>
+                    {openId === cycle.id && <div className="cycle-timeline-expanded">
+                      <CycleProgressChart cycle={cycle} />
+                      <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-muted-foreground"><span>{new Date(cycle.startDate).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })} to {new Date(cycle.endDate).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}</span><Button asChild variant="link" size="sm" className="border-0"><Link to={`/cycles/${cycle.id}`} aria-label={`Open cycle ${label}`}>Open cycle details</Link></Button></div>
+                    </div>}
+                  </CollapsibleContent>
+                </Collapsible>
+              </TimelineContent>
+            </li>
+          </TimelineItem>
+          {hasBreak && <TimelineItem asChild className="cycle-timeline-entry cycle-timeline-break" data-cycle-status="paused">
+            <li>
+              <TimelineDate date={older.endDate} />
+              <div className="cycle-timeline-rail" aria-hidden="true">
+                <TimelineConnector className="cycle-timeline-connector" />
+                <TimelineDot className="cycle-timeline-dot" />
+              </div>
+              <TimelineContent className="cycle-timeline-content flex min-h-12 items-center gap-3 text-sm text-muted-foreground">
+                <CirclePause aria-hidden="true" className="size-4" />Cycle break
+              </TimelineContent>
+            </li>
+          </TimelineItem>}
         </React.Fragment>;
       })}
-    </ol> : <div className="flex flex-col items-center gap-3 py-16 text-center">
+      </ol>
+    </Timeline> : <div className="flex flex-col items-center gap-3 py-16 text-center">
       <div className="flex size-10 items-center justify-center rounded-lg border border-border bg-muted/40 text-muted-foreground"><CalendarClock className="size-5" /></div>
       <p className="text-sm font-medium">{scopedCycles.length ? 'No matching cycles' : 'No cycles yet'}</p>
       <p className="max-w-md text-xs text-muted-foreground">{scopedCycles.length ? 'Choose another filter to see your cycles.' : "Cycles run automatically based on your team's repeating cadence, just like in Linear. Configure your schedule to start generating cycles."}</p>
