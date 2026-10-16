@@ -194,7 +194,7 @@ try {
   await teamDialog.getByRole('button', { name: 'Add member', exact: true }).click();
   await owner.getByText('Team member added', { exact: true }).waitFor();
   await owner.getByRole('tab', { name: 'Members' }).click();
-  await owner.getByText('Member', { exact: true }).waitFor();
+  await owner.locator(`[data-team-member="${people.Member.id}"]`).getByText('Member', { exact: true }).waitFor();
   assert.equal((await postgres.db.select().from(require('@reka/database').teamMembers).where(require('drizzle-orm').and(require('drizzle-orm').eq(require('@reka/database').teamMembers.teamId, privateTeam.id), require('drizzle-orm').eq(require('@reka/database').teamMembers.userId, people.Member.id))))[0].role, 'viewer');
   const viewer = await pageFor('Member');
   await viewer.goto(`${url}/teams/${privateTeam.id}?tab=members`);

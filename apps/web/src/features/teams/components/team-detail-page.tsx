@@ -37,6 +37,7 @@ import { TeamSettingsForm } from './team-settings-dialog';
 import { TeamMembersPanel } from './team-members-panel';
 import { ConfirmDeleteDialog } from '../../../components/common/confirm-delete-dialog';
 import { getIssueStatusCategory, isIssueClosed, type Issue } from '@reka/types';
+import { resolveEntityIcon } from '../../../components/entity-icon-picker';
 
 export function TeamDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -55,6 +56,7 @@ export function TeamDetailPage() {
   const [selectedIssue, setSelectedIssue] = React.useState<Issue | null>(null);
   const [isIssueDetailOpen, setIsIssueDetailOpen] = React.useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = React.useState(false);
+  const [settingsPending, setSettingsPending] = React.useState(false);
 
   const { data: team, isLoading, isError, refetch } = useTeam(id);
   const { data: allIssues = [] } = useIssues();
@@ -115,8 +117,11 @@ export function TeamDetailPage() {
     );
   }
 
+  const TeamIcon = resolveEntityIcon(team.icon ?? 'Users');
+  const memberCount = team.members?.length ?? team.memberCount ?? 0;
+
   return (
-    <div className="flex flex-col gap-5 max-w-none mx-auto selection:bg-foreground selection:text-background pb-10">
+    <div className="team-detail-page flex min-w-0 flex-col gap-5 max-w-none mx-auto selection:bg-foreground selection:text-background pb-10">
       {/* Top back navigation */}
       <div className="flex items-center justify-between">
         <Link
@@ -132,73 +137,37 @@ export function TeamDetailPage() {
         </div>
       </div>
 
-      {/* Team Header Spotlight */}
-      <div className="flex flex-col gap-5 border-b border-border pb-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <header className="flex flex-col gap-4">
+        <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex min-w-0 items-center gap-3">
-            <span aria-hidden="true" className="flex h-10 min-w-10 shrink-0 items-center justify-center rounded-md border border-border bg-muted px-2 font-mono text-xs font-semibold text-muted-foreground">{team.key}</span>
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2.5">
-                <h1 className="min-w-0 break-words text-xl sm:text-2xl font-semibold tracking-[-0.03em] text-foreground">{team.name}</h1>
-                {team.isPrivate && <Badge variant="outline"><LockKeyhole data-icon="inline-start" />Private</Badge>}
-                <Badge variant="outline" className="font-mono text-xs px-2 py-0.5 border-border/70 bg-background/60">
-                  {team.key}
-                </Badge>
-              </div>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Issues identifier prefix: <span className="font-mono font-medium text-foreground">{team.key}-1</span>
-              </p>
-            </div>
+            <span aria-hidden="true" className="flex size-10 shrink-0 items-center justify-center rounded-[6px] border border-border bg-secondary text-muted-foreground"><TeamIcon className="size-5" /></span>
+            <div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><h1 className="min-w-0 break-words text-xl font-semibold tracking-[-0.03em] text-foreground sm:text-2xl">{team.name}</h1>{team.isPrivate && <Badge variant="outline"><LockKeyhole data-icon="inline-start" />Private</Badge>}</div>{team.description && <p className="mt-1 max-w-3xl break-words text-sm text-muted-foreground">{team.description}</p>}</div>
           </div>
-
-          <div className="flex items-center gap-2">
-            {team.canWrite && activeTab === 'home' && <Button
-              size="sm"
-              onClick={() => setIsCreateIssueOpen(true)}
-            >
-              <Plus data-icon="inline-start" className="size-3.5" />
-              <span>New Team Issue</span>
-            </Button>}
-          </div>
+          {team.canWrite && activeTab === 'home' && <Button size="sm" onClick={() => setIsCreateIssueOpen(true)}><Plus data-icon="inline-start" /><span>New Team Issue</span></Button>}
         </div>
-
-        {team.description && (
-          <p className="text-sm text-foreground/80 leading-relaxed max-w-3xl">
-            {team.description}
-          </p>
-        )}
-
-        {/* Stats strip */}
-        <div className="flex items-center gap-6 pt-3 border-t border-border/50 text-xs font-mono text-muted-foreground">
-          <div className="flex items-center gap-2">
-            <Users className="size-3.5 text-muted-foreground/70" />
-            <span>{team.members?.length ?? team.memberCount ?? 0} members</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <CheckSquare className="size-3.5 text-muted-foreground/70" />
-            <span>{teamIssues.length} issues tracked</span>
-          </div>
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-muted-foreground">
+          <span className="inline-flex items-center gap-1.5"><Users aria-hidden="true" className="size-3.5" />{memberCount} {memberCount === 1 ? 'member' : 'members'}</span>
+          <span className="inline-flex items-center gap-1.5"><CheckSquare aria-hidden="true" className="size-3.5" />{teamIssues.length} {teamIssues.length === 1 ? 'issue' : 'issues'} tracked</span>
+          <span>Issue prefix <span className="font-mono text-foreground">{team.key}</span></span>
         </div>
-      </div>
+      </header>
 
       {/* Tabs Section: Issues & Members */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} activationMode="manual" className="flex-col gap-4 w-full">
-        <TabsList variant="line" className="h-9 w-fit justify-start gap-6 p-0 border-b border-border/60 pb-1">
+      <Tabs value={activeTab} onValueChange={setActiveTab} activationMode="manual" className="team-detail-tabs min-w-0 w-full flex-col gap-6">
+        <TabsList aria-label="Team sections" variant="line" className="w-full justify-start gap-6 rounded-none border-b border-border p-0">
           <TabsTrigger
             value="home"
-            className="h-8 flex-none rounded-none border-0 bg-transparent px-0 text-sm font-medium text-muted-foreground hover:text-foreground data-[state=active]:text-foreground"
+            className="h-10 flex-none rounded-none border-0 px-0"
           >
-            <Repeat className="size-3.5" />
             <span>Overview</span>
           </TabsTrigger>
           <TabsTrigger
             value="members"
-            className="h-8 flex-none rounded-none border-0 bg-transparent px-0 text-sm font-medium text-muted-foreground hover:text-foreground data-[state=active]:text-foreground"
+            className="h-10 flex-none rounded-none border-0 px-0"
           >
-            <Users className="size-3.5" />
             <span>Members</span>
           </TabsTrigger>
-          {team.canManage && <TabsTrigger value="settings" className="h-8 flex-none rounded-none border-0 bg-transparent px-0 text-sm font-medium text-muted-foreground hover:text-foreground data-[state=active]:text-foreground">Settings</TabsTrigger>}
+          {team.canManage && <TabsTrigger value="settings" className="h-10 flex-none rounded-none border-0 px-0">Settings</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="home" className="mt-0 flex w-full flex-col gap-5">
@@ -317,8 +286,8 @@ export function TeamDetailPage() {
         <TabsContent value="members" className="mt-0 w-full">
           <TeamMembersPanel key={team.id} team={team} />
         </TabsContent>
-        <TabsContent value="settings" className="mt-0 flex flex-col gap-8">
-          {team.canManage ? <><section className="flex max-w-4xl flex-col gap-5"><div><h2 className="text-sm font-medium">Team settings</h2><p className="mt-1 text-sm text-muted-foreground">Manage team access and issue workflow.</p></div><TeamSettingsForm team={team} /></section>{team.canDelete && <section className="flex max-w-4xl flex-col items-start gap-3 border-t border-border pt-6"><h2 className="text-sm font-medium">Delete team</h2><p className="text-sm text-muted-foreground">Permanently deletes this team and its issues. This action cannot be undone.</p><Button variant="destructive" onClick={() => setIsDeleteDialogOpen(true)}><Trash2 data-icon="inline-start" />Delete team</Button></section>}</> : <p className="text-sm text-muted-foreground">Only team managers can change these settings.</p>}
+        <TabsContent value="settings" className="mt-0 flex w-full max-w-4xl flex-col gap-8">
+          {team.canManage ? <><section className="flex min-w-0 flex-col gap-6"><div><h2 className="text-xl font-semibold tracking-[-0.02em]">Team settings</h2><p className="mt-1 text-xs text-muted-foreground">Manage team access and issue workflow.</p></div><TeamSettingsForm team={team} onPendingChange={setSettingsPending} /></section>{team.canDelete && <section className="flex flex-col items-start gap-3 border-t border-border pt-6"><h2 className="text-sm font-semibold">Delete team</h2><p className="max-w-prose text-sm text-muted-foreground">Permanently deletes this team and its issues. This action cannot be undone.</p><Button variant="destructive" disabled={settingsPending || deleteMutation.isPending} onClick={() => setIsDeleteDialogOpen(true)}><Trash2 data-icon="inline-start" />Delete team</Button></section>}</> : <p className="text-sm text-muted-foreground">Only team managers can change these settings.</p>}
         </TabsContent>
       </Tabs>
 

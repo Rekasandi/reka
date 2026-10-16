@@ -6,9 +6,13 @@ const browser = await chromium.launch();
 const base = process.env.WEB_URL || 'http://localhost:5173';
 const out = '/tmp/reka-settings';
 await mkdir(out, { recursive: true });
+const polishOut = '/tmp/reka-team-polish';
+await mkdir(polishOut, { recursive: true });
 let role = 'owner';
 let githubUsername = 'dimaspratama';
-let teamsFail = false;
+let teamsFail = false, workflowFail = false, workflowSaveFail = false, workflowGate;
+const teamDetails = { name: 'Engineering', description: 'Platform and product engineering.', isPrivate: false };
+let workflow = ['triage', 'backlog', 'todo', 'in_progress', 'in_review', 'done', 'canceled', 'blocked'].map((key, position) => ({ key, name: key === 'todo' ? 'To do' : key.replaceAll('_', ' '), category: ({ triage: 'triage', backlog: 'backlog', todo: 'unstarted', done: 'completed', canceled: 'canceled' })[key] || 'started', color: '#6b7280', isActive: true, position }));
 const people = [{ id: 'u1', name: 'Dimas Pratama', email: 'dimas@example.test', role: 'owner' }, { id: 'u2', name: 'Ayu Lestari', email: 'ayu@example.test', role: 'member' }];
 let members = [{ teamId: 't1', userId: 'u1', role: 'lead', user: people[0] }];
 let preferences = { mentions: true, comments: true, assignments: true, issueUpdates: true, projectUpdates: true, github: true, teamInvites: true };
@@ -33,12 +37,21 @@ try {
     }
     if (path === '/api/teams/t1/members/u2' && request.method() === 'PATCH') members.find(member => member.userId === 'u2').role = request.postDataJSON().role;
     if (path === '/api/teams/t1/members/u2' && request.method() === 'DELETE') members = members.filter(member => member.userId !== 'u2');
-    const team = { id: 't1', name: 'Engineering', key: 'ENG', createdAt: '2026-10-01T00:00:00Z', isPrivate: false, currentMemberUserId: 'u1', canManage: ['owner', 'admin'].includes(role), canWrite: ['owner', 'admin'].includes(role), members };
+    if (path === '/api/teams/t1' && request.method() === 'PATCH') Object.assign(teamDetails, request.postDataJSON());
+    if (path.endsWith('/workflow-states')) {
+      if (workflowFail) return route.fulfill({ status: 503, json: { message: 'Controlled workflow failure' } });
+      if (request.method() === 'PATCH') {
+        if (workflowGate) await workflowGate;
+        if (workflowSaveFail) return route.fulfill({ status: 409, json: { message: 'This state is in use. Keep it active.' } });
+        workflow = request.postDataJSON().states;
+      }
+    }
+    const team = { id: 't1', ...teamDetails, key: 'ENG', createdAt: '2026-10-01T00:00:00Z', currentMemberUserId: 'u1', canManage: ['owner', 'admin'].includes(role), canWrite: ['owner', 'admin'].includes(role), canDelete: ['owner', 'admin'].includes(role), members };
     const data = path === '/api/auth/me' ? { id: 'u1', name: 'Dimas Pratama', email: 'dimas@example.test', githubUsername, role }
       : path === '/api/workspace' ? { id: 'o1', name: 'REKA', role }
       : path === '/api/users' ? people
       : path === '/api/teams' ? [team, { ...team, id: 't2', name: 'Design', key: 'DES', isPrivate: true, members: members.map(member => ({ ...member, teamId: 't2' })) }] : path === '/api/teams/t1' ? team
-      : path.endsWith('/workflow-states') ? [{ key: 'todo', name: 'To do', category: 'unstarted', color: '#6b7280', isActive: true, position: 0 }]
+      : path.endsWith('/workflow-states') ? workflow
       : path === '/api/projects' ? [{ id: 'p1', name: 'Booking platform', status: 'planned', health: 'on_track', teamId: 't1' }]
       : path === '/api/notifications/preferences' ? preferences
       : path.endsWith('/unread-count') ? { count: 0 } : [];
@@ -146,7 +159,7 @@ try {
   assert.equal(await workspaceSidebar.getByRole('link', { name: 'Overview', exact: true }).getAttribute('aria-current'), 'page');
   assert.equal(await page.getByRole('tab', { name: 'Members', exact: true }).getAttribute('aria-selected'), 'true');
   await page.getByRole('searchbox', { name: 'Search team members' }).fill('not a member');
-  await page.getByText('No members match your search.', { exact: true }).waitFor();
+  await page.getByRole('cell', { name: 'No members match your search.', exact: true }).waitFor();
   await page.getByRole('searchbox', { name: 'Search team members' }).fill('');
   const historyBeforeTab = await page.evaluate(() => history.length);
   await page.getByRole('tab', { name: 'Overview', exact: true }).click();
@@ -224,6 +237,77 @@ try {
       assert.equal(await nav.count(), 0, 'Returning to the workspace restores its sidebar');
     }
   }
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto(base + '/teams/t1?tab=settings');
+  await page.getByLabel('Team name', { exact: true }).fill('Engineering operations');
+  await page.getByLabel('Description', { exact: true }).fill('Owns platform delivery.');
+  await page.getByRole('checkbox', { name: 'Private team', exact: true }).check();
+  await page.getByRole('button', { name: 'Save settings', exact: true }).click();
+  await page.getByRole('heading', { name: 'Engineering operations', exact: true }).waitFor();
+  assert.equal(teamDetails.isPrivate, true);
+  await page.reload();
+  await page.getByLabel('Team name', { exact: true }).waitFor();
+  assert.equal(await page.getByLabel('Team name', { exact: true }).inputValue(), 'Engineering operations');
+  assert.equal(await page.getByRole('checkbox', { name: 'Private team', exact: true }).isChecked(), true);
+  const beforeDelete = requests.filter(request => request === 'DELETE /api/teams/t1').length;
+  await page.getByRole('button', { name: 'Delete team', exact: true }).click();
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Cancel', exact: true }).click();
+  assert.equal(requests.filter(request => request === 'DELETE /api/teams/t1').length, beforeDelete, 'Danger section still requires confirmation');
+  await page.getByLabel('todo state name', { exact: true }).fill('Ready to start');
+  workflowSaveFail = true;
+  await page.getByRole('button', { name: 'Save workflow', exact: true }).click();
+  await page.getByRole('alert').filter({ hasText: 'This state is in use. Keep it active.' }).waitFor();
+  assert.equal(await page.getByLabel('todo state name', { exact: true }).inputValue(), 'Ready to start');
+  workflowSaveFail = false;
+  let releaseWorkflow;
+  workflowGate = new Promise(resolve => { releaseWorkflow = resolve; });
+  await page.getByRole('button', { name: 'Save workflow', exact: true }).click();
+  await page.getByRole('button', { name: 'Saving…', exact: true }).waitFor();
+  assert.equal(await page.getByLabel('Team name', { exact: true }).isDisabled(), true);
+  assert.equal(await page.getByLabel('todo state name', { exact: true }).isDisabled(), true);
+  assert.equal(await page.getByRole('button', { name: 'Add state', exact: true }).isDisabled(), true);
+  assert.equal(await page.getByRole('button', { name: 'Delete team', exact: true }).isDisabled(), true);
+  releaseWorkflow(); workflowGate = null;
+  await page.getByRole('button', { name: 'Save workflow', exact: true }).waitFor();
+  await page.reload(); await page.getByLabel('todo state name', { exact: true }).waitFor();
+  assert.equal(await page.getByLabel('todo state name', { exact: true }).inputValue(), 'Ready to start');
+  workflowFail = true; await page.reload();
+  await page.getByRole('alert').filter({ hasText: 'Could not load workflow' }).waitFor();
+  assert.equal(await page.getByRole('button', { name: 'Add state', exact: true }).isDisabled(), true);
+  workflowFail = false; await page.getByRole('button', { name: 'Retry', exact: true }).click();
+  await page.getByLabel('todo state name', { exact: true }).waitFor();
+  Object.assign(teamDetails, { name: 'Engineering', description: 'Platform and product engineering.', isPrivate: false });
+  for (const theme of ['dark', 'light']) for (const width of [1920, 1440, 900, 390, 320]) {
+    await page.setViewportSize({ width, height: 1000 });
+    await page.addInitScript(theme => localStorage.setItem('reka-theme', theme), theme);
+    for (const tab of ['members', 'settings']) {
+      await page.goto(`${base}/teams/t1?tab=${tab}`);
+      await page.getByRole('tabpanel', { name: tab === 'members' ? 'Members' : 'Settings', exact: true }).waitFor();
+      await (tab === 'members' ? page.getByRole('combobox', { name: 'Team role for Dimas Pratama' }) : page.getByLabel('todo state name', { exact: true })).waitFor();
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
+      const clipped = await page.evaluate(() => [...document.querySelectorAll('.team-detail-page input, .team-detail-page select, .team-detail-page button')].filter(element => { const rect = element.getBoundingClientRect(); return element.checkVisibility() && (rect.left < 0 || rect.right > innerWidth + 1); }).map(element => element.getAttribute('aria-label') || element.textContent));
+      assert.deepEqual(clipped, [], `${theme} ${width} ${tab}: controls are not clipped`);
+      if (tab === 'members') {
+        await page.getByRole('button', { name: 'About team roles', exact: true }).click();
+        await page.getByRole('dialog', { name: 'About team roles', exact: true }).getByText('Workspace permissions still apply.', { exact: true }).waitFor();
+        await page.keyboard.press('Escape');
+        await page.getByRole('dialog', { name: 'About team roles', exact: true }).waitFor({ state: 'hidden' });
+        assert.equal(await page.getByRole('combobox', { name: 'Team role for Dimas Pratama' }).isDisabled(), true, 'Last writable lead guard stays intact');
+      } else {
+        const alignment = await page.getByRole('checkbox', { name: 'Private team', exact: true }).evaluate(element => { const label = document.querySelector('label[for="team-settings-private"]'); return { gap: label.getBoundingClientRect().left - element.getBoundingClientRect().right, formWidth: document.querySelector('.team-settings-form form').getBoundingClientRect().width, nestedScroll: [...document.querySelectorAll('[aria-label="Workflow states"], [aria-label="Workflow states"] *')].some(element => ['auto', 'scroll'].includes(getComputedStyle(element).overflowY) && element.scrollHeight > element.clientHeight + 2) }; });
+        assert.ok(alignment.gap >= 6 && alignment.gap <= 12, 'Privacy checkbox remains next to its label, not spread across the form');
+        assert.ok(alignment.formWidth <= 768);
+        assert.equal(alignment.nestedScroll, false, 'Workflow uses page scroll instead of a cramped inner scroller');
+        assert.equal(await page.locator('[data-workflow-state]').count(), 8);
+        assert.equal(await page.getByRole('button', { name: 'Add state', exact: true }).isEnabled(), true);
+      }
+      await page.screenshot({ path: `${polishOut}/${theme}-${width}-${tab}.png`, fullPage: true });
+      if (tab === 'settings' && [1440, 390].includes(width)) {
+        await page.getByRole('button', { name: 'Save workflow', exact: true }).scrollIntoViewIfNeeded();
+        await page.screenshot({ path: `${polishOut}/${theme}-${width}-workflow.png`, fullPage: true });
+      }
+    }
+  }
   role = 'guest'; githubUsername = null;
   await page.goto(base + '/settings/accounts');
   await page.getByText('No verified GitHub identity available', { exact: true }).waitFor();
@@ -247,5 +331,5 @@ try {
   await page.goto(base + '/settings/teams/t1');
   await page.getByRole('combobox', { name: 'Team role for Dimas Pratama' }).waitFor();
   assert.deepEqual(errors, []);
-  console.log('PASS: real settings routes/sidebar, categories, preferences persistence, notifications, workflow/label dialogs, team directory filtering/sorting/create entry, add/role/remove/cancel and keyboard member selection, direct/reload/back/forward/legacy URLs, desktop/mobile light/dark and read-only/admin access. Controlled APIs only.');
+  console.log('PASS: actual settings/team routes, member roles/search/help/last-lead controls, add/remove/cancel, compact team tabs/history, settings and workflow save/reload/error/pending/retry, privacy alignment, 20 team desktop/mobile light/dark renders, existing settings/dialog flows and read-only/admin access. Controlled APIs only.');
 } finally { await browser.close(); }

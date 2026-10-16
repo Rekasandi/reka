@@ -244,6 +244,19 @@ pre code {
   scroll-margin-top: 1rem;
 }
 
+/* Team tabs and shared settings forms stay dense without squeezing mobile controls. */
+.team-detail-tabs > [data-slot="tabs-list"] { height: 40px; overflow-x: auto; overflow-y: hidden; }
+.team-detail-tabs > [data-slot="tabs-list"] > [data-slot="tabs-trigger"] { height: 100%; }
+.team-workflow-head { display: none; }
+.team-workflow-row { display: grid; grid-template-columns: minmax(0, 1fr) 40px 80px; align-items: center; gap: 12px; }
+.team-workflow-name { grid-column: 1 / -1; }
+@container team-settings (min-width: 36rem) {
+  .team-setting-field { display: grid; grid-template-columns: 12rem minmax(0, 1fr); align-items: start; gap: 24px; }
+  .team-settings-actions { grid-column: 2; }
+  .team-workflow-row, .team-workflow-head { display: grid; grid-template-columns: minmax(0, 1fr) 144px 40px 80px; gap: 12px; }
+  .team-workflow-name { grid-column: auto; }
+}
+
 /* Triage uses the same issue content and tokens, inside a queue/detail workbench. */
 .triage-page { height: calc(100svh - 3rem); }
 [data-issue-detail="triage"] { --triage-toolbar-height: 3.5rem; container: triage-detail / inline-size; min-width: 0; }
