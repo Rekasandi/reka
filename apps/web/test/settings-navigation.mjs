@@ -90,7 +90,9 @@ try {
       await page.getByRole('button', { name: 'Manage labels', exact: true }).first().click();
       await page.getByRole('dialog', { name: 'Manage labels' }).waitFor();
       assert.equal(await page.getByLabel('Label team').inputValue(), 't1');
-      await page.keyboard.press('Escape');
+      await page.getByRole('button', { name: 'New label color', exact: true }).click();
+      await page.getByLabel('New label color hex value', { exact: true }).fill('#22aa88');
+      await page.getByRole('dialog', { name: 'Manage labels' }).getByRole('button', { name: 'Close', exact: true }).first().click();
     }
   }
   const directory = page.getByRole('table', { name: 'Workspace teams' });
@@ -254,6 +256,16 @@ try {
   await page.getByRole('button', { name: 'Delete team', exact: true }).click();
   await page.getByRole('alertdialog').getByRole('button', { name: 'Cancel', exact: true }).click();
   assert.equal(requests.filter(request => request === 'DELETE /api/teams/t1').length, beforeDelete, 'Danger section still requires confirmation');
+  await page.getByRole('button', { name: 'todo color', exact: true }).click();
+  await page.getByLabel('todo color hex value', { exact: true }).fill('#123456');
+  await page.keyboard.press('Escape');
+  const colorSave = page.waitForResponse(response => response.url().includes('/workflow-states') && response.request().method() === 'PATCH' && response.ok());
+  await page.getByRole('button', { name: 'Save workflow', exact: true }).click();
+  await colorSave;
+  assert.equal(workflow.find(state => state.key === 'todo').color, '#123456', 'Color Picker changes persist through the existing workflow API');
+  await page.reload();
+  await page.getByLabel('todo state name', { exact: true }).waitFor();
+  assert.equal(await page.getByRole('button', { name: 'todo color', exact: true }).locator('[data-slot="color-picker-swatch"]').evaluate(element => getComputedStyle(element).backgroundColor), 'rgb(18, 52, 86)');
   await page.getByLabel('todo state name', { exact: true }).fill('Ready to start');
   workflowSaveFail = true;
   await page.getByRole('button', { name: 'Save workflow', exact: true }).click();
@@ -302,6 +314,12 @@ try {
         assert.equal(alignment.nestedScroll, false, 'Workflow uses page scroll instead of a cramped inner scroller');
         assert.equal(await page.locator('[data-workflow-state]').count(), 8);
         assert.equal(await page.getByRole('button', { name: 'Add state', exact: true }).isEnabled(), true);
+        if ([320, 390].includes(width)) {
+          await page.getByRole('button', { name: 'todo color', exact: true }).click();
+          const popupBounds = await page.locator('[data-slot="color-picker-content"]').evaluate(element => { const rect = element.getBoundingClientRect(); return { left: rect.left, right: rect.right }; });
+          assert.ok(popupBounds.left >= 0 && popupBounds.right <= width, `${theme} ${width}: Color Picker fits the viewport`);
+          await page.keyboard.press('Escape');
+        }
       }
       await page.screenshot({ path: `${polishOut}/${theme}-${width}-${tab}.png`, fullPage: true });
       if (tab === 'settings' && [1440, 390].includes(width)) {

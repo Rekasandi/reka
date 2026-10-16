@@ -203,6 +203,12 @@ Audit elemen pilihan pengguna pada `/teams/:id` menemukan header/key berulang, t
 
 Sesuai pemilihan pengguna, baris navigasi **Back to Teams** pada `TeamDetailPage` dihapus beserta import ikon yang tidak terpakai. Header tim kini menjadi konten pertama; **Join team** tetap tersedia sesuai capability pada action area header, berdampingan dengan New Team Issue bila tersedia. Breadcrumb dan navigasi Teams existing tidak dihapus; Back to teams pada Settings administration tidak termasuk target. Web type-check/build, regresi Settings/team (termasuk assertion link yang dihapus pada desktop/mobile) dan isolated workspace browser flow lulus. Evidence `/tmp/reka-remove-team-back-*`.
 
+## Color Picker untuk workflow dan labels
+
+Gunakan composable **Dice UI Color Picker** berbasis Radix dari dokumentasi `/docs/components/radix/color-picker` melalui `@reka/ui`, mengganti native color input pada workflow tim dan Manage labels. Integrasi bersama berada di `apps/web/src/components/common/color-picker-field.tsx`; memilih area/hue, eyedropper browser yang didukung, dan edit nilai hex menyimpan warna lewat mutation/API yang sudah ada. Format output dikunci ke hex (tanpa alpha/format switch) sesuai nilai workflow/label existing. Komponen, visually-hidden form input, dan dua hooks ditempatkan di `packages/ui`; tidak menambah dependency atau mengubah schema.
+
+Verifikasi: UI type-check/build dan `settings-navigation.mjs`, termasuk simpan dan reload hex dari workflow API mock, label color field, serta posisi popover pada 320/390px light/dark. Registry CLI Dice UI mengembalikan 404; komponen diadaptasi dari source yang tampil pada dokumentasi Radix resmi. Batasan: eyedropper hanya tersedia jika browser menyediakan EyeDropper API. Tidak membuktikan layanan provider live.
+
 ## Batasan
 
 - Vite masih memberi warning chunk besar (main sekitar 1.87 MB; editor sekitar 800 KB). Build berhasil; route-level bundle optimization bukan bagian perubahan ini.

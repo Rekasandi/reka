@@ -3,6 +3,7 @@ import { Alert, AlertDescription, Button, Checkbox, Dialog, DialogContent, Dialo
 import { Plus } from 'lucide-react';
 import { useUpdateTeam, useTeamWorkflowStates, useUpdateTeamWorkflowStates } from '../hooks/use-teams';
 import type { Team, TeamWorkflowState, WorkflowStateCategory } from '../api/teams.api';
+import { ColorPickerField } from '../../../components/common/color-picker-field';
 
 const CATEGORIES: { value: WorkflowStateCategory; label: string }[] = [
   { value: 'triage', label: 'Triage' }, { value: 'backlog', label: 'Backlog' }, { value: 'unstarted', label: 'Unstarted' },
@@ -54,7 +55,7 @@ export function TeamSettingsForm({ team, onClose, onPendingChange }: { team: Tea
           {states.map(state => <li key={state.key} data-workflow-state={state.key} className="team-workflow-row py-3">
             <Field className="team-workflow-name min-w-0"><FieldLabel className="@min-[36rem]/team-settings:sr-only" htmlFor={`workflow-${state.key}-name`}>State name</FieldLabel><Input id={`workflow-${state.key}-name`} aria-label={`${state.key} state name`} required maxLength={64} value={state.name} disabled={pending} onChange={event => changeState(state.key, { name: event.target.value })} /><span className="truncate font-mono text-xs text-muted-foreground" title={state.key}>{state.key}</span></Field>
             <Field className="min-w-0"><FieldLabel className="@min-[36rem]/team-settings:sr-only" htmlFor={`workflow-${state.key}-category`}>Category</FieldLabel><select id={`workflow-${state.key}-category`} aria-label={`${state.key} category`} disabled={pending} className="h-9 min-w-0 rounded-[6px] border border-input bg-background px-2 text-sm" value={state.category} onChange={event => changeState(state.key, { category: event.target.value as WorkflowStateCategory })}>{CATEGORIES.map(category => <option key={category.value} value={category.value}>{category.label}</option>)}</select></Field>
-            <Field><FieldLabel className="@min-[36rem]/team-settings:sr-only" htmlFor={`workflow-${state.key}-color`}>Color</FieldLabel><input id={`workflow-${state.key}-color`} aria-label={`${state.key} color`} disabled={pending} type="color" className="size-9 cursor-pointer rounded-[6px] border border-input bg-background p-1 disabled:cursor-not-allowed disabled:opacity-50" value={state.color} onChange={event => changeState(state.key, { color: event.target.value })} /></Field>
+            <Field><FieldLabel className="@min-[36rem]/team-settings:sr-only">Color</FieldLabel><ColorPickerField label={`${state.key} color`} value={state.color} disabled={pending} onValueChange={color => changeState(state.key, { color })} /></Field>
             <div className="flex h-9 items-center gap-2 self-end @min-[36rem]/team-settings:self-center"><Checkbox id={`workflow-${state.key}-active`} aria-label={`${state.key} active`} checked={state.isActive} disabled={pending} onCheckedChange={checked => changeState(state.key, { isActive: checked === true })} /><FieldLabel htmlFor={`workflow-${state.key}-active`}>Active</FieldLabel></div>
           </li>)}
         </ol>

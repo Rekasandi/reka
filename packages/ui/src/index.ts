@@ -9,6 +9,7 @@ export * from './components/calendar';
 export * from './components/card';
 export * from './components/chart';
 export * from './components/checkbox';
+export * from './components/color-picker';
 export * from './components/collapsible';
 export * from './components/combobox';
 export * from './components/command';

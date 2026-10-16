@@ -3,6 +3,7 @@ import { Badge, Button, Dialog, DialogContent, DialogDescription, DialogFooter, 
 import { RefreshCw, Save, Tag, Trash2 } from 'lucide-react';
 import type { Label } from '@reka/types';
 import { ConfirmDeleteDialog } from '../../../components/common/confirm-delete-dialog';
+import { ColorPickerField } from '../../../components/common/color-picker-field';
 import { useTeams } from '../../teams/hooks/use-teams';
 import { useCreateLabel, useDeleteLabel, useIssueLabels, useUpdateLabel } from '../hooks/use-issues';
 
@@ -15,7 +16,7 @@ function LabelRow({ label, canManage }: { label: Label; canManage: boolean }) {
   const changed = name.trim() !== label.name || color !== label.color;
   return <li className="grid grid-cols-[minmax(0,1fr)_3rem_auto] items-center gap-2 border-b border-border py-2 last:border-b-0">
     <label className="flex min-w-0 items-center gap-2 text-sm"><span aria-hidden="true" className="size-2.5 shrink-0 rounded-full border border-border" style={{ backgroundColor: color }} /><Input aria-label={`${label.name} label name`} value={name} maxLength={50} disabled={!canManage || update.isPending} onChange={event => setName(event.target.value)} /></label>
-    <Input aria-label={`${label.name} label color`} type="color" value={color} disabled={!canManage || update.isPending} onChange={event => setColor(event.target.value)} className="h-9 p-1" />
+    <ColorPickerField label={`${label.name} label color`} value={color} disabled={!canManage || update.isPending} onValueChange={setColor} />
     <div className="flex items-center gap-1">
       <Button type="button" variant="outline" size="icon-sm" aria-label={`Save ${label.name}`} title="Save label" disabled={!canManage || !changed || !name.trim() || update.isPending} onClick={() => update.mutate({ id: label.id, name: name.trim(), color })}><Save /></Button>
       <Button type="button" variant="ghost" size="icon-sm" aria-label={`Delete ${label.name}`} title="Delete label" disabled={!canManage || remove.isPending} onClick={() => setDeleteOpen(true)}><Trash2 className="text-destructive" /></Button>
@@ -49,7 +50,7 @@ export function ManageLabelsDialog({ open, onOpenChange, initialTeamId }: { open
           {teamLabels.length ? <ul aria-label="Team labels" className="max-h-64 overflow-y-auto">{teamLabels.map(label => <LabelRow key={label.id} label={label} canManage={canManage} />)}</ul> : <p className="flex items-center gap-2 py-3 text-sm text-muted-foreground"><Tag className="size-4" />No labels in this team yet.</p>}
           {canManage && <form onSubmit={submit} className="grid grid-cols-[minmax(0,1fr)_3rem_auto] items-end gap-2 border-t border-border pt-4">
             <label className="flex min-w-0 flex-col gap-1 text-xs text-muted-foreground">New label<Input aria-label="New label name" maxLength={50} value={name} onChange={event => setName(event.target.value)} placeholder="Label name" /></label>
-            <label className="flex flex-col gap-1 text-xs text-muted-foreground">Color<Input aria-label="New label color" type="color" value={color} onChange={event => setColor(event.target.value)} className="h-9 p-1" /></label>
+            <label className="flex flex-col gap-1 text-xs text-muted-foreground">Color<ColorPickerField label="New label color" value={color} onValueChange={setColor} /></label>
             <Button type="submit" disabled={!name.trim() || create.isPending}><Tag data-icon="inline-start" />Create</Button>
           </form>}
         </>}
