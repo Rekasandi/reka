@@ -11,6 +11,8 @@ export interface NotificationPreferenceValues {
   projectUpdates: boolean;
   github: boolean;
   teamInvites: boolean;
+  /** Opt-in: also email each notification. Absent means off, so existing stored preferences need no migration. */
+  emailNotifications?: boolean;
 }
 
 export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferenceValues = {

@@ -5,6 +5,8 @@ export class CreateWorkspaceInvitationDto {
   @IsEmail() @MaxLength(255) email!: string;
   @IsOptional() @IsIn(['admin', 'member']) role?: 'admin' | 'member';
   @IsOptional() @IsInt() @Min(1) @Max(30) expiresInDays?: number;
+  /** Email the invitation link to the invitee (default true). The link is returned either way. */
+  @IsOptional() @IsBoolean() sendEmail?: boolean;
 }
 export class UpdateWorkspaceMemberDto {
   @IsOptional() @IsIn(['owner', 'admin', 'member', 'guest', 'client']) role?: UserRole;

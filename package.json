@@ -26,6 +26,7 @@
     "test:triage": "turbo run build --filter=@reka/api && node --test apps/api/test/triage-intake.integration.test.cjs",
     "test:favorites": "turbo run build --filter=@reka/api && node --test apps/api/test/favorites-search.integration.test.cjs",
     "test:projects-docs": "turbo run build --filter=@reka/api && node --test apps/api/test/projects-documents.integration.test.cjs",
+    "test:email": "turbo run build --filter=@reka/api && node --test apps/api/test/email.integration.test.cjs",
     "test:cycles": "turbo run build --filter=@reka/api --filter=@reka/worker && node --test apps/api/test/cycles-workflows.integration.test.cjs apps/api/test/cycle-auto-add.integration.test.cjs apps/api/test/team-features.integration.test.cjs apps/api/test/cycles-migration.integration.test.cjs apps/worker/test/cycle-planning-postgres.integration.test.cjs",
     "test:web:cycles-real-api": "node apps/web/test/cycles-real-api.mjs",
     "test:collaboration": "turbo run build --filter=@reka/api && node --test apps/api/test/collaboration.integration.test.cjs apps/api/test/collaboration-migration.integration.test.cjs",

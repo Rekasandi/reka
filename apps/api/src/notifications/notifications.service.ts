@@ -1,13 +1,17 @@
-import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, BadRequestException, Logger, Optional } from '@nestjs/common';
 import { DatabaseService } from '../common/database/database.service';
-import { DEFAULT_NOTIFICATION_PREFERENCES, notificationPreferences, notifications, type NotificationPreferenceValues } from '@reka/database';
+import { DEFAULT_NOTIFICATION_PREFERENCES, notificationPreferences, notifications, users, type NotificationPreferenceValues } from '@reka/database';
 import { and, desc, eq } from 'drizzle-orm';
 import { CreateNotificationDto, UpdateNotificationPreferencesDto } from './dto/notification.dto';
+import { MailService } from '../mail/mail.service';
+import { notificationEmail } from '../mail/mail-templates';
 import { requireWorkspace, requireIssue, requireProject, requireTeam, notificationScope } from '../common/access/workspace-access';
 
 @Injectable()
 export class NotificationsService {
-  constructor(private readonly database: DatabaseService) {}
+  private readonly logger = new Logger(NotificationsService.name);
+
+  constructor(private readonly database: DatabaseService, @Optional() private readonly mail?: MailService) {}
 
   async getPreferences(userId: string) {
     await requireWorkspace(this.database.db, userId);
@@ -17,9 +21,12 @@ export class NotificationsService {
 
   async savePreferences(userId: string, dto: UpdateNotificationPreferencesDto) {
     await requireWorkspace(this.database.db, userId);
+    const [current] = await this.database.db.select({ preferences: notificationPreferences.preferences })
+      .from(notificationPreferences).where(eq(notificationPreferences.userId, userId));
     const preferences: NotificationPreferenceValues = {
       comments: dto.comments, mentions: dto.mentions, assignments: dto.assignments,
       issueUpdates: dto.issueUpdates, projectUpdates: dto.projectUpdates, github: dto.github, teamInvites: dto.teamInvites,
+      emailNotifications: dto.emailNotifications ?? current?.preferences?.emailNotifications ?? false,
     };
     const [saved] = await this.database.db.insert(notificationPreferences).values({ userId, preferences, updatedAt: new Date() })
       .onConflictDoUpdate({ target: notificationPreferences.userId, set: { preferences, updatedAt: new Date() } }).returning();
@@ -122,6 +129,22 @@ export class NotificationsService {
         metadata: dto.metadata || {},
       })
       .returning();
+    if (savedPreferences?.preferences?.emailNotifications) void this.emailNotification(userId, created);
     return created;
+  }
+
+  /** Opt-in email copy of an in-app notification. Best-effort: failures are logged, never raised to the caller. */
+  private async emailNotification(userId: string, notification: { title: string; body: string; link: string | null }) {
+    try {
+      if (!this.mail?.isConfigured()) return;
+      const [recipient] = await this.database.db.select({ email: users.email }).from(users).where(eq(users.id, userId));
+      if (!recipient?.email) return;
+      const webUrl = process.env.WEB_URL || 'http://localhost:5173';
+      await this.mail.send(recipient.email, notificationEmail({
+        title: notification.title, body: notification.body,
+        url: notification.link ? new URL(notification.link, webUrl).toString() : undefined,
+        preferencesUrl: new URL('/inbox', webUrl).toString(),
+      }));
+    } catch (error) { this.logger.warn(`Notification email skipped: ${(error as Error).message}`); }
   }
 }

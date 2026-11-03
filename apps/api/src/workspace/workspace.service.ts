@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException, Optional, UnauthorizedException } from '@nestjs/common';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { and, desc, eq, gt, inArray, isNull, sql } from 'drizzle-orm';
 import { organizations, organizationMembers, users, workspaceInvitations } from '@reka/database';
@@ -6,6 +6,8 @@ import { DatabaseService } from '../common/database/database.service';
 import { membershipScope, requireAdmin, requireResourceId, requireWorkspace } from '../common/access/workspace-access';
 import { CreateWorkspaceInvitationDto, UpdateWorkspaceDto, UpdateWorkspaceMemberDto } from './dto/workspace.dto';
 import type { UpdateUserDto } from '../users/dto/user.dto';
+import { MailService } from '../mail/mail.service';
+import { invitationEmail } from '../mail/mail-templates';
 
 export const secretHash = (value: string) => createHash('sha256').update(value).digest('hex');
 export interface VerifiedGithubIdentity {
@@ -18,7 +20,7 @@ export interface VerifiedGithubIdentity {
 
 @Injectable()
 export class WorkspaceService {
-  constructor(private readonly database: DatabaseService) {}
+  constructor(private readonly database: DatabaseService, @Optional() private readonly mail?: MailService) {}
 
   async findCurrent(actorId: string) {
     const actor = await requireWorkspace(this.database.db, actorId);
@@ -131,7 +133,22 @@ export class WorkspaceService {
     if (!invite) throw new ForbiddenException('Workspace permission changed');
     const url = new URL('/login', process.env.WEB_URL || 'http://localhost:5173');
     url.searchParams.set('invite', token);
-    return { ...invite, url: url.toString() };
+    const link = url.toString();
+    // The copyable link is always returned; email is an additional, best-effort delivery channel.
+    let emailSent = false;
+    let emailError: string | undefined;
+    if (dto.sendEmail !== false) {
+      if (!this.mail?.isConfigured()) emailError = 'Email is not configured';
+      else {
+        const [org] = await db.select({ name: organizations.name }).from(organizations).where(eq(organizations.id, actor.organizationId));
+        const [inviter] = await db.select({ name: users.name }).from(users).where(eq(users.id, actorId));
+        const result = await this.mail.send(invite.email, invitationEmail({
+          inviterName: inviter?.name ?? '', workspaceName: org?.name ?? '', role: invite.role, url: link, expiresAt,
+        }));
+        emailSent = result.sent; emailError = result.error;
+      }
+    }
+    return { ...invite, url: link, emailSent, ...(emailError ? { emailError } : {}) };
   }
 
   async revokeInvitation(actorId: string, id: string) {

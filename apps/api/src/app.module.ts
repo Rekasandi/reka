@@ -27,6 +27,7 @@ import { DocumentsModule } from './documents/documents.module';
 import { IssueSubscriptionsModule } from './issue-subscriptions/issue-subscriptions.module';
 import { AttachmentsModule } from './attachments/attachments.module';
 import { InsightsModule } from './insights/insights.module';
+import { MailModule } from './mail/mail.module';
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { InsightsModule } from './insights/insights.module';
       envFilePath: ['../../.env', '.env'],
     }),
     DatabaseModule,
+    MailModule,
     RedisModule,
     HealthModule,
     AuthModule,

@@ -33,4 +33,5 @@ export class UpdateNotificationPreferencesDto {
   @IsBoolean() projectUpdates!: boolean;
   @IsBoolean() github!: boolean;
   @IsBoolean() teamInvites!: boolean;
+  @IsOptional() @IsBoolean() emailNotifications?: boolean;
 }
