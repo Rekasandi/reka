@@ -1,19 +1,5 @@
 import * as React from 'react';
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  Button,
-  Badge,
-  Input,
-  Textarea,
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  Skeleton,
-  toast,
-} from '@reka/ui';
+import { Card, CardContent, CardHeader, Button, Badge, Input, Textarea, DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, Skeleton, toast, Alert } from '@reka/ui';
 import {
   Inbox as InboxIcon,
   Bell,
@@ -367,14 +353,14 @@ export function InboxPage() {
               className="h-8 pl-8 pr-7 text-xs bg-background"
             />
             {searchQuery && (
-              <button
+              <Button variant="plain" size="auto"
                 type="button"
                 onClick={() => setSearchQuery('')}
                 aria-label="Clear inbox search"
                 className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground hover:text-foreground"
               >
                 <X className="size-3.5" />
-              </button>
+              </Button>
             )}
           </div>
 
@@ -458,7 +444,7 @@ export function InboxPage() {
                 ))}
               </div>
             ) : isError ? (
-              <div role="alert" className="flex flex-col items-center gap-3 p-8"><p className="text-sm text-muted-foreground">Could not load notifications.</p><Button variant="outline" size="sm" onClick={() => refetch()}>Retry</Button></div>
+              <Alert className="rounded-none border-0 bg-transparent px-0 py-0 text-foreground flex flex-col items-center gap-3 p-8"><p className="text-sm text-muted-foreground">Could not load notifications.</p><Button variant="outline" size="sm" onClick={() => refetch()}>Retry</Button></Alert>
             ) : filteredNotifications.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full p-8 text-center gap-3 text-muted-foreground">
                 <div className="size-10 rounded-full border border-border flex items-center justify-center bg-muted/40 text-muted-foreground">
@@ -553,7 +539,7 @@ export function InboxPage() {
 
                     {/* Hover action shortcuts */}
                     <div className="hidden group-hover:flex items-center gap-1 absolute right-2 top-2 bg-card/90 backdrop-blur-xs p-0.5 rounded-md border border-border shadow-xs">
-                      <button
+                      <Button variant="plain" size="auto"
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
@@ -563,8 +549,8 @@ export function InboxPage() {
                         className="p-1 hover:text-foreground text-muted-foreground rounded-sm hover:bg-muted"
                       >
                         <Check className="size-3" />
-                      </button>
-                      <button
+                      </Button>
+                      <Button variant="plain" size="auto"
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
@@ -574,7 +560,7 @@ export function InboxPage() {
                         className="p-1 hover:text-rose-600 text-muted-foreground rounded-sm hover:bg-muted"
                       >
                         <Trash2 className="size-3" />
-                      </button>
+                      </Button>
                     </div>
                   </div>
                 );

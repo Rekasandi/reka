@@ -65,14 +65,13 @@ try {
       import { TooltipProvider } from '/@fs${ui}';
       import { ThemeProvider } from '/src/components/theme/theme-provider.tsx';
       import { DashboardPage } from '/src/features/dashboard/components/dashboard-page.tsx';
-      import { useAuthStore } from '/src/stores/auth.store.ts';
-      import { attentionReasons, upcomingTargets, workDate } from '/src/features/dashboard/lib/dashboard-work.ts';
+            import { attentionReasons, upcomingTargets, workDate } from '/src/features/dashboard/lib/dashboard-work.ts';
       import '/src/styles/globals.css';
       window.dashboardLogic = { attentionReasons, upcomingTargets, workDate };
-      useAuthStore.setState({ user: ${JSON.stringify(user)}, isAuthenticated: true });
+      (window.__testQueryClient ??= new QueryClient({ defaultOptions: { queries: { retry: false } } })).setQueryData(['auth', 'me'], ${JSON.stringify(user)});
       ReactDOM.createRoot(document.getElementById('root')).render(
         React.createElement(TooltipProvider, null, React.createElement(ThemeProvider, { defaultTheme: new URLSearchParams(location.search).get('theme') || 'dark', storageKey: 'dashboard-test' },
-          React.createElement(QueryClientProvider, { client: new QueryClient({ defaultOptions: { queries: { retry: false } } }) },
+          React.createElement(QueryClientProvider, { client: (window.__testQueryClient ??= new QueryClient({ defaultOptions: { queries: { retry: false } } })) },
             React.createElement(MemoryRouter, { initialEntries: ['/dashboard'] }, React.createElement(Routes, null,
               React.createElement(Route, { path: '/dashboard', element: React.createElement('main', { className: 'p-6' }, React.createElement(DashboardPage)) }),
               React.createElement(Route, { path: '/projects/:id', element: React.createElement('h1', null, 'Project destination') }),

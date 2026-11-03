@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Alert, AlertDescription, Avatar, AvatarFallback, AvatarImage, Badge, Button, Input, Select, SelectTrigger, SelectValue, SelectContent, SelectGroup, SelectItem, DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, Popover, PopoverTrigger, PopoverContent, Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@reka/ui';
+import { Alert, AlertDescription, Avatar, AvatarFallback, AvatarImage, Badge, Button, Input, Select, SelectTrigger, SelectValue, SelectContent, SelectGroup, SelectItem, DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, Popover, PopoverTrigger, PopoverContent, Table, TableHeader, TableBody, TableRow, TableHead, TableCell, FieldDescription } from '@reka/ui';
 import { Info, MoreHorizontal, Plus } from 'lucide-react';
 import { useRemoveTeamMember, useUpdateTeamMember } from '../hooks/use-teams';
 import { AddMemberDialog } from './add-member-dialog';
@@ -51,7 +51,7 @@ export function TeamMembersPanel({ team }: { team: Team }) {
       })}{!filtered.length && <TableRow><TableCell colSpan={hasActions ? 3 : 2} className="py-10 text-center text-muted-foreground @min-[40rem]/team-members:hidden">{members.length ? 'No members match your search.' : 'No members yet. Add a workspace member to start working together.'}</TableCell><TableCell colSpan={hasActions ? 4 : 3} className="hidden py-10 text-center text-muted-foreground @min-[40rem]/team-members:table-cell">{members.length ? 'No members match your search.' : 'No members yet. Add a workspace member to start working together.'}</TableCell></TableRow>}</TableBody>
     </Table>
     {hasLastLead && <p id={noticeId} className="flex items-start gap-2 text-xs text-muted-foreground"><Info aria-hidden="true" className="mt-0.5 size-3.5 shrink-0" />Add another lead before changing or removing this lead.</p>}
-    {search && <p role="status" className="text-xs text-muted-foreground">Showing {filtered.length} of {members.length} members.</p>}
+    {search && <FieldDescription role="status" className="text-xs text-muted-foreground">Showing {filtered.length} of {members.length} members.</FieldDescription>}
     {team.canManage && <AddMemberDialog teamId={team.id} open={addOpen} onOpenChange={setAddOpen} existingMemberUserIds={members.map(member => member.userId)} />}
     <ConfirmDeleteDialog open={!!target} onOpenChange={open => { if (!open) setTarget(null); }} title={target?.userId === team.currentMemberUserId ? 'Leave this team?' : `Remove ${target?.user?.name || 'member'}?`} description="This removes team membership, not the workspace account. Private-team access is revoked. The last writable lead cannot be removed." confirmLabel={target?.userId === team.currentMemberUserId ? 'Leave team' : 'Remove member'} onConfirm={() => { if (target) remove.mutate(target.userId, { onSuccess: () => { if (target.userId === team.currentMemberUserId) navigate(pathname.startsWith('/settings/') ? '/settings/teams' : '/teams'); } }); }} />
   </section>;

@@ -1,8 +1,5 @@
 import * as React from 'react';
-import {
-  Badge, cn, DropdownMenu, DropdownMenuTrigger,
-  DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuShortcut,
-} from '@reka/ui';
+import { Badge, cn, DropdownMenu, DropdownMenuTrigger, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuShortcut, Button, FieldDescription } from '@reka/ui';
 import { AlertCircle, SignalHigh, SignalMedium, SignalLow, Minus } from 'lucide-react';
 import { IssuePickerMenu } from './issue-picker-menu';
 
@@ -41,12 +38,12 @@ export function PriorityPicker({ priority, onPriorityChange, className, appearan
     setOpen(false);
   };
   const trigger = (
-    <button type="button" id={id} title="Change priority (P)" aria-label={`Change priority: ${label}`}
+    <Button variant="plain" size="auto" type="button" id={id} title="Change priority (P)" aria-label={`Change priority: ${label}`}
       aria-keyshortcuts="1 2 3 4 5" onKeyDown={handleShortcut}
       className={appearance === 'icon' ? cn('flex size-6 items-center justify-center rounded-md hover:bg-secondary transition-colors focus-visible:ring-2 focus-visible:ring-ring', className) : undefined}>
       <PriorityIcon priority={priority} />
       {appearance === 'badge' && <span className="truncate">{label}</span>}
-    </button>
+    </Button>
   );
 
   return (
@@ -57,7 +54,7 @@ export function PriorityPicker({ priority, onPriorityChange, className, appearan
       <IssuePickerMenu label="Priority" onKeyDown={handleShortcut}>
         {search => {
           const items = PRIORITY_CONFIG.filter(item => item.label.toLowerCase().includes(search));
-          if (!items.length) return <p role="status" className="p-3 text-center text-xs text-muted-foreground">No priorities found.</p>;
+          if (!items.length) return <FieldDescription role="status" className="p-3 text-center text-xs text-muted-foreground">No priorities found.</FieldDescription>;
           return <DropdownMenuRadioGroup value={priority} onValueChange={(value) => { onPriorityChange(value); setOpen(false); }}>
           {items.map((item) => (
             <DropdownMenuRadioItem key={item.key} value={item.key} indicatorPosition="before-shortcut" className="py-1.5">

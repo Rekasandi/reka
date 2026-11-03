@@ -12,7 +12,6 @@ import { useTeam } from '../../features/teams/hooks/use-teams';
 import { useProject } from '../../features/projects/hooks/use-projects';
 import { useCycle } from '../../features/cycles/hooks/use-cycles';
 import { useDocument } from '../../features/projects/hooks/use-documents';
-import { useInitiative } from '../../features/initiatives/hooks/use-initiatives';
 import { useIssue } from '../../features/issues/hooks/use-issues';
 import { getSettingsSection, SETTINGS_ITEMS } from '../../features/settings/lib/settings-navigation';
 
@@ -21,9 +20,6 @@ const PAGE_LABELS: Record<string, string> = {
   inbox: 'Inbox',
   triage: 'Triage',
   favorites: 'Favorites',
-  views: 'Views',
-  initiatives: 'Initiatives',
-  roadmap: 'Roadmap',
   documents: 'Documents',
   'my-issues': 'My Issues',
   issues: 'Issues',
@@ -42,7 +38,7 @@ export function HeaderBreadcrumb() {
   const teamTab = section === 'teams' && !child ? new URLSearchParams(search).get('tab') : null;
   const isTeamTab = teamTab === 'members' || teamTab === 'settings';
   const isSettingsTeam = section === 'settings' && resourceId === 'teams' && !!child;
-  const isTeamScopedSection = ['projects', 'cycles', 'triage', 'initiatives', 'views'].includes(section);
+  const isTeamScopedSection = ['projects', 'cycles', 'triage', 'views'].includes(section);
   const teamId = isSettingsTeam ? child : section === 'teams'
     ? resourceId
     : isTeamScopedSection ? new URLSearchParams(search).get('teamId') ?? undefined : undefined;
@@ -50,7 +46,6 @@ export function HeaderBreadcrumb() {
   const { data: project } = useProject(section === 'projects' ? resourceId : undefined);
   const { data: cycle } = useCycle(section === 'cycles' ? resourceId : undefined);
   const { data: document } = useDocument(section === 'documents' ? resourceId : undefined);
-  const { data: initiative } = useInitiative(section === 'initiatives' ? resourceId : undefined);
   const { data: issue } = useIssue(section === 'issues' ? resourceId : undefined);
 
   const items = section === 'settings' ? [{ label: 'Settings', to: '/settings' }] : [{ label: 'Dashboard', to: '/dashboard' }];
@@ -70,7 +65,6 @@ export function HeaderBreadcrumb() {
         : section === 'projects' ? project?.name || 'Project'
         : section === 'cycles' ? cycle?.name || (cycle ? `Cycle ${cycle.number}` : 'Cycle')
         : section === 'documents' ? document?.title || 'Document'
-        : section === 'initiatives' ? initiative?.name || 'Initiative'
         : section === 'issues' ? issue?.identifier || 'Issue'
         : 'Details';
       items.push({ label, to: `/${section}/${resourceId}${isTeamTab ? '' : search}` });

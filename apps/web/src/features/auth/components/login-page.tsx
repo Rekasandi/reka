@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Button } from '@reka/ui';
+import { Button, Alert } from '@reka/ui';
 import { useSearchParams } from 'react-router-dom';
 
 function GithubIcon({ className }: { className?: string }) {
@@ -28,9 +28,9 @@ export function LoginPage() {
           <p className="text-xs text-muted-foreground">{invitation ? 'Use the GitHub account with the verified email this invitation was sent to.' : 'Sign in with GitHub. New members need a workspace invitation.'}</p>
         </div>
         {error && (
-          <div role="alert" className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive text-center">
+          <Alert className="rounded-none border-0 bg-transparent px-0 py-0 text-foreground rounded-md border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive text-center">
             {error}
-          </div>
+          </Alert>
         )}
         <Button
           type="button"

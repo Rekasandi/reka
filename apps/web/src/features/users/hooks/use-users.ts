@@ -9,7 +9,7 @@ import {
   type UpdateUserInput,
 } from '../api/users.api';
 import { toast } from '@reka/ui';
-import { useAuthStore } from '../../../stores/auth.store';
+import { useAuth, useUpdateAuthUser } from '../../auth/hooks/use-auth';
 
 export const USERS_QUERY_KEY = ['users'];
 
@@ -48,6 +48,8 @@ export function useCreateUser() {
 
 export function useUpdateUser() {
   const queryClient = useQueryClient();
+  const { user: authUser } = useAuth();
+  const updateAuthUser = useUpdateAuthUser();
 
   return useMutation({
     mutationFn: ({ id, data }: { id: string; data: UpdateUserInput }) =>
@@ -56,8 +58,7 @@ export function useUpdateUser() {
       queryClient.invalidateQueries({ queryKey: USERS_QUERY_KEY });
       queryClient.invalidateQueries({ queryKey: ['user', updated.id] });
       queryClient.invalidateQueries({ queryKey: ['workspace'] });
-      const current = useAuthStore.getState().user;
-      if (current?.id === updated.id) useAuthStore.getState().setUser({ ...current, name: updated.name, role: updated.role });
+      if (authUser?.id === updated.id) updateAuthUser({ name: updated.name, role: updated.role });
       toast.info(`User "${updated.name}" updated`);
     },
     onError: (err) => {

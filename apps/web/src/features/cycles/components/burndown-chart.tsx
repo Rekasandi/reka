@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { CartesianGrid, Line, LineChart, XAxis, YAxis } from 'recharts';
-import { Button, ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@reka/ui';
+import { Button, ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig, Alert, Skeleton } from '@reka/ui';
 import type { CycleSnapshot } from '../api/cycles.api';
 
 type Metric = 'issues' | 'estimate';
@@ -15,10 +15,11 @@ export function buildBurndownData(snapshots: CycleSnapshot[], metric: Metric) {
   })).filter(point => Number.isFinite(point.time)).sort((a, b) => a.time - b.time);
 }
 
-export function BurndownChart({ snapshots, isLoading, isError, onRetry }: {
-  snapshots: CycleSnapshot[]; isLoading?: boolean; isError?: boolean; onRetry?: () => void;
+export function BurndownChart({ snapshots, isLoading, isError, onRetry, estimatesEnabled = true }: {
+  snapshots: CycleSnapshot[]; isLoading?: boolean; isError?: boolean; onRetry?: () => void; estimatesEnabled?: boolean;
 }) {
-  const [metric, setMetric] = React.useState<Metric>('issues');
+  const [chosen, setMetric] = React.useState<Metric>('issues');
+  const metric: Metric = estimatesEnabled ? chosen : 'issues';
   const data = buildBurndownData(snapshots, metric);
   const earliest = data[0]?.time;
   const latest = data[data.length - 1]?.time;
@@ -26,12 +27,12 @@ export function BurndownChart({ snapshots, isLoading, isError, onRetry }: {
   return <section className="flex min-w-0 flex-col gap-4 border-b border-border pb-5" aria-label="Measured cycle burndown">
     <div className="flex flex-wrap items-start justify-between gap-3">
       <div className="flex flex-col gap-1"><h2 className="text-sm font-medium">Delivery history</h2><p className="text-xs text-muted-foreground">Recorded snapshots only. History starts when tracking begins; earlier values are not reconstructed.</p></div>
-      <div className="flex items-center gap-1" aria-label="Burndown metric">
+      {estimatesEnabled && <div className="flex items-center gap-1" aria-label="Burndown metric">
         <Button size="sm" variant="category" aria-pressed={metric === 'issues'} onClick={() => setMetric('issues')}>Issues</Button>
         <Button size="sm" variant="category" aria-pressed={metric === 'estimate'} onClick={() => setMetric('estimate')}>Estimate</Button>
-      </div>
+      </div>}
     </div>
-    {isLoading ? <div role="status" aria-label="Loading cycle history" className="h-48 animate-pulse rounded-md bg-muted/50" /> : isError ? <div role="alert" className="flex items-center gap-3 text-sm text-muted-foreground">Could not load history.<Button variant="outline" size="sm" onClick={onRetry}>Retry</Button></div> : data.length ? <>
+    {isLoading ? <Skeleton role="status" aria-label="Loading cycle history" className="h-48 w-full" /> : isError ? <Alert className="rounded-none border-0 bg-transparent px-0 py-0 text-foreground flex items-center gap-3 text-sm text-muted-foreground">Could not load history.<Button variant="outline" size="sm" onClick={onRetry}>Retry</Button></Alert> : data.length ? <>
       <div className="flex items-center justify-between text-xs text-muted-foreground"><span>{earliest ? `History from ${new Date(earliest).toLocaleString()}` : ''}</span><span className="tabular-nums">{remaining} remaining at last snapshot</span></div>
       <div className="h-48 w-full min-w-0">
         <ChartContainer config={config} className="h-full w-full aspect-auto">

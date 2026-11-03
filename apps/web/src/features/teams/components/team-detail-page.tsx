@@ -1,20 +1,6 @@
 import * as React from 'react';
 import { useParams, Link, useLocation, useNavigate } from 'react-router-dom';
-import {
-  Badge,
-  Button,
-  Skeleton,
-  Tabs,
-  TabsList,
-  TabsTrigger,
-  TabsContent,
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@reka/ui';
+import { Badge, Button, Skeleton, Tabs, TabsList, TabsTrigger, TabsContent, Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@reka/ui';
 import {
   Plus,
   Users,
@@ -159,7 +145,7 @@ export function TeamDetailPage() {
 
         <TabsContent value="home" className="mt-0 flex w-full flex-col gap-5">
           <div className="grid grid-cols-1 gap-5 lg:grid-cols-12">
-            <section className="lg:col-span-7 rounded-lg border border-border/80 bg-card overflow-hidden">
+            {team.cyclesEnabled !== false && <section className="lg:col-span-7 rounded-lg border border-border/80 bg-card overflow-hidden">
               <div className="flex items-center justify-between gap-3 border-b border-border/60 bg-muted/20 px-4 py-3">
                 <div className="flex items-center gap-2">
                   <Repeat className="size-3.5 text-muted-foreground" />
@@ -220,9 +206,9 @@ export function TeamDetailPage() {
                   </div>
                 )}
               </div>
-            </section>
+            </section>}
 
-            <section className="lg:col-span-5 rounded-lg border border-border/80 bg-card overflow-hidden">
+            <section className={`${team.cyclesEnabled !== false ? 'lg:col-span-5' : 'lg:col-span-12'} rounded-lg border border-border/80 bg-card overflow-hidden`}>
               <div className="flex items-center justify-between border-b border-border/60 bg-muted/20 px-4 py-3">
                 <div className="flex items-center gap-2">
                   <FolderKanban className="size-3.5 text-muted-foreground" />
@@ -256,13 +242,13 @@ export function TeamDetailPage() {
             </div>
             <div className="divide-y divide-border/60">
               {backlogIssues.slice(0, 5).map((issue) => (
-                <button key={issue.id} type="button" onClick={() => handleOpenIssueDetail(issue)} className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left text-xs hover:bg-muted/30">
+                <Button variant="plain" size="auto" key={issue.id} type="button" onClick={() => handleOpenIssueDetail(issue)} className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left text-xs hover:bg-muted/30">
                   <div className="flex min-w-0 items-center gap-2.5">
                     <span className="font-mono text-xs text-muted-foreground">{issue.identifier}</span>
                     <span className="truncate font-medium text-foreground">{issue.title}</span>
                   </div>
                   <span className="hidden shrink-0 text-xs capitalize text-muted-foreground sm:block">{issue.status.replace('_', ' ')}</span>
-                </button>
+                </Button>
               ))}
               {!backlogIssues.length && <div className="p-6 text-xs text-muted-foreground">Team backlog is clear.</div>}
             </div>

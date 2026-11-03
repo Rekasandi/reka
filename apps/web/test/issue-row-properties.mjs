@@ -112,7 +112,7 @@ try {
           });
         }
         ReactDOM.createRoot(document.getElementById('root')).render(
-          React.createElement(TooltipProvider, null, React.createElement(QueryClientProvider, { client: new QueryClient({ defaultOptions: { queries: { retry: false } } }) },
+          React.createElement(TooltipProvider, null, React.createElement(QueryClientProvider, { client: (window.__testQueryClient ??= (qc => (qc.setQueryData(['auth', 'me'], null), qc))(new QueryClient({ defaultOptions: { queries: { retry: false } } }))) },
             React.createElement(Fixture)))
         );
       `,

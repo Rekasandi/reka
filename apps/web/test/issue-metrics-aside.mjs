@@ -1,6 +1,7 @@
 // Authenticated browser test for IssueMetricsAside panel in issues view.
 import assert from 'node:assert/strict';
 import { mkdir } from 'node:fs/promises';
+import { selectOption } from './select-option.mjs';
 const playwright = await import(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const browser = await (playwright.chromium || playwright.default.chromium).launch();
 const base = process.env.WEB_URL || 'http://localhost:5173';
@@ -46,7 +47,6 @@ try {
       : path === '/api/teams' ? teams
       : path === '/api/users' ? people
       : path.endsWith('/labels') ? []
-      : path.endsWith('/views') ? []
       : path.endsWith('/favorites') ? []
       : path === '/api/projects' ? []
       : path === '/api/issues' ? issues
@@ -79,16 +79,16 @@ try {
   await page.screenshot({ path: `${out}/dark-1440.png`, fullPage: true });
 
   // 5. Change Slice to Priority
-  await panel.getByLabel('Slice', { exact: true }).selectOption('priority');
+  await selectOption(page, panel.getByRole('combobox', { name: 'Slice', exact: true }), 'Priority');
   await panel.getByRole('columnheader', { name: 'priority', exact: true }).waitFor();
   assert.equal(await panel.locator('tbody tr').count(), 5, '5 priority rows rendered');
 
   // 6. Change Measure to Estimate
-  await panel.getByLabel('Measure', { exact: true }).selectOption('estimate');
+  await selectOption(page, panel.getByRole('combobox', { name: 'Measure', exact: true }), 'Estimate');
   await panel.getByText('estimate points', { exact: true }).waitFor();
 
   // 7. Change Segment to Status
-  await panel.getByLabel('Segment', { exact: true }).selectOption('status');
+  await selectOption(page, panel.getByRole('combobox', { name: 'Segment', exact: true }), 'Status');
   await panel.getByRole('columnheader', { name: /Todo/ }).waitFor();
 
   // 8. "Set default for everyone" button
@@ -96,9 +96,9 @@ try {
   await page.getByText('Metrics configuration saved as default').waitFor();
 
   // 9. Reset selectors and capture in light mode
-  await panel.getByLabel('Slice', { exact: true }).selectOption('status');
-  await panel.getByLabel('Measure', { exact: true }).selectOption('issue_count');
-  await panel.getByLabel('Segment', { exact: true }).selectOption('priority');
+  await selectOption(page, panel.getByRole('combobox', { name: 'Slice', exact: true }), 'Status');
+  await selectOption(page, panel.getByRole('combobox', { name: 'Measure', exact: true }), 'Issue count');
+  await selectOption(page, panel.getByRole('combobox', { name: 'Segment', exact: true }), 'Priority');
 
   await page.evaluate(() => document.documentElement.classList.remove('dark'));
   await page.evaluate(() => document.documentElement.classList.add('light'));

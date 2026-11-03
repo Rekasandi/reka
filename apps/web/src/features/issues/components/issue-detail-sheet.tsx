@@ -1,50 +1,7 @@
 import * as React from 'react';
 import { getIssueStatusCategory, type Issue } from '@reka/types';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import {
-  Sheet,
-  Popover,
-  PopoverTrigger,
-  PopoverContent,
-  SheetContent,
-  SheetTitle,
-  SheetDescription,
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  Input,
-  Field,
-  FieldLabel,
-  FieldGroup,
-  Select,
-  SelectTrigger,
-  SelectValue,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  Skeleton,
-  Alert,
-  AlertDescription,
-  AvatarImage,
-  Badge,
-  Button,
-  Textarea,
-  Avatar,
-  AvatarFallback,
-  Tabs,
-  TabsList,
-  TabsTrigger,
-  TabsContent,
-  toast,
-  cn,
-  useIsMobile,
-} from '@reka/ui';
+import { Sheet, Popover, PopoverTrigger, PopoverContent, SheetContent, SheetTitle, SheetDescription, Collapsible, CollapsibleContent, CollapsibleTrigger, DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuSeparator, Input, Field, FieldLabel, FieldGroup, FieldSet, FieldError, Select, SelectTrigger, SelectValue, SelectContent, SelectGroup, SelectItem, Skeleton, Alert, AlertDescription, AvatarImage, Badge, Button, Textarea, Avatar, AvatarFallback, Tabs, TabsList, TabsTrigger, TabsContent, toast, cn, useIsMobile, Label, Command, CommandList, CommandGroup, CommandItem, Spinner } from '@reka/ui';
 import {
   GitBranch,
   MessageSquare,
@@ -72,6 +29,7 @@ import {
   Link as LinkIcon,
   X,
 } from 'lucide-react';
+import { useForm } from '@tanstack/react-form';
 import { useUpdateIssue, useDeleteIssue, useSubtasks, useCreateSubtask, useArchiveIssue, useIssues } from '../hooks/use-issues';
 import { useIssueComments, useCreateComment, useUpdateComment, useDeleteComment, useIssueActivities, useIssueRelations, useIssueRelationMutations, useIssueSubscription, useIssueAttachments, useIssueAttachmentMutations } from '../hooks/use-issue-details';
 import { useIssueBranches, useIssuePullRequests } from '../hooks/use-github-integration';
@@ -81,13 +39,15 @@ import { IssueTypePicker } from './issue-type-picker';
 import { AssigneePicker } from './assignee-picker';
 import { ProjectPicker } from './project-picker';
 import { CyclePicker } from './cycle-picker';
+import { EstimatePicker } from './estimate-picker';
+import { useTeamFeatures } from '../../teams/hooks/use-team-features';
 import { LinkPullRequestDialog } from './link-pr-dialog';
 import { IssueLabelsPicker } from './issue-labels-picker';
 import { IssueRecurrenceSection } from './issue-recurrence-section';
 import { useTeam, useTeamWorkflowStates } from '../../teams/hooks/use-teams';
 import { ConfirmDeleteDialog } from '../../../components/common/confirm-delete-dialog';
 import { useUsers } from '../../users/hooks/use-users';
-import { useAuthStore } from '../../../stores/auth.store';
+import { useAuth } from '../../auth/hooks/use-auth';
 
 interface IssueDetailSheetProps {
   issue: Issue | null;
@@ -160,11 +120,61 @@ function DetailSection({ title, children }: React.PropsWithChildren<{ title: str
 }
 
 function PendingRows({ label }: { label: string }) {
-  return <div role="status" aria-label={label} className="flex flex-col gap-2 py-2"><Skeleton className="h-4 w-3/4" /><Skeleton className="h-4 w-1/2" /></div>;
+  return <div className="flex flex-col gap-2 py-2"><Spinner aria-label={label} className="sr-only" /><Skeleton className="h-4 w-3/4" /><Skeleton className="h-4 w-1/2" /></div>;
 }
 
 function LoadError({ label, retry }: { label: string; retry: () => void }) {
   return <Alert variant="destructive"><AlertDescription className="flex items-center justify-between gap-2">Could not load {label}.<Button type="button" variant="outline" size="xs" onClick={retry}>Retry</Button></AlertDescription></Alert>;
+}
+
+function InlineValueForm({ id, label, ariaLabel, inputType, inputProps, initialValue, disabled, pending, submitLabel, onSave }: { id: string; label: string; ariaLabel: string; inputType: 'number' | 'date'; inputProps?: React.ComponentProps<typeof Input>; initialValue: string; disabled: boolean; pending: boolean; submitLabel: string; onSave: (value: string) => void }) {
+  const form = useForm({
+    defaultValues: { value: initialValue },
+    onSubmit: ({ value }) => onSave(value.value),
+  });
+  return <form className="flex flex-col gap-3" onSubmit={event => { event.preventDefault(); event.stopPropagation(); void form.handleSubmit(); }}>
+    <form.Field name="value" children={field => <Field><FieldLabel htmlFor={id}>{label}</FieldLabel><Input {...inputProps} id={id} name={field.name} type={inputType} value={field.state.value} disabled={disabled} onBlur={field.handleBlur} onChange={event => field.handleChange(event.target.value)} aria-label={ariaLabel} /></Field>} />
+    <Button type="submit" size="sm" disabled={disabled || pending}>{pending ? 'Saving…' : submitLabel}</Button>
+  </form>;
+}
+
+function SubtaskForm({ pending, onCreate, onCancel }: { pending: boolean; onCreate: (title: string, done: () => void) => void; onCancel: () => void }) {
+  const form = useForm({
+    defaultValues: { title: '' },
+    onSubmit: ({ value }) => {
+      const title = value.title.trim();
+      if (!title) return;
+      onCreate(title, () => { form.reset(); onCancel(); });
+    },
+  });
+  return <form onSubmit={event => { event.preventDefault(); event.stopPropagation(); void form.handleSubmit(); }} className="flex items-center gap-2 mt-1">
+    <form.Field name="title" validators={{ onChange: ({ value }) => (!value.trim() ? 'Sub-task title is required' : undefined) }} children={field => <Field className="flex-1">
+      <Input
+        aria-label="Sub-task title"
+        name={field.name}
+        type="text"
+        autoFocus
+        value={field.state.value}
+        onBlur={field.handleBlur}
+        onChange={(e) => field.handleChange(e.target.value)}
+        placeholder="Sub-task title..."
+        className="flex-1 h-8 px-2.5 rounded-[6px] border border-border/80 bg-background text-xs text-foreground placeholder:text-muted-foreground/60 outline-hidden focus:border-ring transition-colors"
+      />
+    </Field>} />
+    <form.Subscribe selector={state => state.values.title} children={title => <Button type="submit" size="sm" disabled={!title.trim() || pending} className="px-2.5">{pending ? 'Adding...' : 'Add'}</Button>} />
+    <Button type="button" variant="ghost" size="sm" onClick={() => { form.reset(); onCancel(); }} className="px-2 text-muted-foreground">Cancel</Button>
+  </form>;
+}
+
+function EditCommentForm({ initialBody, pending, onSave, onCancel }: { initialBody: string; pending: boolean; onSave: (body: string, done: () => void) => void; onCancel: () => void }) {
+  const form = useForm({
+    defaultValues: { body: initialBody },
+    onSubmit: ({ value }) => onSave(value.body, () => form.reset()),
+  });
+  return <form className="flex flex-col gap-2 pl-7" onSubmit={event => { event.preventDefault(); event.stopPropagation(); void form.handleSubmit(); }}>
+    <form.Field name="body" children={field => <Field><Textarea aria-label="Edit comment" name={field.name} value={field.state.value} onBlur={field.handleBlur} onChange={event => field.handleChange(event.target.value)} maxLength={50000} />{field.state.meta.isTouched && !field.state.meta.isValid && <FieldError errors={field.state.meta.errors} />}</Field>} />
+    <div className="flex justify-end gap-2"><Button type="button" size="xs" variant="ghost" onClick={onCancel}>Cancel</Button><form.Subscribe selector={state => state.values.body} children={body => <Button type="submit" size="xs" disabled={!body.trim() || pending}>{pending ? 'Saving…' : 'Save'}</Button>} /></div>
+  </form>;
 }
 
 type IssueDetailContentProps = Omit<IssueDetailSheetProps, 'issue' | 'open' | 'onOpenChange'> & {
@@ -182,23 +192,21 @@ export function IssueDetailContent({ issue, presentation = 'sheet', headerAction
   const [dueDate, setDueDate] = React.useState(issue.dueDate ? new Date(issue.dueDate).toISOString().slice(0, 10) : '');
   const [relationTargetId, setRelationTargetId] = React.useState('');
   const [relationType, setRelationType] = React.useState<'blocks' | 'blocked_by' | 'related_to' | 'duplicate'>('blocks');
-  const [commentText, setCommentText] = React.useState('');
   const [mentionToken, setMentionToken] = React.useState<{ query: string; start: number; cursor: number } | null>(null);
   const [editingCommentId, setEditingCommentId] = React.useState<string | null>(null);
-  const [editCommentBody, setEditCommentBody] = React.useState('');
   const commentInputRef = React.useRef<HTMLTextAreaElement>(null);
   const attachmentInputRef = React.useRef<HTMLInputElement>(null);
   const [copiedBranch, setCopiedBranch] = React.useState(false);
   const [copiedCommand, setCopiedCommand] = React.useState(false);
   const [activeTab, setActiveTab] = React.useState<'comments' | 'activity'>(presentation === 'triage' ? 'activity' : 'comments');
 
-  const [newSubtaskTitle, setNewSubtaskTitle] = React.useState('');
   const [isAddingSubtask, setIsAddingSubtask] = React.useState(false);
   const [isLinkPrOpen, setIsLinkPrOpen] = React.useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = React.useState(false);
   const [deleteTarget, setDeleteTarget] = React.useState<{ title: string; confirm: () => void } | null>(null);
-  const currentUser = useAuthStore(state => state.user);
+  const currentUser = useAuth().user;
   const { data: team } = useTeam(issue.teamId);
+  const { estimatesEnabled, cyclesEnabled, estimateValues } = useTeamFeatures(issue.teamId);
   const canEdit = !!currentUser && !['guest', 'client'].includes(currentUser.role) && (presentation === 'triage' ? team?.canWrite === true : team?.canWrite !== false);
   const readOnly = !canEdit || !!issue.archivedAt;
 
@@ -208,11 +216,9 @@ export function IssueDetailContent({ issue, presentation = 'sheet', headerAction
   React.useEffect(() => { setDueDate(issue.dueDate ? new Date(issue.dueDate).toISOString().slice(0, 10) : ''); }, [issue.dueDate]);
   React.useEffect(() => {
     setRelationTargetId('');
-    setCommentText('');
+    commentForm.reset();
     setMentionToken(null);
     setEditingCommentId(null);
-    setEditCommentBody('');
-    setNewSubtaskTitle('');
     setIsAddingSubtask(false);
     setIsLinkPrOpen(false);
     setDeleteTarget(null);
@@ -239,6 +245,14 @@ export function IssueDetailContent({ issue, presentation = 'sheet', headerAction
   const { data: linkedBranches = [], isLoading: branchesLoading, isError: branchesError, refetch: refetchBranches } = useIssueBranches(issue.id);
   const commentMutation = useCreateComment(issue.id);
   const createSubtaskMutation = useCreateSubtask(issue.id, issue.teamId);
+  const commentForm = useForm({
+    defaultValues: { body: '' },
+    onSubmit: ({ value }) => {
+      const body = value.body.trim();
+      if (!body) return;
+      commentMutation.mutate(body, { onSuccess: () => { commentForm.reset(); setMentionToken(null); } });
+    },
+  });
   const mentionSuggestions = React.useMemo(() => {
     const query = mentionToken?.query.toLowerCase() ?? '';
     if (!mentionToken) return [];
@@ -299,20 +313,20 @@ export function IssueDetailContent({ issue, presentation = 'sheet', headerAction
     updateMutation.mutate({ id: issue.id, data: { description: next } });
   };
 
-  const handleSaveEstimate = () => {
-    if (estimate !== '' && (!Number.isInteger(Number(estimate)) || Number(estimate) < 0 || Number(estimate) > 100)) {
+  const handleSaveEstimate = (raw: string = estimate) => {
+    if (raw !== '' && (!Number.isInteger(Number(raw)) || Number(raw) < 0 || Number(raw) > 100)) {
       toast.error('Estimate must be a whole number from 0 to 100');
       return;
     }
-    const next = estimate === '' ? null : Number(estimate);
+    const next = raw === '' ? null : Number(raw);
     if (next === (issue.estimate ?? null)) return;
     updateMutation.mutate({ id: issue.id, data: { estimate: next } });
   };
 
-  const handleSaveDueDate = () => {
+  const handleSaveDueDate = (raw: string = dueDate) => {
     const current = issue.dueDate ? new Date(issue.dueDate).toISOString().slice(0, 10) : '';
-    if (current === dueDate) return;
-    updateMutation.mutate({ id: issue.id, data: { dueDate: dueDate || null } });
+    if (current === raw) return;
+    updateMutation.mutate({ id: issue.id, data: { dueDate: raw || null } });
   };
 
   const updateMentionToken = (value: string, cursor: number) => {
@@ -325,16 +339,11 @@ export function IssueDetailContent({ issue, presentation = 'sheet', headerAction
   const insertMention = (user: (typeof candidates)[number]) => {
     if (!mentionToken) return;
     const handle = user.githubUsername || user.email.split('@')[0] || user.name.replace(/\s+/g, '');
+    const commentText = commentForm.getFieldValue('body');
     const next = `${commentText.slice(0, mentionToken.start)}@${handle} ${commentText.slice(mentionToken.cursor)}`;
     const cursor = mentionToken.start + handle.length + 2;
-    setCommentText(next); setMentionToken(null);
+    commentForm.setFieldValue('body', next); setMentionToken(null);
     requestAnimationFrame(() => { commentInputRef.current?.focus(); commentInputRef.current?.setSelectionRange(cursor, cursor); });
-  };
-
-  const handlePostComment = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!commentText.trim()) return;
-    commentMutation.mutate(commentText.trim(), { onSuccess: () => { setCommentText(''); setMentionToken(null); } });
   };
 
   const handleUploadAttachment = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -345,17 +354,6 @@ export function IssueDetailContent({ issue, presentation = 'sheet', headerAction
 
   const handleDelete = () => {
     setIsDeleteDialogOpen(true);
-  };
-
-  const handleAddSubtask = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newSubtaskTitle.trim()) return;
-    createSubtaskMutation.mutate(newSubtaskTitle.trim(), {
-      onSuccess: () => {
-        setNewSubtaskTitle('');
-        setIsAddingSubtask(false);
-      },
-    });
   };
 
   const handleToggleSubtask = (subtask: Issue) => {
@@ -433,36 +431,32 @@ export function IssueDetailContent({ issue, presentation = 'sheet', headerAction
           {/* Triage uses inline chips; the standard detail presentations retain their fields. */}
           {presentation === 'triage' ? <aside aria-label="Issue properties" className="issue-properties min-w-0">
             <div data-slot="triage-property-chips" className="flex min-w-0 flex-wrap items-center gap-2">
-              <fieldset disabled={readOnly} className="contents">
+              <FieldSet disabled={readOnly} className="contents">
                 <legend className="sr-only">Issue properties</legend>
                 {propertyPickers.status}{propertyPickers.priority}{propertyPickers.assignee}{propertyPickers.project}
-                <Popover>
-                  <PopoverTrigger asChild><Badge asChild variant="outline" className="h-6 gap-1.5 px-2 hover:bg-secondary/70"><button type="button" disabled={readOnly} aria-label={`Estimate: ${issue.estimate ?? 'Not set'}`}><Triangle aria-hidden="true" /><span>{issue.estimate ?? 'Estimate'}</span></button></Badge></PopoverTrigger>
+                {estimatesEnabled && <Popover>
+                  <PopoverTrigger asChild><Button type="button" variant="outline" size="xs" className="h-6 gap-1.5 rounded-full px-2" disabled={readOnly} aria-label={`Estimate: ${issue.estimate ?? 'Not set'}`}><Triangle aria-hidden="true" /><span>{issue.estimate ?? 'Estimate'}</span></Button></PopoverTrigger>
                   <PopoverContent aria-label="Edit estimate" className="w-56 max-w-[calc(100vw-2rem)] p-4">
-                    <form className="flex flex-col gap-3" onSubmit={event => { event.preventDefault(); handleSaveEstimate(); }}>
-                      <Field><FieldLabel htmlFor="issue-estimate">Estimate</FieldLabel><Input id="issue-estimate" type="number" min={0} max={100} step={1} value={estimate} disabled={readOnly} onChange={event => setEstimate(event.target.value)} aria-label="Issue estimate" /></Field>
-                      <Button type="submit" size="sm" disabled={readOnly || updateMutation.isPending}>{updateMutation.isPending ? 'Saving…' : 'Save estimate'}</Button>
-                    </form>
+                    {estimateValues
+                      ? <EstimatePicker id="issue-estimate" teamId={issue.teamId} value={issue.estimate ?? null} disabled={readOnly || updateMutation.isPending} onChange={points => updateMutation.mutate({ id: issue.id, data: { estimate: points } })} />
+                      : <InlineValueForm id="issue-estimate" label="Estimate" ariaLabel="Issue estimate" inputType="number" inputProps={{ min: 0, max: 100, step: 1 }} initialValue={estimate} disabled={readOnly} pending={updateMutation.isPending} submitLabel="Save estimate" onSave={handleSaveEstimate} />}
                   </PopoverContent>
-                </Popover>
+                </Popover>}
                 {propertyPickers.labels}{propertyPickers.cycle}
-              </fieldset>
+              </FieldSet>
                 <Popover>
                   <PopoverTrigger asChild><Button type="button" variant="outline" size="icon-xs" className="rounded-full" aria-label="More properties" title="More properties"><MoreHorizontal /></Button></PopoverTrigger>
                   <PopoverContent aria-label="Additional issue properties" className="w-64 max-w-[calc(100vw-2rem)] p-4">
-                    <fieldset disabled={readOnly}><FieldGroup>
+                    <FieldSet disabled={readOnly} className="block"><FieldGroup>
                       <Field><FieldLabel htmlFor="detail-type">Type</FieldLabel>{propertyPickers.type}</Field>
-                      <form className="flex flex-col gap-3" onSubmit={event => { event.preventDefault(); handleSaveDueDate(); }}>
-                        <Field><FieldLabel htmlFor="issue-due-date">Due date</FieldLabel><Input id="issue-due-date" type="date" value={dueDate} onChange={event => setDueDate(event.target.value)} aria-label="Issue due date" /></Field>
-                        <Button type="submit" size="sm" disabled={readOnly || updateMutation.isPending}>{updateMutation.isPending ? 'Saving…' : 'Save due date'}</Button>
-                      </form>
-                    </FieldGroup></fieldset>
+                      <InlineValueForm id="issue-due-date" label="Due date" ariaLabel="Issue due date" inputType="date" initialValue={dueDate} disabled={false} pending={updateMutation.isPending} submitLabel="Save due date" onSave={handleSaveDueDate} />
+                    </FieldGroup></FieldSet>
                   </PopoverContent>
                 </Popover>
             </div>
           </aside> : <aside aria-label="Issue properties" className={presentation === 'page' ? 'issue-properties min-w-0 lg:col-start-2 lg:row-start-1 lg:row-span-6 lg:border-l lg:border-border lg:pl-8' : 'min-w-0'}>
           <h2 className="mb-4 text-sm font-medium">Properties</h2>
-          <fieldset disabled={readOnly} className="min-w-0">
+          <FieldSet disabled={readOnly} className="block min-w-0">
           <FieldGroup className={presentation === 'page' ? 'grid grid-cols-2 gap-3 lg:grid-cols-1' : 'grid grid-cols-2 gap-3 sm:grid-cols-3'}>
             <Field><FieldLabel htmlFor="detail-status">Status</FieldLabel>
               {propertyPickers.status}
@@ -476,26 +470,28 @@ export function IssueDetailContent({ issue, presentation = 'sheet', headerAction
             <Field><FieldLabel htmlFor="detail-project">Project</FieldLabel>
               {propertyPickers.project}
             </Field>
-            <Field><FieldLabel htmlFor="detail-cycle">Cycle</FieldLabel>
+            {cyclesEnabled && <Field><FieldLabel htmlFor="detail-cycle">Cycle</FieldLabel>
               {propertyPickers.cycle}
-            </Field>
+            </Field>}
             <Field><FieldLabel htmlFor="detail-type">Type</FieldLabel>
               {propertyPickers.type}
             </Field>
-            <Field><FieldLabel htmlFor="issue-estimate">Estimate</FieldLabel>
-              <Input id="issue-estimate" type="number" min={0} max={100} step={1} value={estimate} onChange={event => setEstimate(event.target.value)} onBlur={handleSaveEstimate} aria-label="Issue estimate" />
-            </Field>
+            {estimatesEnabled && <Field><FieldLabel htmlFor="issue-estimate">Estimate</FieldLabel>
+              {estimateValues
+                ? <EstimatePicker id="issue-estimate" teamId={issue.teamId} value={issue.estimate ?? null} disabled={readOnly || updateMutation.isPending} onChange={points => updateMutation.mutate({ id: issue.id, data: { estimate: points } })} />
+                : <Input id="issue-estimate" type="number" min={0} max={100} step={1} value={estimate} onChange={event => setEstimate(event.target.value)} onBlur={() => handleSaveEstimate()} aria-label="Issue estimate" />}
+            </Field>}
             <Field><FieldLabel htmlFor="issue-due-date">Due date</FieldLabel>
-              <Input id="issue-due-date" type="date" value={dueDate} onChange={event => setDueDate(event.target.value)} onBlur={handleSaveDueDate} aria-label="Issue due date" />
+              <Input id="issue-due-date" type="date" value={dueDate} onChange={event => setDueDate(event.target.value)} onBlur={() => handleSaveDueDate()} aria-label="Issue due date" />
             </Field>
           </FieldGroup>
           <div className="mt-4">{propertyPickers.labels}</div>
-          </fieldset>
+          </FieldSet>
           </aside>}
 
           {/* Description Section */}
           <div className="issue-description flex flex-col gap-1.5">
-            <label htmlFor="issue-description" className="text-xs text-muted-foreground">Description</label>
+            <Label htmlFor="issue-description" className="text-xs text-muted-foreground">Description</Label>
             <Textarea
               id="issue-description"
               readOnly={readOnly}
@@ -510,10 +506,10 @@ export function IssueDetailContent({ issue, presentation = 'sheet', headerAction
 
           <DetailSection title={`Attachments (${attachments.length})`}>
           <section aria-label="Issue attachments" className="flex min-w-0 flex-col gap-3">
-            <div className="flex flex-wrap items-center justify-between gap-2"><div className="flex items-center gap-2"><Paperclip className="size-3.5 text-muted-foreground" /><span className="text-xs font-medium">Attachments</span><Badge variant="outline">{attachments.length}</Badge></div><div className="flex items-center gap-2"><input ref={attachmentInputRef} type="file" aria-label="Choose issue attachment" accept="image/png,image/jpeg,image/gif,image/webp,application/pdf,text/plain,text/markdown" className="sr-only" onChange={handleUploadAttachment} /><Button type="button" size="xs" variant="outline" disabled={attachmentMutations.upload.isPending || readOnly} onClick={() => attachmentInputRef.current?.click()}>{attachmentMutations.upload.isPending ? 'Uploading…' : 'Upload file'}</Button></div></div>
+            <div className="flex flex-wrap items-center justify-between gap-2"><div className="flex items-center gap-2"><Paperclip className="size-3.5 text-muted-foreground" /><span className="text-xs font-medium">Attachments</span><Badge variant="outline">{attachments.length}</Badge></div><div className="flex items-center gap-2"><Input ref={attachmentInputRef} type="file" aria-label="Choose issue attachment" accept="image/png,image/jpeg,image/gif,image/webp,application/pdf,text/plain,text/markdown" className="sr-only" onChange={handleUploadAttachment} /><Button type="button" size="xs" variant="outline" disabled={attachmentMutations.upload.isPending || readOnly} onClick={() => attachmentInputRef.current?.click()}>{attachmentMutations.upload.isPending ? 'Uploading…' : 'Upload file'}</Button></div></div>
             <p className="text-xs text-muted-foreground">PNG, JPEG, GIF, WebP, PDF or UTF-8 text · up to 5 MiB. Files are private to people who can read this issue.</p>
-            {attachmentsLoading && <p role="status" className="text-xs text-muted-foreground">Loading attachments…</p>}
-            {attachmentsError && <div role="alert" className="flex items-center gap-2 text-xs text-destructive">Could not load attachments.<Button type="button" size="xs" variant="ghost" onClick={() => void refetchAttachments()}>Retry</Button></div>}
+            {attachmentsLoading && <p className="text-xs text-muted-foreground inline-flex items-center gap-1.5"><Spinner className="size-3.5" aria-label="Loading attachments" />Loading attachments…</p>}
+            {attachmentsError && <Alert className="rounded-none border-0 bg-transparent px-0 py-0 text-foreground flex items-center gap-2 text-xs text-destructive">Could not load attachments.<Button type="button" size="xs" variant="ghost" onClick={() => void refetchAttachments()}>Retry</Button></Alert>}
             {!attachmentsLoading && !attachmentsError && attachments.length === 0 && <p className="text-xs text-muted-foreground">No attachments yet.</p>}
             {attachments.map(file => <div key={file.id} className="flex min-w-0 items-center gap-2 border-t border-border/50 pt-2 text-xs"><Paperclip className="size-3 shrink-0 text-muted-foreground" /><a className="min-w-0 flex-1 truncate hover:underline" href={file.url} download={file.fileName} aria-label={`Download ${file.fileName}`}>{file.fileName}</a><span className="shrink-0 text-muted-foreground">{Math.max(1, Math.ceil(file.fileSize / 1024))} KB</span>{file.canDelete && <Button type="button" variant="ghost" size="icon-xs" aria-label={`Delete attachment ${file.fileName}`} disabled={attachmentMutations.remove.isPending} onClick={() => setDeleteTarget({ title: `Delete ${file.fileName}?`, confirm: () => attachmentMutations.remove.mutate(file.id) })}><Trash2 className="size-3" /></Button>}</div>)}
           </section>
@@ -629,37 +625,7 @@ export function IssueDetailContent({ issue, presentation = 'sheet', headerAction
 
             {/* Inline Add Sub-task Form */}
             {isAddingSubtask && (
-              <form onSubmit={handleAddSubtask} className="flex items-center gap-2 mt-1">
-                <Input
-                  aria-label="Sub-task title"
-                  type="text"
-                  autoFocus
-                  value={newSubtaskTitle}
-                  onChange={(e) => setNewSubtaskTitle(e.target.value)}
-                  placeholder="Sub-task title..."
-                  className="flex-1 h-8 px-2.5 rounded-[6px] border border-border/80 bg-background text-xs text-foreground placeholder:text-muted-foreground/60 outline-hidden focus:border-ring transition-colors"
-                />
-                <Button
-                  type="submit"
-                  size="sm"
-                  disabled={!newSubtaskTitle.trim() || createSubtaskMutation.isPending}
-                  className="px-2.5"
-                >
-                  {createSubtaskMutation.isPending ? 'Adding...' : 'Add'}
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    setIsAddingSubtask(false);
-                    setNewSubtaskTitle('');
-                  }}
-                  className="px-2 text-muted-foreground"
-                >
-                  Cancel
-                </Button>
-              </form>
+              <SubtaskForm pending={createSubtaskMutation.isPending} onCancel={() => setIsAddingSubtask(false)} onCreate={(title, done) => createSubtaskMutation.mutate(title, { onSuccess: done })} />
             )}
 
             {!subtasksLoading && !subtasksError && subtasks.length === 0 && !isAddingSubtask && (
@@ -804,7 +770,7 @@ export function IssueDetailContent({ issue, presentation = 'sheet', headerAction
                 ))}
               </div>
             ) : pullRequestsLoading ? (
-              <p role="status" className="text-xs text-muted-foreground">Loading pull requests…</p>
+              <p className="text-xs text-muted-foreground inline-flex items-center gap-1.5"><Spinner className="size-3.5" aria-label="Loading pull requests" />Loading pull requests…</p>
             ) : pullRequestsError ? (
               <div className="flex items-center justify-between gap-2 text-xs text-destructive">
                 <span>Could not load pull requests.</span>
@@ -819,7 +785,7 @@ export function IssueDetailContent({ issue, presentation = 'sheet', headerAction
 
             <div className="border-t border-border/50 pt-3 flex flex-col gap-2">
               <span className="text-xs font-medium text-foreground">Linked branches</span>
-              {branchesLoading ? <p role="status" className="text-xs text-muted-foreground">Loading branches…</p>
+              {branchesLoading ? <p className="text-xs text-muted-foreground inline-flex items-center gap-1.5"><Spinner className="size-3.5" aria-label="Loading branches" />Loading branches…</p>
                 : branchesError ? <div className="flex items-center justify-between gap-2 text-xs text-destructive"><span>Could not load branches.</span><Button type="button" size="xs" variant="outline" onClick={() => void refetchBranches()}>Retry</Button></div>
                 : linkedBranches.length ? <ul className="flex flex-col gap-1.5">{linkedBranches.map(branch => <li key={branch.id} className="flex min-w-0 items-center justify-between gap-2 text-xs"><a className="flex min-w-0 items-center gap-2 truncate text-muted-foreground hover:text-foreground hover:underline" href={`https://github.com/${branch.repositoryName}/tree/${encodeURIComponent(branch.name)}`} target="_blank" rel="noopener noreferrer"><GitBranch className="size-3 shrink-0" /><span className="truncate">{branch.name}</span></a><span className="shrink-0 font-mono text-[10px] text-muted-foreground">{branch.sha.slice(0, 7)}</span></li>)}</ul>
                 : <p className="text-xs text-muted-foreground">No linked branches yet.</p>}
@@ -854,36 +820,38 @@ export function IssueDetailContent({ issue, presentation = 'sheet', headerAction
               {/* Comments Tab Content */}
               <TabsContent value="comments" className="mt-0 flex w-full flex-col gap-5">
                 {/* New Comment Box */}
-                <form onSubmit={handlePostComment} className="rounded-lg border border-border/70 bg-background/90 p-3 shadow-2xs focus-within:border-ring transition-colors">
+                <form onSubmit={event => { event.preventDefault(); event.stopPropagation(); void commentForm.handleSubmit(); }} className="rounded-lg border border-border/70 bg-background/90 p-3 shadow-2xs focus-within:border-ring transition-colors">
                   <div className="flex items-start gap-2.5">
                     <Avatar className="mt-0.5 size-5 shrink-0 rounded-full">
                       {currentUser?.avatarUrl && <AvatarImage src={currentUser.avatarUrl} alt={currentUser.name} />}<AvatarFallback>{currentUser?.name?.[0]?.toUpperCase() ?? '?'}</AvatarFallback>
                     </Avatar>
                     <div className="min-w-0 flex-1">
-                      <Textarea
+                      <commentForm.Field name="body" children={field => <Textarea
                         ref={commentInputRef}
                         aria-label="Write a comment"
+                        name={field.name}
                         placeholder="Leave a comment or review note..."
                         rows={3}
-                        value={commentText}
+                        value={field.state.value}
                         disabled={readOnly}
-                        onChange={(e) => { setCommentText(e.target.value); updateMentionToken(e.target.value, e.target.selectionStart); }}
+                        onBlur={field.handleBlur}
+                        onChange={(e) => { field.handleChange(e.target.value); updateMentionToken(e.target.value, e.target.selectionStart); }}
                         className="min-h-[80px] w-full resize-none border-0 bg-transparent px-1 py-0.5 text-sm shadow-none focus-visible:ring-0 placeholder:text-muted-foreground/60 leading-relaxed"
-                      />
-                      {mentionToken && candidatesLoading && <p role="status" className="mt-1 text-xs text-muted-foreground">Loading workspace members…</p>}
+                      />} />
+                      {mentionToken && candidatesLoading && <p className="mt-1 text-xs text-muted-foreground inline-flex items-center gap-1.5"><Spinner className="size-3.5" aria-label="Loading workspace members" />Loading workspace members…</p>}
                       {mentionToken && candidatesError && <Button type="button" size="xs" variant="ghost" className="mt-1" onClick={() => void refetchCandidates()}>Retry member search</Button>}
-                      {mentionToken && !candidatesLoading && !candidatesError && mentionSuggestions.length > 0 && <div role="listbox" aria-label="Mention a workspace member" className="mt-1 max-h-40 overflow-y-auto rounded-md border border-border bg-popover p-1 shadow-md">{mentionSuggestions.map(user => { const handle = user.githubUsername || user.email.split('@')[0]; return <Button key={user.id} variant="ghost" type="button" role="option" aria-selected="false" onMouseDown={event => event.preventDefault()} onClick={() => insertMention(user)} className="w-full justify-start"><span>{user.name}</span><span className="font-mono text-muted-foreground">@{handle}</span></Button>; })}</div>}
+                      {mentionToken && !candidatesLoading && !candidatesError && mentionSuggestions.length > 0 && <Command shouldFilter={false} className="mt-1 h-auto rounded-md border border-border shadow-md"><CommandList aria-label="Mention a workspace member" className="max-h-40"><CommandGroup>{mentionSuggestions.map(user => { const handle = user.githubUsername || user.email.split('@')[0]; return <CommandItem key={user.id} value={user.id} onMouseDown={event => event.preventDefault()} onSelect={() => insertMention(user)}><span>{user.name}</span><span className="font-mono text-muted-foreground">@{handle}</span></CommandItem>; })}</CommandGroup></CommandList></Command>}
                     </div>
                   </div>
                   <div className="mt-2.5 pt-2 border-t border-border/40 flex justify-end">
-                    <Button
+                    <commentForm.Subscribe selector={state => state.values.body} children={body => <Button
                       type="submit"
                       size="sm"
-                      disabled={readOnly || !commentText.trim() || commentMutation.isPending}
+                      disabled={readOnly || !body.trim() || commentMutation.isPending}
                       className="px-3 font-medium"
                     >
                       {commentMutation.isPending ? 'Posting...' : 'Comment'}
-                    </Button>
+                    </Button>} />
                   </div>
                 </form>
 
@@ -894,9 +862,9 @@ export function IssueDetailContent({ issue, presentation = 'sheet', headerAction
                   {comments.map(comment => <article key={comment.id} className="min-w-0 py-2">
                     <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
                       <div className="flex items-center gap-2"><Avatar className="size-5 rounded-full"><AvatarFallback className="text-xs bg-secondary text-foreground font-medium">{(comment.authorName || '?')[0]}</AvatarFallback></Avatar><span className="font-semibold text-foreground text-xs">{comment.authorName || 'Unknown author'}</span><span className="font-mono text-xs text-muted-foreground/70">{formatDateTime(comment.createdAt)}</span>{comment.updatedAt && comment.updatedAt !== comment.createdAt && <span className="text-xs text-muted-foreground">Edited</span>}</div>
-                      {comment.canEdit && <div className="flex items-center gap-1"><Button type="button" size="xs" variant="ghost" aria-label={`Edit comment by ${comment.authorName || 'author'}`} onClick={() => { setEditingCommentId(comment.id); setEditCommentBody(comment.body); }}>Edit</Button><Button type="button" size="xs" variant="ghost" aria-label={`Delete comment by ${comment.authorName || 'author'}`} disabled={deleteCommentMutation.isPending} onClick={() => setDeleteTarget({ title: 'Delete this comment?', confirm: () => deleteCommentMutation.mutate(comment.id) })}>Delete</Button></div>}
+                      {comment.canEdit && <div className="flex items-center gap-1"><Button type="button" size="xs" variant="ghost" aria-label={`Edit comment by ${comment.authorName || 'author'}`} onClick={() => { setEditingCommentId(comment.id); }}>Edit</Button><Button type="button" size="xs" variant="ghost" aria-label={`Delete comment by ${comment.authorName || 'author'}`} disabled={deleteCommentMutation.isPending} onClick={() => setDeleteTarget({ title: 'Delete this comment?', confirm: () => deleteCommentMutation.mutate(comment.id) })}>Delete</Button></div>}
                     </div>
-                    {editingCommentId === comment.id ? <form className="flex flex-col gap-2 pl-7" onSubmit={event => { event.preventDefault(); updateCommentMutation.mutate({ id: comment.id, body: editCommentBody }, { onSuccess: () => { setEditingCommentId(null); setEditCommentBody(''); } }); }}><Textarea aria-label="Edit comment" value={editCommentBody} onChange={event => setEditCommentBody(event.target.value)} maxLength={50000} /><div className="flex justify-end gap-2"><Button type="button" size="xs" variant="ghost" onClick={() => setEditingCommentId(null)}>Cancel</Button><Button type="submit" size="xs" disabled={!editCommentBody.trim() || updateCommentMutation.isPending}>{updateCommentMutation.isPending ? 'Saving…' : 'Save'}</Button></div></form> : <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-foreground/90 pl-7">{comment.body}</p>}
+                    {editingCommentId === comment.id ? <EditCommentForm initialBody={comment.body} pending={updateCommentMutation.isPending} onCancel={() => setEditingCommentId(null)} onSave={(body, done) => updateCommentMutation.mutate({ id: comment.id, body }, { onSuccess: () => { done(); setEditingCommentId(null); } })} /> : <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-foreground/90 pl-7">{comment.body}</p>}
                   </article>)}
                   {!commentsLoading && !commentsError && comments.length === 0 && <p className="py-2 text-sm text-muted-foreground">No comments yet.</p>}
                 </div>

@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Badge, Button, Card, Skeleton } from '@reka/ui';
+import { Badge, Button, Card, Skeleton, Alert } from '@reka/ui';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -24,7 +24,7 @@ import { useProjects } from '../../projects/hooks/use-projects';
 import { useCycles } from '../../cycles/hooks/use-cycles';
 import { useUnreadCount } from '../../notifications/hooks/use-notifications';
 import { useWorkspaceActivities } from '../../issues/hooks/use-issue-details';
-import { useAuthStore } from '../../../stores/auth.store';
+import { useAuth } from '../../auth/hooks/use-auth';
 import { useTheme } from '../../../components/theme/theme-provider';
 import { PriorityIcon } from '../../issues/components/priority-picker';
 import { STATUS_CONFIG } from '../../issues/components/status-picker';
@@ -43,7 +43,7 @@ ChartJS.register(
 );
 
 export function DashboardPage() {
-  const { user } = useAuthStore();
+  const { user } = useAuth();
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === 'dark';
 
@@ -250,14 +250,14 @@ export function DashboardPage() {
             </div>
 
             <div className="divide-y divide-border/60">
-              {issuesLoading ? <Skeleton className="h-28 w-full" /> : issuesError ? <div role="alert" className="flex items-center gap-3 py-6"><p className="text-sm text-muted-foreground">Could not load issues.</p><Button variant="outline" size="sm" onClick={() => retryIssues()}>Retry</Button></div> : myWorkIssues.length === 0 ? (
+              {issuesLoading ? <Skeleton className="h-28 w-full" /> : issuesError ? <Alert className="rounded-none border-0 bg-transparent px-0 py-0 text-foreground flex items-center gap-3 py-6"><p className="text-sm text-muted-foreground">Could not load issues.</p><Button variant="outline" size="sm" onClick={() => retryIssues()}>Retry</Button></Alert> : myWorkIssues.length === 0 ? (
                 <div className="p-8 text-center text-xs text-muted-foreground">
                   <p className="font-semibold text-foreground">All caught up</p>
                   <p className="text-xs mt-0.5">No active tasks currently assigned to you.</p>
                 </div>
               ) : (
                 myWorkIssues.slice(0, 6).map((issue) => (
-                  <button
+                  <Button variant="plain" size="auto"
                     type="button"
                     key={issue.id}
                     onClick={() => handleOpenIssue(issue)}
@@ -279,7 +279,7 @@ export function DashboardPage() {
                         {issue.status.replace('_', ' ')}
                       </span>
                     </div>
-                  </button>
+                  </Button>
                 ))
               )}
             </div>

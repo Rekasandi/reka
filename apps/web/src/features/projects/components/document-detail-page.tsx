@@ -1,9 +1,9 @@
 import * as React from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { Alert, AlertDescription, Button, Input, Skeleton, Textarea } from '@reka/ui';
+import { Alert, AlertDescription, Button, Input, Skeleton, Textarea, Spinner } from '@reka/ui';
 import { Archive, ArrowLeft, RefreshCw, RotateCcw, Save, Star } from 'lucide-react';
-import { useAuthStore } from '../../../stores/auth.store';
-import { useToggleFavorite, useFavorites } from '../../views/hooks/use-views';
+import { useAuth } from '../../auth/hooks/use-auth';
+import { useToggleFavorite, useFavorites } from '../../favorites/hooks/use-favorites';
 import { useArchiveDocument, useDocument, useRestoreDocument, useUpdateDocument } from '../hooks/use-documents';
 import { useProjects } from '../hooks/use-projects';
 import { useTeams } from '../../teams/hooks/use-teams';
@@ -18,7 +18,7 @@ export function DocumentDetailPage() {
   const update = useUpdateDocument();
   const archive = useArchiveDocument();
   const restore = useRestoreDocument();
-  const actor = useAuthStore(state => state.user);
+  const actor = useAuth().user;
   const [title, setTitle] = React.useState('');
   const [content, setContent] = React.useState('');
   const [dirty, setDirty] = React.useState(false);
@@ -57,7 +57,7 @@ export function DocumentDetailPage() {
     setTitle(document.title); setContent(document.content); baseline.current = `${document.title}\n${document.content}`; setDirty(false); setSaveError('');
   }
 
-  if (isLoading) return <div role="status" aria-label="Loading document" className="flex flex-col gap-4"><Skeleton className="h-6 w-48" /><Skeleton className="h-10 w-2/3" /><Skeleton className="h-72 w-full" /></div>;
+  if (isLoading) return <div className="flex flex-col gap-4"><Spinner aria-label="Loading document" className="sr-only" /><Skeleton className="h-6 w-48" /><Skeleton className="h-10 w-2/3" /><Skeleton className="h-72 w-full" /></div>;
   if (isError || !document) return <div className="flex flex-col items-center gap-3 py-20"><p className="text-sm text-muted-foreground">Document unavailable or access was revoked.</p><Button variant="outline" size="sm" onClick={() => void refetch()}><RefreshCw data-icon="inline-start" />Retry</Button></div>;
 
   return <main className="mx-auto flex w-full max-w-4xl flex-col gap-6 pb-10">

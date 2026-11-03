@@ -1,6 +1,6 @@
 import * as React from 'react';
 import type { Issue } from '@reka/types';
-import { Card, Badge } from '@reka/ui';
+import { Card, Badge, Button } from '@reka/ui';
 import { useUpdateIssue, useDeleteIssue, useMoveIssueToTop } from '../hooks/use-issues';
 import { ArrowUpToLine, Trash2 } from 'lucide-react';
 import { StatusPicker, StatusIconOnly } from './status-picker';
@@ -100,17 +100,17 @@ export function IssueKanbanBoard({ issues, onSelectIssue }: IssueKanbanBoardProp
                       </span>
                     </div>
                     <div className="flex items-center gap-1">
-                    <button type="button" aria-label={`Move ${issue.identifier} to top`} title="Move to top" onClick={event => { event.stopPropagation(); moveMutation.mutate(issue.id); }} className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring">
+                    <Button variant="plain" size="auto" type="button" aria-label={`Move ${issue.identifier} to top`} title="Move to top" onClick={event => { event.stopPropagation(); moveMutation.mutate(issue.id); }} className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring">
                       <ArrowUpToLine className="size-3.5" />
-                    </button>
-                    <button
+                    </Button>
+                    <Button variant="plain" size="auto"
                       type="button"
                       onClick={(e) => handleDelete(issue.id, e)}
                       className="text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-all p-0.5 rounded hover:bg-destructive/10"
                       title="Delete Issue"
                     >
                       <Trash2 className="size-3" />
-                    </button>
+                    </Button>
                     </div>
                   </div>
 

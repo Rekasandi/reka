@@ -1,9 +1,9 @@
 import * as React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
-  Activity, Box, Building2, CalendarDays, ChevronDown, CircleArrowRight,
+  Activity, Box, Building2, ChevronDown, CircleArrowRight,
   CircleDot, Ellipsis, FileText, Focus, Home, Inbox, Layers2,
-  LayoutDashboard, LockKeyhole, PanelsTopLeft, Plus, Settings, Target,
+  LayoutDashboard, LockKeyhole, PanelsTopLeft, Plus, Settings,
   UserCheck, Users, type LucideIcon,
 } from 'lucide-react';
 import {
@@ -15,25 +15,22 @@ import {
   DropdownMenuItem, useSidebar,
 } from '@reka/ui';
 import { useQuery } from '@tanstack/react-query';
-import { useAuthStore } from '../../stores/auth.store';
+import { useAuth } from '../../features/auth/hooks/use-auth';
 import { getWorkspace, WORKSPACE_QUERY_KEY } from '../../features/settings/api/workspace.api';
 import { useTeams } from '../../features/teams/hooks/use-teams';
 import { useUnreadCount } from '../../features/notifications/hooks/use-notifications';
-import { useFavorites } from '../../features/views/hooks/use-views';
+import { useFavorites } from '../../features/favorites/hooks/use-favorites';
 import { useTriage } from '../../features/issues/hooks/use-triage';
 import { resolveEntityIcon } from '../entity-icon-picker';
 
 type NavItem = { label: string; to: string; icon: LucideIcon; count?: number };
 const workspaceNav: NavItem[] = [
-  { label: 'Initiatives', to: '/initiatives', icon: Target },
   { label: 'Projects', to: '/projects', icon: Box },
-  { label: 'Views', to: '/views', icon: Layers2 },
 ];
 const moreNav: NavItem[] = [
   { label: 'Dashboard', to: '/dashboard', icon: LayoutDashboard },
   { label: 'All Issues', to: '/issues', icon: PanelsTopLeft },
   { label: 'Triage', to: '/triage', icon: CircleArrowRight },
-  { label: 'Roadmap', to: '/roadmap', icon: CalendarDays },
   { label: 'Documents', to: '/documents', icon: FileText },
   { label: 'Cycles', to: '/cycles', icon: CircleDot },
   { label: 'Insights', to: '/insights', icon: Activity },
@@ -42,7 +39,7 @@ const moreNav: NavItem[] = [
   { label: 'Users', to: '/users', icon: UserCheck },
   { label: 'Clients', to: '/clients', icon: Building2 },
 ];
-const favoriteIcons = { issue: PanelsTopLeft, project: Box, view: Layers2, document: FileText };
+const favoriteIcons = { issue: PanelsTopLeft, project: Box, document: FileText };
 
 function SidebarSection({ label, action, children }: {
   label: string; action?: React.ReactNode; children: React.ReactNode;
@@ -68,7 +65,7 @@ export function AppSidebar() {
   const { data: workspace } = useQuery({ queryKey: WORKSPACE_QUERY_KEY, queryFn: getWorkspace });
   const { data: favorites = [], isLoading: favoritesLoading, isError: favoritesError, refetch: retryFavorites } = useFavorites();
   const { data: triage } = useTriage();
-  const role = useAuthStore(state => state.user?.role);
+  const role = useAuth().user?.role;
   const canCreateTeam = role === 'owner' || role === 'admin' || role === 'member';
   const { setOpenMobile } = useSidebar();
   const search = new URLSearchParams(location.search);
@@ -159,10 +156,8 @@ export function AppSidebar() {
               { label: 'Overview', to: `/teams/${team.id}`, icon: Home },
               { label: 'Triage', to: `/triage?${query}`, icon: CircleArrowRight, count: triage?.filter(issue => issue.teamId === team.id).length },
               { label: 'Issues', to: `/teams/${team.id}/issues`, icon: PanelsTopLeft },
-              { label: 'Cycles', to: `/cycles?${query}`, icon: CircleDot },
-              { label: 'Initiatives', to: `/initiatives?${query}`, icon: Target },
+              ...(team.cyclesEnabled !== false ? [{ label: 'Cycles', to: `/cycles?${query}`, icon: CircleDot }] : []),
               { label: 'Projects', to: `/projects?${query}`, icon: Box },
-              { label: 'Views', to: `/views?${query}`, icon: Layers2 },
             ];
             return <SidebarMenuItem key={team.id}>
               <Collapsible open={expandedTeams[team.id] ?? (scopedTeamId ? scopedTeamId === team.id : index === 0)} onOpenChange={open => setExpandedTeams(current => ({ ...current, [team.id]: open }))} className="group/team-item">

@@ -30,7 +30,7 @@ try {
       import { UsersPage } from '/src/features/users/components/users-page.tsx';
       import '/src/styles/globals.css';
       ReactDOM.createRoot(document.getElementById('root')).render(
-        React.createElement(QueryClientProvider, { client: new QueryClient({ defaultOptions: { queries: { retry: false } } }) },
+        React.createElement(QueryClientProvider, { client: (window.__testQueryClient ??= (qc => (qc.setQueryData(['auth', 'me'], null), qc))(new QueryClient({ defaultOptions: { queries: { retry: false } } }))) },
           React.createElement(MemoryRouter, { initialEntries: ['/users'] },
             React.createElement(Routes, null, React.createElement(Route, { path: '/users', element: React.createElement(UsersPage) }))
           )

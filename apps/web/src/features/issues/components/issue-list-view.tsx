@@ -1,14 +1,7 @@
 import * as React from 'react';
 import { useQueries } from '@tanstack/react-query';
 import { getIssueStatusCategory, type Issue } from '@reka/types';
-import {
-  Checkbox,
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  Button,
-} from '@reka/ui';
+import { Checkbox, DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, Button, Card } from '@reka/ui';
 import { useUpdateIssue, useDeleteIssue, useArchiveIssue, useMoveIssueToTop, useBulkUpdateIssues } from '../hooks/use-issues';
 import {
   Trash2,
@@ -166,14 +159,14 @@ export function IssueListView({
 
                   {/* Subtask expand chevron */}
                   {hasSubtasks ? (
-                    <button
+                    <Button variant="plain" size="auto"
                       type="button"
                       onClick={(e) => toggleExpand(issue.id, e)}
                       className="size-5 rounded-[4px] flex items-center justify-center text-muted-foreground/70 hover:text-foreground hover:bg-secondary transition-all"
                       title={isExpanded ? 'Collapse sub-tasks' : 'Expand sub-tasks'}
                     >
                       <ChevronRight className={`size-3.5 transition-transform duration-150 ${isExpanded ? 'rotate-90' : ''}`} />
-                    </button>
+                    </Button>
                   ) : (
                     <div className="size-5 shrink-0" aria-hidden="true" />
                   )}
@@ -195,9 +188,9 @@ export function IssueListView({
                     onStatusChange={(newStatus) => updateMutation.mutate({ id: issue.id, data: { status: newStatus as any } })}
                   />
 
-                  <button type="button" className="issue-row-title truncate rounded-sm text-left font-medium tracking-tight text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label={`Open issue ${issue.identifier}: ${issue.title}`} title={issue.title}>
+                  <Button variant="plain" size="auto" type="button" className="issue-row-title truncate rounded-sm text-left font-medium tracking-tight text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label={`Open issue ${issue.identifier}: ${issue.title}`} title={issue.title}>
                     {issue.title}
-                  </button>
+                  </Button>
 
                   {/* GitHub Issue Linked Badge */}
                   {issue.githubIssueNumber && (
@@ -225,14 +218,14 @@ export function IssueListView({
                     onUpdate={(data) => updateMutation.mutate({ id: issue.id, data })}
                   />
 
-                  <button
+                  <Button variant="plain" size="auto"
                     type="button"
                     onClick={(e) => handleDelete(issue.id, e)}
                     className="text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity p-1 rounded-[4px] hover:bg-destructive/10"
                     title="Delete issue"
                   >
                     <Trash2 className="size-3.5" />
-                  </button>
+                  </Button>
                 </div>
               </div>
               </IssueContextMenu>
@@ -252,7 +245,7 @@ export function IssueListView({
                         <div className="issue-row-main flex items-center gap-2 min-w-0 flex-1">
                           <CornerDownRight className="size-3 text-muted-foreground/40 shrink-0" />
 
-                          <button
+                          <Button variant="plain" size="auto"
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
@@ -269,7 +262,7 @@ export function IssueListView({
                                 isDone ? 'text-primary fill-primary/20' : 'text-muted-foreground/40 hover:text-muted-foreground'
                               }`}
                             />
-                          </button>
+                          </Button>
 
                           <PriorityPicker
                             priority={st.priority}
@@ -287,9 +280,9 @@ export function IssueListView({
                             onStatusChange={(newStatus) => updateMutation.mutate({ id: st.id, data: { status: newStatus as any } })}
                           />
 
-                          <button type="button" className={`issue-row-title truncate rounded-sm text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${isDone ? 'line-through text-muted-foreground/70' : 'text-foreground/90'}`} aria-label={`Open issue ${st.identifier}: ${st.title}`} title={st.title}>
+                          <Button variant="plain" size="auto" type="button" className={`issue-row-title truncate rounded-sm text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${isDone ? 'line-through text-muted-foreground/70' : 'text-foreground/90'}`} aria-label={`Open issue ${st.identifier}: ${st.title}`} title={st.title}>
                             {st.title}
-                          </button>
+                          </Button>
                         </div>
 
                         <div className="issue-row-meta flex items-center gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
@@ -297,14 +290,14 @@ export function IssueListView({
                             issue={st}
                             onUpdate={(data) => updateMutation.mutate({ id: st.id, data })}
                           />
-                          <button
+                          <Button variant="plain" size="auto"
                             type="button"
                             onClick={(e) => handleDelete(st.id, e)}
                             className="text-muted-foreground hover:text-destructive opacity-0 group-hover/sub:opacity-100 focus-visible:opacity-100 transition-opacity p-1 rounded-[4px] hover:bg-destructive/10"
                             title="Delete sub-task"
                           >
                             <Trash2 className="size-3" />
-                          </button>
+                          </Button>
                         </div>
                       </div>
                       </IssueContextMenu>
@@ -319,8 +312,8 @@ export function IssueListView({
 
       {/* Linear Batch Actions Floating Bar */}
       {selectedIds.size > 0 && (
-        <div role="toolbar" aria-label="Selected issue actions"
-          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex max-w-[calc(100vw-2rem)] flex-wrap items-center justify-center gap-2 sm:gap-3 bg-popover/95 backdrop-blur-md border border-border px-4 py-2 rounded-lg shadow-2xl text-xs select-none animate-in fade-in-0 slide-in-from-bottom-4">
+        <Card role="toolbar" aria-label="Selected issue actions"
+          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex-row max-w-[calc(100vw-2rem)] flex-wrap items-center justify-center gap-2 sm:gap-3 bg-popover/95 backdrop-blur-md border border-border px-4 py-2 [--card-spacing:--spacing(2)] rounded-lg shadow-2xl text-xs select-none animate-in fade-in-0 slide-in-from-bottom-4">
           <div className="flex items-center gap-2 font-mono font-medium text-foreground">
             <span className="size-5 rounded-[4px] bg-primary text-primary-foreground flex items-center justify-center text-xs">
               {selectedIds.size}
@@ -374,7 +367,7 @@ export function IssueListView({
             <span>Delete</span>
           </Button>
 
-          <button
+          <Button variant="plain" size="auto"
             type="button"
             onClick={() => setSelectedIds(new Set())}
             className="p-1 rounded text-muted-foreground hover:text-foreground"
@@ -382,8 +375,8 @@ export function IssueListView({
             aria-label="Clear selection"
           >
             <X className="size-3.5" />
-          </button>
-        </div>
+          </Button>
+        </Card>
       )}
 
       <CreateIssueDialog

@@ -1,18 +1,7 @@
 import * as React from 'react';
+import { SelectField } from '../../../components/common/select-field';
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts';
-import {
-  Button,
-  ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  toast,
-  type ChartConfig,
-} from '@reka/ui';
+import { Button, ChartContainer, ChartTooltip, ChartTooltipContent, DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuTrigger, toast, type ChartConfig, Label, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@reka/ui';
 import {
   AlertCircle,
   ExternalLink,
@@ -361,47 +350,20 @@ export function IssueMetricsAside({
 
       {/* Selectors Bar (Measure, Slice, Segment) */}
       <div className="grid grid-cols-3 gap-2 p-4 border-b border-border/70 shrink-0">
-        <label className="flex flex-col gap-1 text-[11px] font-medium text-muted-foreground">
+        <Label className="flex flex-col gap-1 text-[11px] font-medium text-muted-foreground">
           <span>Measure</span>
-          <select
-            aria-label="Measure"
-            value={measure}
-            onChange={(e) => setMeasure(e.target.value as MeasureType)}
-            className="h-8 rounded-md border border-input bg-background px-2 text-xs text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-          >
-            <option value="issue_count">Issue count</option>
-            <option value="estimate">Estimate</option>
-          </select>
-        </label>
+          <SelectField aria-label="Measure" value={measure} onValueChange={value => setMeasure(value as MeasureType)} className="w-full" options={[{ value: 'issue_count', label: 'Issue count' }, { value: 'estimate', label: 'Estimate' }]} />
+        </Label>
 
-        <label className="flex flex-col gap-1 text-[11px] font-medium text-muted-foreground">
+        <Label className="flex flex-col gap-1 text-[11px] font-medium text-muted-foreground">
           <span>Slice</span>
-          <select
-            aria-label="Slice"
-            value={slice}
-            onChange={(e) => setSlice(e.target.value as SliceType)}
-            className="h-8 rounded-md border border-input bg-background px-2 text-xs text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-          >
-            <option value="status">Status</option>
-            <option value="priority">Priority</option>
-            <option value="assignee">Assignee</option>
-            <option value="project">Project</option>
-          </select>
-        </label>
+          <SelectField aria-label="Slice" value={slice} onValueChange={value => setSlice(value as SliceType)} className="w-full" options={[{ value: 'status', label: 'Status' }, { value: 'priority', label: 'Priority' }, { value: 'assignee', label: 'Assignee' }, { value: 'project', label: 'Project' }]} />
+        </Label>
 
-        <label className="flex flex-col gap-1 text-[11px] font-medium text-muted-foreground">
+        <Label className="flex flex-col gap-1 text-[11px] font-medium text-muted-foreground">
           <span>Segment</span>
-          <select
-            aria-label="Segment"
-            value={segment}
-            onChange={(e) => setSegment(e.target.value as SegmentType)}
-            className="h-8 rounded-md border border-input bg-background px-2 text-xs text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-          >
-            <option value="priority">Priority</option>
-            <option value="status">Status</option>
-            <option value="none">None</option>
-          </select>
-        </label>
+          <SelectField aria-label="Segment" value={segment} onValueChange={value => setSegment(value as SegmentType)} className="w-full" options={[{ value: 'priority', label: 'Priority' }, { value: 'status', label: 'Status' }, { value: 'none', label: 'None' }]} />
+        </Label>
       </div>
 
       {/* Stacked Bar Chart */}
@@ -451,18 +413,18 @@ export function IssueMetricsAside({
 
       {/* Data Table */}
       <div className="flex-1 overflow-x-auto border-t border-border/70">
-        <table className="w-full text-left text-xs border-collapse">
-          <thead>
-            <tr className="border-b border-border/70 text-muted-foreground bg-muted/20">
-              <th scope="col" className="p-2.5 pl-4 font-medium capitalize">
+        <Table className="w-full text-left text-xs border-collapse">
+          <TableHeader>
+            <TableRow className="border-b border-border/70 text-muted-foreground bg-muted/20">
+              <TableHead scope="col" className="p-2.5 pl-4 font-medium capitalize">
                 {slice}
-              </th>
-              <th scope="col" className="p-2.5 font-medium tabular-nums text-right">
+              </TableHead>
+              <TableHead scope="col" className="p-2.5 font-medium tabular-nums text-right">
                 {measure === 'estimate' ? 'Estimate' : 'Issue count'}
-              </th>
+              </TableHead>
               {segment !== 'none' &&
                 segmentItems.map((seg) => (
-                  <th
+                  <TableHead
                     key={seg.key}
                     scope="col"
                     className="p-2.5 font-medium tabular-nums text-right whitespace-nowrap"
@@ -471,11 +433,11 @@ export function IssueMetricsAside({
                       {seg.icon}
                       <span>{seg.label}</span>
                     </span>
-                  </th>
+                  </TableHead>
                 ))}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border/50">
+            </TableRow>
+          </TableHeader>
+          <TableBody className="divide-y divide-border/50">
             {sliceItems.map((item) => {
               const row = chartData.find((d) => d.sliceKey === item.key);
               let rowTotal = 0;
@@ -484,33 +446,33 @@ export function IssueMetricsAside({
               }
 
               return (
-                <tr key={item.key} className="hover:bg-muted/40 transition-colors">
-                  <td className="p-2.5 pl-4 font-normal">
+                <TableRow key={item.key} className="hover:bg-muted/40 transition-colors">
+                  <TableCell className="p-2.5 pl-4 font-normal">
                     <span className="inline-flex items-center gap-2">
                       {item.icon}
                       <span className="truncate max-w-[120px] font-medium">{item.label}</span>
                     </span>
-                  </td>
-                  <td className="p-2.5 text-right tabular-nums text-foreground font-medium">
+                  </TableCell>
+                  <TableCell className="p-2.5 text-right tabular-nums text-foreground font-medium">
                     {rowTotal}
-                  </td>
+                  </TableCell>
                   {segment !== 'none' &&
                     segmentItems.map((seg) => {
                       const val = row?.[seg.key] ?? 0;
                       return (
-                        <td
+                        <TableCell
                           key={seg.key}
                           className="p-2.5 text-right tabular-nums text-muted-foreground"
                         >
                           {val}
-                        </td>
+                        </TableCell>
                       );
                     })}
-                </tr>
+                </TableRow>
               );
             })}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
 
       {/* Footer */}

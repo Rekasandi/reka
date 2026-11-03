@@ -54,15 +54,14 @@ try {
       import { QueryClient, QueryClientProvider } from '/node_modules/.vite/deps/@tanstack_react-query.js${version}';
       import { MemoryRouter, Routes, Route, useLocation } from '/node_modules/.vite/deps/react-router-dom.js${version}';
       import { ProjectsPage } from '/src/features/projects/components/projects-page.tsx';
-      import { useAuthStore } from '/src/stores/auth.store.ts';
-      import '/src/styles/globals.css';
+            import '/src/styles/globals.css';
       const params = new URLSearchParams(window.location.search);
       document.documentElement.classList.toggle('dark', params.get('theme') !== 'light');
       const user = { id: 'u1', name: 'Test Owner', email: 'owner@example.test', role: params.get('role') || 'owner' };
-      useAuthStore.setState({ user, isAuthenticated: true, isLoading: false });
+      (window.__testQueryClient ??= new QueryClient({ defaultOptions: { queries: { retry: false } } })).setQueryData(['auth', 'me'], user);
       function Detail() { const location = useLocation(); return React.createElement('p', null, location.pathname + location.search); }
       ReactDOM.createRoot(document.getElementById('root')).render(
-        React.createElement(QueryClientProvider, { client: new QueryClient({ defaultOptions: { queries: { retry: false } } }) },
+        React.createElement(QueryClientProvider, { client: (window.__testQueryClient ??= new QueryClient({ defaultOptions: { queries: { retry: false } } })) },
           React.createElement(MemoryRouter, { initialEntries: [params.get('route') || '/projects?teamId=t1'] },
             React.createElement('div', { className: 'p-4 sm:p-6' },
               React.createElement(Routes, null,

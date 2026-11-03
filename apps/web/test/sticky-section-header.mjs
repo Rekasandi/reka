@@ -48,7 +48,7 @@ try {
         React.createElement('div', { className: 'h-40' }, 'Team Issues'),
         React.createElement(IssueGroupedListView, { issues: ${JSON.stringify(issues)} })); }
       ReactDOM.createRoot(document.getElementById('root')).render(
-        React.createElement(QueryClientProvider, { client: new QueryClient({ defaultOptions: { queries: { retry: false } } }) },
+        React.createElement(QueryClientProvider, { client: (window.__testQueryClient ??= (qc => (qc.setQueryData(['auth', 'me'], null), qc))(new QueryClient({ defaultOptions: { queries: { retry: false } } }))) },
           React.createElement(MemoryRouter, { initialEntries: [new URLSearchParams(window.location.search).get('route') || '/teams/t1/issues'] },
             React.createElement(ThemeProvider, null,
               React.createElement(TooltipProvider, null,

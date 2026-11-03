@@ -1,13 +1,5 @@
 import * as React from 'react';
-import {
-  Badge,
-  cn,
-  DropdownMenuShortcut,
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-} from '@reka/ui';
+import { Badge, cn, DropdownMenuShortcut, DropdownMenu, DropdownMenuTrigger, DropdownMenuRadioGroup, DropdownMenuRadioItem, Button, FieldDescription } from '@reka/ui';
 import { IssuePickerMenu } from './issue-picker-menu';
 import { useTeamWorkflowStates } from '../../teams/hooks/use-teams';
 
@@ -172,7 +164,7 @@ export function StatusPicker({ status, onStatusChange, className, appearance = '
       <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
         {appearance === 'badge' ? (
           <Badge asChild variant={selected?.category === 'canceled' || status === 'blocked' ? 'destructive' : selected?.category === 'started' ? 'warning' : selected?.category === 'completed' ? 'success' : 'outline'} className={cn('h-6 gap-1.5 px-2 hover:bg-secondary/70', className)}>
-            <button
+            <Button variant="plain" size="auto"
               type="button"
               id={id}
               aria-label={`Change status: ${statusLabel}`}
@@ -182,10 +174,10 @@ export function StatusPicker({ status, onStatusChange, className, appearance = '
             >
               <StatusIconOnly status={status} />
               <span>{statusLabel}</span>
-            </button>
+            </Button>
           </Badge>
         ) : (
-          <button
+          <Button variant="plain" size="auto"
             type="button"
             id={id}
             className={cn('flex size-6 items-center justify-center rounded-md hover:bg-secondary transition-colors focus-visible:ring-2 focus-visible:ring-ring', className)}
@@ -195,14 +187,14 @@ export function StatusPicker({ status, onStatusChange, className, appearance = '
             onKeyDown={handleShortcut}
           >
             <StatusIconOnly status={status} />
-          </button>
+          </Button>
         )}
       </DropdownMenuTrigger>
 
       <IssuePickerMenu label="Status" onKeyDown={handleShortcut}>
         {search => {
           const items = options.filter((option) => option.label.toLowerCase().includes(search));
-          if (!items.length) return <p role="status" className="p-3 text-center text-xs text-muted-foreground">No statuses found.</p>;
+          if (!items.length) return <FieldDescription role="status" className="p-3 text-center text-xs text-muted-foreground">No statuses found.</FieldDescription>;
           return <DropdownMenuRadioGroup value={status} onValueChange={(value) => { onStatusChange(value); setOpen(false); }}>
           {items.map((cfg) => (
             <DropdownMenuRadioItem

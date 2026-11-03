@@ -1,8 +1,8 @@
-export interface InsightsFilters { teamId?: string; projectId?: string; viewId?: string; from: string; to: string; timezone: string; page?: number; pageSize?: number }
+export interface InsightsFilters { teamId?: string; projectId?: string; from: string; to: string; timezone: string; page?: number; pageSize?: number }
 export interface MetricSample { sampleSize: number; missingHistoryCount: number; averageHours: number | null; medianHours: number | null; points: { date: string; sampleSize: number; averageHours: number }[] }
 export interface InsightsOverview {
   range: { from: string; to: string; timezone: string };
-  filters: { teamId: string | null; projectId: string | null; viewId: string | null };
+  filters: { teamId: string | null; projectId: string | null };
   history: { hasHistory: boolean; measuredEventCount: number; baselineIssueCount: number; issuesWithCreationHistory: number; historyStartsAt: string | null };
   throughput: { total: number; sampleSize: number; repeatedCompletionEvents: number; baselineCompletionCount: number; points: { date: string; count: number }[] };
   leadTime: MetricSample; cycleTime: MetricSample;

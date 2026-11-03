@@ -1,8 +1,5 @@
 import * as React from 'react';
-import {
-  Avatar, AvatarFallback, AvatarImage, Button, Skeleton, cn,
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from '@reka/ui';
+import { Avatar, AvatarFallback, AvatarImage, Button, Skeleton, cn, Table, TableBody, TableCell, TableHead, TableHeader, TableRow, Alert, Spinner, Progress } from '@reka/ui';
 import {
   Plus, Calendar, CheckCircle2, AlertTriangle, AlertCircle, RefreshCw,
   Circle, CircleDot, CirclePause, CircleX, ArrowDown, ArrowUp,
@@ -11,7 +8,7 @@ import {
 import { Link, useLocation } from 'react-router-dom';
 import { resolveEntityIcon } from '../../../components/entity-icon-picker';
 import { WorkPageHeader, WorkListGroupHeader } from '../../../components/common/work-list';
-import { useAuthStore } from '../../../stores/auth.store';
+import { useAuth } from '../../auth/hooks/use-auth';
 import { PRIORITY_CONFIG } from '../../issues/components/priority-picker';
 import { useTeams } from '../../teams/hooks/use-teams';
 import { useUsers } from '../../users/hooks/use-users';
@@ -39,14 +36,14 @@ function ProjectHealth({ health }: { health: Project['health'] }) {
   return <span className={cn('inline-flex items-center gap-1.5 whitespace-nowrap', option.color)}><Icon className="size-3.5 shrink-0" />{option.label}</span>;
 }
 
-function ProjectPriority({ priority }: { priority: Project['priority'] }) {
+function ProjectPriority({ priority, 'aria-label': label }: { priority: Project['priority']; 'aria-label'?: string }) {
   const Icon = { urgent: AlertCircle, high: SignalHigh, medium: SignalMedium, low: SignalLow, no_priority: Minus }[priority] ?? Minus;
-  return <Icon aria-hidden="true" className={cn('size-3.5 shrink-0', priority === 'urgent' ? 'text-destructive' : 'text-muted-foreground')} />;
+  return <Icon role="img" aria-label={label} aria-hidden={label ? undefined : 'true'} className={cn('size-3.5 shrink-0', priority === 'urgent' ? 'text-destructive' : 'text-muted-foreground')} />;
 }
 
 export function ProjectsPage() {
   const location = useLocation();
-  const { user } = useAuthStore();
+  const { user } = useAuth();
   const [isCreateOpen, setIsCreateOpen] = React.useState(false);
   const [createStatus, setCreateStatus] = React.useState<Project['status']>('in_progress');
   const [sortDirection, setSortDirection] = React.useState('asc');
@@ -70,13 +67,13 @@ export function ProjectsPage() {
         {canCreate && <Button className="px-3" onClick={() => openCreate()}><Plus data-icon="inline-start" />New project</Button>}
       </WorkPageHeader>
 
-      {isLoading && <div role="status" aria-label="Loading projects" className="flex flex-col gap-2">
+      {isLoading && <div className="flex flex-col gap-2"><Spinner aria-label="Loading projects" className="sr-only" />
         {Array.from({ length: 4 }).map((_, index) => <Skeleton key={index} className="h-10 w-full rounded-lg" />)}
       </div>}
-      {isError && <div role="alert" className="flex items-center justify-between gap-3 rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-xs text-destructive">
+      {isError && <Alert className="rounded-none border-0 bg-transparent px-0 py-0 text-foreground flex items-center justify-between gap-3 rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-xs text-destructive">
         <span>Failed to load projects from server.</span>
         <Button variant="outline" size="sm" onClick={() => refetch()}><RefreshCw data-icon="inline-start" />Retry</Button>
-      </div>}
+      </Alert>}
       {!isLoading && !isError && (scopedProjects.length === 0 ? (
         <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-border/80 bg-card/10 p-14 text-center text-xs text-muted-foreground">
           <p>No projects yet.</p>
@@ -141,14 +138,14 @@ export function ProjectsPage() {
                     </Link>
                   </TableCell>
                   <TableCell className="hidden @min-[56rem]:table-cell"><ProjectHealth health={project.health} /></TableCell>
-                  <TableCell className="hidden @min-[56rem]:table-cell"><span role="img" aria-label={`Priority: ${priority}`}><ProjectPriority priority={project.priority} /></span></TableCell>
+                  <TableCell className="hidden @min-[56rem]:table-cell"><ProjectPriority priority={project.priority} aria-label={`Priority: ${priority}`} /></TableCell>
                   <TableCell className="hidden @min-[56rem]:table-cell">{lead ? <Avatar size="sm" aria-label={lead.name} title={lead.name}><AvatarImage src={lead.avatarUrl || undefined} /><AvatarFallback>{initials}</AvatarFallback></Avatar> : <span className="text-muted-foreground">—</span>}</TableCell>
                   <TableCell className="hidden text-muted-foreground @min-[56rem]:table-cell"><span className="inline-flex items-center gap-1.5 whitespace-nowrap"><Calendar className="size-3.5 shrink-0" />{targetLabel}</span></TableCell>
                   <TableCell className="hidden text-right tabular-nums @min-[56rem]:table-cell">{project.totalIssues ?? '—'}</TableCell>
                   <TableCell>
                     <div className="flex flex-col items-end gap-1">
                       <span className="inline-flex items-center gap-2" title={status?.label}><StatusIcon aria-label={status?.label} className={cn('size-3.5 shrink-0', status?.color)} /><span className="tabular-nums">{progress === null ? '—' : `${progress}%`}</span></span>
-                      {progress !== null && <div role="meter" aria-label={`${project.name}: ${progress}% complete`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress} className="h-1 w-12 overflow-hidden rounded-full bg-secondary"><div className="h-full bg-primary" style={{ width: `${progress}%` }} /></div>}
+                      {progress !== null && <Progress role="meter" aria-label={`${project.name}: ${progress}% complete`} value={progress} className="h-1 w-12 bg-secondary" />}
                     </div>
                   </TableCell>
                 </TableRow>;

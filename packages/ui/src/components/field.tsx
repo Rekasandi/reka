@@ -1,6 +1,7 @@
 import * as React from "react"
 import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "../lib/utils"
+import { Label } from "./label"
 
 const fieldVariants = cva("group/field flex flex-col gap-1.5", {
   variants: {
@@ -93,9 +94,9 @@ function FieldContent({ className, ...props }: React.ComponentProps<"div">) {
 function FieldLabel({
   className,
   ...props
-}: React.ComponentProps<"label">) {
+}: React.ComponentProps<typeof Label>) {
   return (
-    <label
+    <Label
       data-slot="field-label"
       className={cn(
         "text-xs font-medium text-foreground leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70",

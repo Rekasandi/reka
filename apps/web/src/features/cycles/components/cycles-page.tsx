@@ -1,32 +1,10 @@
 import * as React from 'react';
-import {
-  Alert,
-  AlertDescription,
-  Badge,
-  Button,
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  Skeleton,
-  Tabs,
-  TabsList,
-  TabsTrigger,
-  Timeline,
-  TimelineConnector,
-  TimelineContent,
-  TimelineDot,
-  TimelineItem,
-  TimelineTime,
-} from '@reka/ui';
+import { Alert, AlertDescription, Badge, Button, Collapsible, CollapsibleContent, CollapsibleTrigger, DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuTrigger, Skeleton, Tabs, TabsList, TabsTrigger, Timeline, TimelineConnector, TimelineContent, TimelineDot, TimelineItem, TimelineTime, Spinner } from '@reka/ui';
 import { CalendarClock, CircleCheck, CircleDashed, CirclePause, CirclePlay, MoreHorizontal, RefreshCw, Triangle } from 'lucide-react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useCycles, useReopenCycle } from '../hooks/use-cycles';
 import { useTeams } from '../../teams/hooks/use-teams';
+import { useTeamFeatures } from '../../teams/hooks/use-team-features';
 import { CompleteCycleDialog } from './complete-cycle-dialog';
 import { CycleScheduleDialog } from './cycle-schedule-dialog';
 import { CycleProgressChart } from './cycle-progress-chart';
@@ -37,11 +15,13 @@ function MetricRing({ percent, overCapacity = false }: { percent: number | null;
 }
 
 function CapacityMetric({ cycle }: { cycle: Cycle }) {
+  const { estimatesEnabled } = useTeamFeatures(cycle.teamId);
   const completed = cycle.status === 'completed';
   const capacity = cycle.capacity;
   const planned = cycle.plannedEstimate ?? 0;
   const percent = completed ? cycle.progress ?? 0 : capacity != null && capacity > 0 ? Math.round(planned / capacity * 100) : capacity === 0 && planned === 0 ? 0 : null;
   const over = !completed && capacity != null && planned > capacity;
+  if (!estimatesEnabled) return <span className="cycle-capacity inline-flex items-center gap-2 tabular-nums" title="Completed issues divided by current scope"><MetricRing percent={cycle.progress ?? 0} /><span>{cycle.progress ?? 0}%</span><span className="text-muted-foreground">done</span></span>;
   return <span className="cycle-capacity inline-flex items-center gap-2 tabular-nums" title={completed ? 'Completed issues divided by current scope' : capacity == null ? 'Estimate-point capacity has not been set' : `${planned} estimate points / ${capacity} capacity`}>
     <MetricRing percent={percent} overCapacity={over} />
     {percent === null ? <span className="text-muted-foreground">{over ? 'Over capacity' : 'No capacity set'}</span> : <><span>{percent}%</span><span className="text-muted-foreground">{completed ? 'success' : 'of capacity'}</span></>}
@@ -71,7 +51,8 @@ export function CyclesPage() {
   const { data: cycles = [], isLoading, isError, refetch } = useCycles();
   const { data: teams = [] } = useTeams();
   const reopenMutation = useReopenCycle();
-  const scopedCycles = cycles.filter(cycle => !teamId || cycle.teamId === teamId);
+  const enabledTeamIds = new Set(teams.filter(team => team.cyclesEnabled !== false).map(team => team.id));
+  const scopedCycles = cycles.filter(cycle => enabledTeamIds.has(cycle.teamId) && (!teamId || cycle.teamId === teamId));
   const filteredCycles = scopedCycles.filter(cycle => filterTab === 'all' || cycle.status === filterTab)
     .sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime() || b.number - a.number || a.id.localeCompare(b.id));
   const defaultExpandedId = filteredCycles.find(cycle => cycle.status === 'active')?.id;
@@ -89,7 +70,7 @@ export function CyclesPage() {
         {[['all', 'All cycles'], ['active', 'Current'], ['upcoming', 'Upcoming'], ['completed', 'Completed']].map(([value, label]) => <TabsTrigger key={value} value={value} aria-label={label} className="h-9 flex-none rounded-none border-0 px-0">{value === 'all' ? 'All' : label}</TabsTrigger>)}
       </TabsList>
     </Tabs>
-    {isLoading ? <div role="status" aria-label="Loading cycles" className="flex flex-col gap-2">{[0, 1, 2].map(i => <Skeleton key={i} className="h-20 w-full" />)}</div> : isError ? <Alert variant="destructive"><AlertDescription className="flex flex-wrap items-center gap-3">Could not load cycles.<Button variant="outline" size="sm" onClick={() => void refetch()}><RefreshCw data-icon="inline-start" />Retry</Button></AlertDescription></Alert> : filteredCycles.length ? <Timeline asChild aria-label="Cycles" className="cycle-timeline">
+    {isLoading ? <div className="flex flex-col gap-2"><Spinner aria-label="Loading cycles" className="sr-only" />{[0, 1, 2].map(i => <Skeleton key={i} className="h-20 w-full" />)}</div> : isError ? <Alert variant="destructive"><AlertDescription className="flex flex-wrap items-center gap-3">Could not load cycles.<Button variant="outline" size="sm" onClick={() => void refetch()}><RefreshCw data-icon="inline-start" />Retry</Button></AlertDescription></Alert> : filteredCycles.length ? <Timeline asChild aria-label="Cycles" className="cycle-timeline">
       <ol>
       {filteredCycles.map((cycle, index) => {
         const team = teams.find(team => team.id === cycle.teamId);

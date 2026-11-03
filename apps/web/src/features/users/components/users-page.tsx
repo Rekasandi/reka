@@ -1,18 +1,5 @@
 import * as React from 'react';
-import {
-  Badge,
-  Button,
-  Skeleton,
-  Avatar,
-  AvatarImage,
-  AvatarFallback,
-  Select,
-  SelectTrigger,
-  SelectValue,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-} from '@reka/ui';
+import { Badge, Button, Skeleton, Avatar, AvatarImage, AvatarFallback, Select, SelectTrigger, SelectValue, SelectContent, SelectGroup, SelectItem } from '@reka/ui';
 import { UserPlus, Shield, CheckSquare, Users, Trash2, RefreshCw, ExternalLink } from 'lucide-react';
 import { useUsers, useUpdateUser, useDeleteUser } from '../hooks/use-users';
 import { CreateUserDialog } from './create-user-dialog';
@@ -23,7 +10,7 @@ import { toast } from '@reka/ui';
 import { InviteUserDialog } from './invite-user-dialog';
 import { getWorkspace, updateWorkspaceMember, WORKSPACE_QUERY_KEY } from '../../settings/api/workspace.api';
 import { USERS_QUERY_KEY } from '../hooks/use-users';
-import { useAuthStore } from '../../../stores/auth.store';
+import { useAuth, useLogout } from '../../auth/hooks/use-auth';
 
 function RoleBadge({ role }: { role: User['role'] }) {
   const map: Record<string, { label: string; variant: 'default' | 'secondary' | 'outline' }> = {
@@ -44,6 +31,8 @@ function RoleBadge({ role }: { role: User['role'] }) {
 }
 
 export function UsersPage() {
+  const { user: currentUser } = useAuth();
+  const logout = useLogout();
   const [isCreateOpen, setIsCreateOpen] = React.useState(false);
   const [isInviteOpen, setIsInviteOpen] = React.useState(false);
   const [deleteTargetUser, setDeleteTargetUser] = React.useState<User | null>(null);
@@ -223,14 +212,14 @@ export function UsersPage() {
                   {canManage && u.isActive === false && (u.role !== 'owner' || actorIsOwner) && <Button variant="outline" size="sm" disabled={activate.isPending || u.admission === 'pending'} title={u.admission === 'pending' ? 'Send an invitation before granting access' : undefined} onClick={() => activate.mutate(u.id)}>Reactivate</Button>}
                   {/* Deactivation preserves authored work. */}
                   {canManage && u.isActive !== false && u.role !== 'owner' ? (
-                    <button
+                    <Button variant="plain" size="auto"
                       type="button"
                       onClick={(e) => handleDelete(u, e)}
                       className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       title="Deactivate user"
                     >
                       <Trash2 className="size-3.5" />
-                    </button>
+                    </Button>
                   ) : (
                     <div className="w-5" />
                   )}
@@ -259,7 +248,7 @@ export function UsersPage() {
         description="This revokes workspace access. Authored work and issue assignments are preserved."
         onConfirm={() => {
           if (deleteTargetUser) {
-            deleteMutation.mutate(deleteTargetUser.id, { onSuccess: async () => { if (useAuthStore.getState().user?.id === deleteTargetUser.id) await useAuthStore.getState().logout(); } });
+            deleteMutation.mutate(deleteTargetUser.id, { onSuccess: async () => { if (currentUser?.id === deleteTargetUser.id) await logout.mutateAsync(); } });
             setDeleteTargetUser(null);
           }
         }}

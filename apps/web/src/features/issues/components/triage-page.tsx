@@ -1,15 +1,17 @@
 import * as React from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Alert, AlertDescription, Avatar, AvatarFallback, AvatarImage, Badge, Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Field, FieldGroup, FieldLabel, Input, Skeleton, Textarea, cn } from '@reka/ui';
+import { useForm, useStore } from '@tanstack/react-form';
+import { SelectField } from '../../../components/common/select-field';
+import { Alert, AlertDescription, Avatar, AvatarFallback, AvatarImage, Badge, Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Field, FieldGroup, FieldLabel, Input, Skeleton, Textarea, cn, Label, FieldError, Spinner } from '@reka/ui';
 import { Archive, Check, ClipboardList, Copy, Plus, Trash2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { IssueDetailContent } from './issue-detail-sheet';
-import { useFavorites, useToggleFavorite } from '../../views/hooks/use-views';
+import { useFavorites, useToggleFavorite } from '../../favorites/hooks/use-favorites';
 import { useTeams } from '../../teams/hooks/use-teams';
 import { useTeamWorkflowStates } from '../../teams/hooks/use-teams';
 import { useIssue, useIssues } from '../hooks/use-issues';
 import { useUsers } from '../../users/hooks/use-users';
-import { useAuthStore } from '../../../stores/auth.store';
+import { useAuth } from '../../auth/hooks/use-auth';
 import { useCreateIssueTemplate, useDeleteIssueTemplate, useIssueTemplates, useSubmitIssueTemplate, useTriage, useTriageAction } from '../hooks/use-triage';
 import type { IntakeField, IssueTemplate } from '../api/triage.api';
 import { getIssueStatusCategory, type Issue } from '@reka/types';
@@ -22,7 +24,7 @@ const templateDefaults = { titlePrefix: '', description: '', defaultStatus: 'tri
 export function TriagePage() {
   const [params, setParams] = useSearchParams();
   const teamId = params.get('teamId');
-  const { user } = useAuthStore();
+  const { user } = useAuth();
   const { data: teams = [] } = useTeams();
   const { data: allTriage = [], isLoading, isError, refetch } = useTriage();
   const queue = teamId ? allTriage.filter(issue => issue.teamId === teamId) : allTriage;
@@ -82,14 +84,14 @@ export function TriagePage() {
         </header>
         <div className="shrink-0 px-3 py-3"><Input type="search" aria-label="Search triage" placeholder="Search triage…" value={search} onChange={event => setSearch(event.target.value)} /></div>
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 pb-3">
-          {isLoading ? <div role="status" aria-label="Loading triage queue" className="flex flex-col gap-2">{[0, 1, 2, 3].map(item => <Skeleton key={item} className="h-16 w-full rounded-[6px]" />)}</div> : isError ? null : !queue.length ? <div className="flex flex-col items-center gap-3 px-4 py-12 text-center"><ClipboardList className="size-6 text-muted-foreground" /><h2 className="text-sm font-medium">Nothing waiting for review</h2><p className="text-xs text-muted-foreground">New internal submissions will appear here.</p><Button type="button" size="sm" variant="outline" onClick={() => setSubmitOpen(true)} disabled={!canSubmit}>New intake</Button></div> : !visibleQueue.length ? <div className="flex flex-col items-center gap-3 px-4 py-8 text-center text-sm"><p>No matching intake.</p><Button variant="outline" size="sm" onClick={() => setSearch('')}>Clear search</Button></div> : <ul aria-label="Incoming issues" className="flex flex-col gap-1">{visibleQueue.map(issue => {
+          {isLoading ? <div className="flex flex-col gap-2"><Spinner aria-label="Loading triage queue" className="sr-only" />{[0, 1, 2, 3].map(item => <Skeleton key={item} className="h-16 w-full rounded-[6px]" />)}</div> : isError ? null : !queue.length ? <div className="flex flex-col items-center gap-3 px-4 py-12 text-center"><ClipboardList className="size-6 text-muted-foreground" /><h2 className="text-sm font-medium">Nothing waiting for review</h2><p className="text-xs text-muted-foreground">New internal submissions will appear here.</p><Button type="button" size="sm" variant="outline" onClick={() => setSubmitOpen(true)} disabled={!canSubmit}>New intake</Button></div> : !visibleQueue.length ? <div className="flex flex-col items-center gap-3 px-4 py-8 text-center text-sm"><p>No matching intake.</p><Button variant="outline" size="sm" onClick={() => setSearch('')}>Clear search</Button></div> : <ul aria-label="Incoming issues" className="flex flex-col gap-1">{visibleQueue.map(issue => {
             const reporter = users.find(person => person.id === issue.reporterId);
             const date = new Date(issue.createdAt);
             const hasDate = Number.isFinite(date.getTime());
-            return <li key={issue.id}><button type="button" data-triage-item={issue.id} aria-label={`Review ${issue.identifier}: ${issue.title}`} aria-current={selectedIssue?.id === issue.id ? 'true' : undefined} onClick={() => selectIssue(issue.id)} className={cn('flex w-full min-w-0 flex-col gap-2 rounded-[6px] px-3 py-3 text-left transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset', selectedIssue?.id === issue.id && 'bg-secondary')}>
+            return <li key={issue.id}><Button variant="plain" size="auto" type="button" data-triage-item={issue.id} aria-label={`Review ${issue.identifier}: ${issue.title}`} aria-current={selectedIssue?.id === issue.id ? 'true' : undefined} onClick={() => selectIssue(issue.id)} className={cn('flex w-full min-w-0 flex-col gap-2 rounded-[6px] px-3 py-3 text-left transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset', selectedIssue?.id === issue.id && 'bg-secondary')}>
               <span className="flex w-full min-w-0 items-baseline gap-2"><span className="min-w-0 flex-1 truncate text-sm" title={issue.title}>{issue.title}</span><span className="shrink-0 text-xs tabular-nums text-muted-foreground">{issue.identifier}</span></span>
               <span className="flex w-full min-w-0 items-center justify-between gap-2 text-xs text-muted-foreground"><span className="flex min-w-0 items-center gap-2"><Avatar className="size-4"><AvatarImage src={reporter?.avatarUrl ?? undefined} /><AvatarFallback>{reporter?.name.slice(0, 1) ?? '?'}</AvatarFallback></Avatar><span className="truncate">{reporter?.name ?? 'Unknown reporter'}</span></span><time className="shrink-0" dateTime={hasDate ? date.toISOString() : undefined} title={hasDate ? date.toLocaleString() : undefined}>{hasDate ? formatDistanceToNow(date, { addSuffix: true }) : 'Date unavailable'}</time></span>
-            </button></li>;
+            </Button></li>;
           })}</ul>}
         </div>
       </section>
@@ -107,14 +109,14 @@ function TriageDetail({ issueId, onClose, onDecision }: { issueId: string; onClo
   const query = useIssue(issueId);
   const favorites = useFavorites();
   const toggle = useToggleFavorite();
-  const user = useAuthStore(state => state.user);
+  const user = useAuth().user;
   const { data: teams = [] } = useTeams();
   React.useEffect(() => {
     if (!query.isSuccess) return;
     const back = document.querySelector<HTMLButtonElement>('[data-issue-detail="triage"] .triage-back');
     if (back?.checkVisibility()) back.focus({ preventScroll: true });
   }, [query.isSuccess, issueId]);
-  if (query.isPending) return <div role="status" aria-label="Loading intake details" className="flex flex-col gap-6 p-6"><Skeleton className="h-8 w-3/4" /><Skeleton className="h-32 w-full" /><Skeleton className="h-20 w-full" /></div>;
+  if (query.isPending) return <div className="flex flex-col gap-6 p-6"><Spinner aria-label="Loading intake details" className="sr-only" /><Skeleton className="h-8 w-3/4" /><Skeleton className="h-32 w-full" /><Skeleton className="h-20 w-full" /></div>;
   if (query.isError || !query.data) return <div className="flex flex-col gap-4 p-6"><Button variant="outline" className="w-fit" onClick={onClose}>Back to queue</Button><Alert variant="destructive"><AlertDescription>Could not load intake details. It may have been removed or you may not have access.</AlertDescription></Alert><Button variant="outline" className="w-fit" onClick={() => void query.refetch()}>Retry details</Button></div>;
   const issue = query.data;
   const isFavorite = favorites.data?.some(item => item.resourceType === 'issue' && item.resourceId === issue.id) ?? false;
@@ -144,7 +146,7 @@ function TemplateManager({ open, onOpenChange, teams, templates, createTemplate,
   };
   return <Dialog open={open} onOpenChange={onOpenChange}><DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-xl"><DialogHeader><DialogTitle>Issue intake templates</DialogTitle><DialogDescription>Team leads create team forms; workspace admins may create workspace-wide forms. Submissions stay internal and enter triage.</DialogDescription></DialogHeader>
     <div className="flex flex-col gap-3">{templates.length ? <ul className="divide-y divide-border rounded-md border border-border/70">{templates.map(template => <li key={template.id} className="flex items-center justify-between gap-3 px-3 py-2"><div className="min-w-0"><p className="truncate text-sm font-medium">{template.name}</p><p className="text-xs text-muted-foreground">{template.teamId ? teams.find(team => team.id === template.teamId)?.name ?? 'Team form' : 'Workspace form'} · {template.fields.length} fields</p></div><Button type="button" variant="ghost" size="icon-xs" aria-label={`Delete ${template.name}`} disabled={!canManage || deleteTemplate.isPending} onClick={() => deleteTemplate.mutate(template.id)}><Trash2 /></Button></li>)}</ul> : <p className="rounded-md border border-dashed border-border p-4 text-center text-xs text-muted-foreground">No internal templates yet.</p>}
-      {canManage && <div className="flex flex-col gap-2 rounded-md border border-border/70 p-3"><h3 className="text-xs font-semibold text-muted-foreground">New template</h3><Input aria-label="Template name" placeholder="e.g. Bug report" maxLength={100} value={name} onChange={event => setName(event.target.value)} /><select aria-label="Template team" value={teamId} onChange={event => setTeamId(event.target.value)} className="h-9 rounded-md border border-input bg-background px-2 text-sm">{canManageWorkspace && <option value="">Workspace-wide</option>}{managers.map(team => <option key={team.id} value={team.id}>{team.name} ({team.key})</option>)}</select><p className="text-xs text-muted-foreground">Creates a triage form with one required details field. Change issue properties after acceptance.</p>{error && <p role="alert" className="text-xs text-destructive">{error}</p>}<div className="flex justify-end"><Button type="button" size="sm" onClick={() => void save()} disabled={createTemplate.isPending || (!teamId && !canManageWorkspace)}>{createTemplate.isPending ? 'Saving…' : 'Create template'}</Button></div></div>}
+      {canManage && <div className="flex flex-col gap-2 rounded-md border border-border/70 p-3"><h3 className="text-xs font-semibold text-muted-foreground">New template</h3><Input aria-label="Template name" placeholder="e.g. Bug report" maxLength={100} value={name} onChange={event => setName(event.target.value)} /><SelectField aria-label="Template team" value={teamId} onValueChange={setTeamId} className="w-full" options={[...(canManageWorkspace ? [{ value: '', label: 'Workspace-wide' }] : []), ...managers.map(team => ({ value: team.id, label: `${team.name} (${team.key})` }))]} /><p className="text-xs text-muted-foreground">Creates a triage form with one required details field. Change issue properties after acceptance.</p>{error && <FieldError role="alert" className="text-xs text-destructive">{error}</FieldError>}<div className="flex justify-end"><Button type="button" size="sm" onClick={() => void save()} disabled={createTemplate.isPending || (!teamId && !canManageWorkspace)}>{createTemplate.isPending ? 'Saving…' : 'Create template'}</Button></div></div>}
     </div><DialogFooter><Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Close</Button></DialogFooter>
   </DialogContent></Dialog>;
 }
@@ -153,33 +155,53 @@ function IntakeDialog({ open, onOpenChange, templates, teams, submitTemplate }: 
   open: boolean; onOpenChange: (open: boolean) => void; templates: IssueTemplate[]; teams: { id: string; name: string; key: string; canWrite?: boolean }[];
   submitTemplate: ReturnType<typeof useSubmitIssueTemplate>;
 }) {
-  const [templateId, setTemplateId] = React.useState('');
-  const [teamId, setTeamId] = React.useState('');
-  const [title, setTitle] = React.useState('');
-  const [answers, setAnswers] = React.useState<Record<string, string>>({});
-  const template = templates.find(item => item.id === templateId);
-  React.useEffect(() => {
-    if (!open) return;
-    setTemplateId(templates[0]?.id ?? ''); setTeamId(''); setTitle(''); setAnswers({});
-  }, [open, templates]);
-  React.useEffect(() => { if (template?.teamId) setTeamId(template.teamId); }, [template?.id, template?.teamId]);
-  const submit = async (event: React.FormEvent) => {
-    event.preventDefault(); if (!template) return;
-    try {
-      await submitTemplate.mutateAsync({ id: template.id, input: { title, teamId: template.teamId ? undefined : teamId, answers } });
-      onOpenChange(false);
-    } catch { /* mutation toast presents the API validation error */ }
-  };
-  const validTeams = teams.filter(team => team.canWrite);
   return <Dialog open={open} onOpenChange={onOpenChange}><DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-lg"><DialogHeader><DialogTitle>New internal intake</DialogTitle><DialogDescription>Submissions create a real issue in the selected team's triage queue.</DialogDescription></DialogHeader>
-    <form className="flex flex-col gap-3" onSubmit={submit}>
-      <label className="flex flex-col gap-1 text-xs font-medium">Form<select aria-label="Intake form" required value={templateId} onChange={event => { setTemplateId(event.target.value); setAnswers({}); }} className="h-9 rounded-md border border-input bg-background px-2 text-sm">{templates.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
-      {template && !template.teamId && <label className="flex flex-col gap-1 text-xs font-medium">Team<select aria-label="Intake team" required value={teamId} onChange={event => setTeamId(event.target.value)} className="h-9 rounded-md border border-input bg-background px-2 text-sm"><option value="">Choose team</option>{validTeams.map(team => <option key={team.id} value={team.id}>{team.name} ({team.key})</option>)}</select></label>}
-      <label className="flex flex-col gap-1 text-xs font-medium">Issue title<Input aria-label="Intake title" required maxLength={255} value={title} onChange={event => setTitle(event.target.value)} /></label>
-      {template?.fields.map(field => <label key={field.key} className="flex flex-col gap-1 text-xs font-medium">{field.label}{field.required ? ' *' : ''}{field.type === 'textarea' ? <Textarea aria-label={field.label} required={field.required} maxLength={4000} value={answers[field.key] ?? ''} onChange={event => setAnswers(current => ({ ...current, [field.key]: event.target.value }))} /> : field.type === 'select' ? <select aria-label={field.label} required={field.required} value={answers[field.key] ?? ''} onChange={event => setAnswers(current => ({ ...current, [field.key]: event.target.value }))} className="h-9 rounded-md border border-input bg-background px-2 text-sm"><option value="">Select…</option>{field.options?.map(option => <option key={option}>{option}</option>)}</select> : <Input aria-label={field.label} required={field.required} maxLength={500} value={answers[field.key] ?? ''} onChange={event => setAnswers(current => ({ ...current, [field.key]: event.target.value }))} />}</label>)}
+    {open && <IntakeForm onOpenChange={onOpenChange} templates={templates} teams={teams} submitTemplate={submitTemplate} />}
+  </DialogContent></Dialog>;
+}
+
+/** Mounted fresh each time the dialog opens, so the form always starts from clean defaults. */
+function IntakeForm({ onOpenChange, templates, teams, submitTemplate }: {
+  onOpenChange: (open: boolean) => void; templates: IssueTemplate[]; teams: { id: string; name: string; key: string; canWrite?: boolean }[];
+  submitTemplate: ReturnType<typeof useSubmitIssueTemplate>;
+}) {
+  const form = useForm({
+    defaultValues: { templateId: templates[0]?.id ?? '', teamId: '', title: '', answers: {} as Record<string, string> },
+    onSubmit: async ({ value }) => {
+      const current = templates.find(item => item.id === value.templateId);
+      if (!current) return;
+      try {
+        await submitTemplate.mutateAsync({ id: current.id, input: { title: value.title, teamId: current.teamId ? undefined : value.teamId, answers: value.answers } });
+        onOpenChange(false);
+      } catch { /* mutation toast presents the API validation error */ }
+    },
+  });
+  const templateId = useStore(form.store, state => state.values.templateId);
+  const answers = useStore(form.store, state => state.values.answers);
+  const template = templates.find(item => item.id === templateId);
+  const firstTemplateId = templates[0]?.id ?? '';
+  React.useEffect(() => { if (!form.getFieldValue('templateId') && firstTemplateId) form.setFieldValue('templateId', firstTemplateId); }, [firstTemplateId]);
+  React.useEffect(() => { if (template?.teamId) form.setFieldValue('teamId', template.teamId); }, [template?.id, template?.teamId]);
+  const validTeams = teams.filter(team => team.canWrite);
+  return <>
+    <form className="flex flex-col gap-3" onSubmit={event => { event.preventDefault(); event.stopPropagation(); void form.handleSubmit(); }}>
+      <form.Field name="templateId" validators={{ onChange: ({ value }) => (!value ? 'Choose a form' : undefined) }} children={field => (
+        <Field data-invalid={field.state.meta.isTouched && !field.state.meta.isValid}><FieldLabel className="text-xs font-medium">Form</FieldLabel><SelectField aria-label="Intake form" required value={field.state.value} onValueChange={value => { field.handleChange(value); form.setFieldValue('answers', {}); }} className="w-full" options={templates.map(item => ({ value: item.id, label: item.name }))} />{field.state.meta.isTouched && !field.state.meta.isValid && <FieldError errors={field.state.meta.errors} />}</Field>
+      )} />
+      {template && !template.teamId && <form.Field name="teamId" validators={{ onChange: ({ value }) => (!value ? 'Choose a team' : undefined) }} children={field => (
+        <Field data-invalid={field.state.meta.isTouched && !field.state.meta.isValid}><FieldLabel className="text-xs font-medium">Team</FieldLabel><SelectField aria-label="Intake team" required value={field.state.value} onValueChange={field.handleChange} className="w-full" options={[{ value: '', label: 'Choose team' }, ...validTeams.map(team => ({ value: team.id, label: `${team.name} (${team.key})` }))]} />{field.state.meta.isTouched && !field.state.meta.isValid && <FieldError errors={field.state.meta.errors} />}</Field>
+      )} />}
+      <form.Field name="title" validators={{ onChange: ({ value }) => (!value.trim() ? 'Issue title is required' : undefined) }} children={field => (
+        <Field data-invalid={field.state.meta.isTouched && !field.state.meta.isValid}><FieldLabel htmlFor="intake-title" className="text-xs font-medium">Issue title</FieldLabel><Input id="intake-title" aria-label="Intake title" required maxLength={255} value={field.state.value} onBlur={field.handleBlur} onChange={event => field.handleChange(event.target.value)} />{field.state.meta.isTouched && !field.state.meta.isValid && <FieldError errors={field.state.meta.errors} />}</Field>
+      )} />
+      {template?.fields.map(item => {
+        const setAnswer = (next: string) => form.setFieldValue('answers', current => ({ ...current, [item.key]: next }));
+        const value = answers[item.key] ?? '';
+        return <Field key={item.key}><FieldLabel className="text-xs font-medium">{item.label}{item.required ? ' *' : ''}</FieldLabel>{item.type === 'textarea' ? <Textarea aria-label={item.label} required={item.required} maxLength={4000} value={value} onChange={event => setAnswer(event.target.value)} /> : item.type === 'select' ? <SelectField aria-label={item.label} required={item.required} value={value} onValueChange={setAnswer} className="w-full" options={[{ value: '', label: 'Select…' }, ...(item.options ?? []).map(option => ({ value: option, label: option }))]} /> : <Input aria-label={item.label} required={item.required} maxLength={500} value={value} onChange={event => setAnswer(event.target.value)} />}</Field>;
+      })}
       <DialogFooter><Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button><Button type="submit" disabled={!template || submitTemplate.isPending}>{submitTemplate.isPending ? 'Submitting…' : 'Submit to triage'}</Button></DialogFooter>
     </form>
-  </DialogContent></Dialog>;
+  </>;
 }
 
 function ReviewDialog({ issue, mode, open, onOpenChange, onResolved, teams, action }: {
@@ -188,51 +210,50 @@ function ReviewDialog({ issue, mode, open, onOpenChange, onResolved, teams, acti
 }) {
   const { data: users = [], isError: usersError, refetch: refetchUsers } = useUsers();
   const { data: issues = [], isPending: issuesLoading, isError: issuesError, refetch: refetchIssues } = useIssues();
-  const [teamId, setTeamId] = React.useState(issue.teamId);
-  const [assigneeId, setAssigneeId] = React.useState(issue.assigneeId ?? '');
-  const [status, setStatus] = React.useState('');
-  const [reason, setReason] = React.useState('');
-  const [targetId, setTargetId] = React.useState('');
+  const form = useForm({
+    defaultValues: { teamId: issue.teamId, assigneeId: issue.assigneeId ?? '', status: '', reason: '', targetId: '' },
+    onSubmit: async ({ value }) => {
+      try {
+        if (mode === 'accept') await action.mutateAsync({ action: mode, id: issue.id, teamId: value.teamId, status: value.status, assigneeId: value.assigneeId || null });
+        else if (mode === 'decline') await action.mutateAsync({ action: mode, id: issue.id, reason: value.reason });
+        else await action.mutateAsync({ action: mode, id: issue.id, targetId: value.targetId });
+        form.reset();
+        onResolved();
+      } catch { /* Keep the form and its values open; the inline error and mutation toast explain the failure. */ }
+    },
+  });
+  const { teamId, assigneeId, status, targetId } = useStore(form.store, state => state.values);
   const workflow = useTeamWorkflowStates(teamId);
   React.useEffect(() => {
     if (!open) return;
-    setTeamId(issue.teamId); setAssigneeId(issue.assigneeId ?? ''); setStatus(''); setReason(''); setTargetId(''); action.reset();
+    form.reset({ teamId: issue.teamId, assigneeId: issue.assigneeId ?? '', status: '', reason: '', targetId: '' }); action.reset();
   }, [open, issue.id, mode]);
   React.useEffect(() => {
     const state = ['unstarted', 'started', 'backlog'].map(category => workflow.data?.find(item => item.isActive && item.category === category)).find(Boolean);
-    if (state) setStatus(current => workflow.data?.some(item => item.key === current && item.isActive) ? current : state.key);
+    if (state) form.setFieldValue('status', current => workflow.data?.some(item => item.key === current && item.isActive) ? current : state.key);
   }, [workflow.data]);
   const selectedTeam = teams.find(team => team.id === teamId);
   const availableUsers = users.filter(user => user.isActive !== false && (!selectedTeam?.isPrivate || selectedTeam.members?.some(member => member.userId === user.id)));
   React.useEffect(() => {
-    if (assigneeId && users.length && !availableUsers.some(user => user.id === assigneeId)) setAssigneeId('');
+    if (assigneeId && users.length && !availableUsers.some(user => user.id === assigneeId)) form.setFieldValue('assigneeId', '');
   }, [teamId, users, assigneeId]);
   const targetTeamIssues = issues.filter(item => item.id !== issue.id && item.teamId === issue.teamId && !item.archivedAt);
   const workStates = (workflow.data ?? []).filter(state => state.isActive && ['backlog', 'unstarted', 'started'].includes(state.category));
-  const submit = async (event: React.FormEvent) => {
-    event.preventDefault();
-    try {
-      if (mode === 'accept') await action.mutateAsync({ action: mode, id: issue.id, teamId, status, assigneeId: assigneeId || null });
-      else if (mode === 'decline') await action.mutateAsync({ action: mode, id: issue.id, reason });
-      else await action.mutateAsync({ action: mode, id: issue.id, targetId });
-      onResolved();
-    } catch { /* Keep the form and its values open; the inline error and mutation toast explain the failure. */ }
-  };
   const disabled = action.isPending || (mode === 'accept' ? !teamId || workflow.isPending || workflow.isError || !workStates.some(state => state.key === status) || (!!assigneeId && (usersError || !availableUsers.some(user => user.id === assigneeId))) : mode === 'duplicate' ? issuesLoading || issuesError || !targetTeamIssues.some(target => target.id === targetId) : false);
   const heading = mode === 'accept' ? 'Accept' : mode === 'decline' ? 'Decline' : 'Mark duplicate';
   return <Dialog open={open} onOpenChange={next => { if (!action.isPending) onOpenChange(next); }}><DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-lg"><DialogHeader><DialogTitle>{heading} {issue.identifier}</DialogTitle><DialogDescription>{mode === 'accept' ? 'Choose a destination team, work status, and assignee. The issue will leave triage.' : mode === 'decline' ? 'This intake will be archived, not deleted. Add an optional reason to the activity record.' : 'Link this intake to an existing issue in the same team, then archive the duplicate.'}</DialogDescription></DialogHeader>
-    <form onSubmit={submit} className="flex flex-col gap-4">
+    <form onSubmit={event => { event.preventDefault(); event.stopPropagation(); void form.handleSubmit(); }} className="flex flex-col gap-4">
       <p className="break-words text-sm font-medium">{issue.title}</p>
       {mode === 'accept' && <FieldGroup>
-        <Field><FieldLabel htmlFor="triage-route-team">Route to team</FieldLabel><select id="triage-route-team" aria-label="Route to team" value={teamId} disabled={action.isPending} onChange={event => { setTeamId(event.target.value); setStatus(''); }} className="h-9 rounded-[6px] border border-input bg-background px-2 text-sm">{teams.map(team => <option key={team.id} value={team.id}>{team.name} ({team.key})</option>)}</select></Field>
-        <Field><FieldLabel htmlFor="triage-route-status">Accepted status</FieldLabel><select id="triage-route-status" aria-label="Accepted status" value={status} disabled={action.isPending || workflow.isPending || workflow.isError} onChange={event => setStatus(event.target.value)} className="h-9 rounded-[6px] border border-input bg-background px-2 text-sm">{workStates.map(state => <option key={state.key} value={state.key}>{state.name}</option>)}</select></Field>
+        <form.Field name="teamId" children={field => <Field><FieldLabel htmlFor="triage-route-team">Route to team</FieldLabel><SelectField id="triage-route-team" aria-label="Route to team" value={field.state.value} disabled={action.isPending} onValueChange={value => { field.handleChange(value); form.setFieldValue('status', ''); }} className="w-full" options={teams.map(team => ({ value: team.id, label: `${team.name} (${team.key})` }))} /></Field>} />
+        <form.Field name="status" children={field => <Field><FieldLabel htmlFor="triage-route-status">Accepted status</FieldLabel><SelectField id="triage-route-status" aria-label="Accepted status" value={field.state.value} disabled={action.isPending || workflow.isPending || workflow.isError} onValueChange={field.handleChange} className="w-full" options={workStates.map(state => ({ value: state.key, label: state.name }))} /></Field>} />
         {workflow.isError && <Alert variant="destructive"><AlertDescription>Could not load destination workflow.<Button type="button" variant="outline" size="sm" onClick={() => void workflow.refetch()}>Retry workflow</Button></AlertDescription></Alert>}
         {!workflow.isPending && !workflow.isError && !workStates.length && <p className="text-xs text-muted-foreground">Configure an active work state for this team before accepting intake.</p>}
-        <Field><FieldLabel htmlFor="triage-route-assignee">Assignee</FieldLabel><select id="triage-route-assignee" aria-label="Route assignee" value={assigneeId || 'none'} disabled={action.isPending} onChange={event => setAssigneeId(event.target.value === 'none' ? '' : event.target.value)} className="h-9 rounded-[6px] border border-input bg-background px-2 text-sm"><option value="none">Unassigned</option>{availableUsers.map(user => <option key={user.id} value={user.id}>{user.name} ({user.role})</option>)}</select></Field>
+        <form.Field name="assigneeId" children={field => <Field><FieldLabel htmlFor="triage-route-assignee">Assignee</FieldLabel><SelectField id="triage-route-assignee" aria-label="Route assignee" value={field.state.value || 'none'} disabled={action.isPending} onValueChange={value => field.handleChange(value === 'none' ? '' : value)} className="w-full" options={[{ value: 'none', label: 'Unassigned' }, ...availableUsers.map(user => ({ value: user.id, label: `${user.name} (${user.role})` }))]} /></Field>} />
         {usersError && <Alert variant="destructive"><AlertDescription>Could not load assignees.<Button type="button" variant="outline" size="sm" onClick={() => void refetchUsers()}>Retry assignees</Button></AlertDescription></Alert>}
       </FieldGroup>}
-      {mode === 'decline' && <Field><FieldLabel htmlFor="triage-decline-reason">Decline reason (optional)</FieldLabel><Textarea id="triage-decline-reason" aria-label="Decline reason" disabled={action.isPending} maxLength={500} value={reason} onChange={event => setReason(event.target.value)} placeholder="Why is this not actionable?" /></Field>}
-      {mode === 'duplicate' && <Field><FieldLabel htmlFor="triage-duplicate-target">Duplicate of</FieldLabel><select id="triage-duplicate-target" aria-label="Duplicate target" value={targetId} disabled={action.isPending || issuesLoading || issuesError} onChange={event => setTargetId(event.target.value)} className="h-9 min-w-0 rounded-[6px] border border-input bg-background px-2 text-sm"><option value="">Choose existing issue</option>{targetTeamIssues.map(target => <option key={target.id} value={target.id}>{target.identifier} · {target.title}</option>)}</select>{issuesError ? <Alert variant="destructive"><AlertDescription>Could not load duplicate targets.<Button type="button" variant="outline" size="sm" onClick={() => void refetchIssues()}>Retry issues</Button></AlertDescription></Alert> : !issuesLoading && !targetTeamIssues.length && <p className="text-xs text-muted-foreground">No other active issue in this team is available to link.</p>}</Field>}
+      {mode === 'decline' && <form.Field name="reason" children={field => <Field><FieldLabel htmlFor="triage-decline-reason">Decline reason (optional)</FieldLabel><Textarea id="triage-decline-reason" aria-label="Decline reason" disabled={action.isPending} maxLength={500} value={field.state.value} onBlur={field.handleBlur} onChange={event => field.handleChange(event.target.value)} placeholder="Why is this not actionable?" /></Field>} />}
+      {mode === 'duplicate' && <Field><FieldLabel htmlFor="triage-duplicate-target">Duplicate of</FieldLabel><SelectField id="triage-duplicate-target" aria-label="Duplicate target" value={targetId} disabled={action.isPending || issuesLoading || issuesError} onValueChange={value => form.setFieldValue('targetId', value)} className="w-full min-w-0" options={[{ value: '', label: 'Choose existing issue' }, ...targetTeamIssues.map(target => ({ value: target.id, label: `${target.identifier} · ${target.title}` }))]} />{issuesError ? <Alert variant="destructive"><AlertDescription>Could not load duplicate targets.<Button type="button" variant="outline" size="sm" onClick={() => void refetchIssues()}>Retry issues</Button></AlertDescription></Alert> : !issuesLoading && !targetTeamIssues.length && <p className="text-xs text-muted-foreground">No other active issue in this team is available to link.</p>}</Field>}
       {action.isError && <Alert variant="destructive"><AlertDescription>{action.error.message}</AlertDescription></Alert>}
       <DialogFooter><Button type="button" variant="outline" disabled={action.isPending} onClick={() => onOpenChange(false)}>Cancel</Button><Button type="submit" variant={mode === 'decline' ? 'destructive' : 'default'} disabled={disabled}>{action.isPending ? 'Saving…' : mode === 'accept' ? 'Accept & route' : heading}</Button></DialogFooter>
     </form>

@@ -2,7 +2,7 @@ import * as React from 'react';
 import { Link, Navigate, useLocation } from 'react-router-dom';
 import { Alert, AlertDescription, Avatar, AvatarFallback, AvatarImage, Badge, Button, Field, FieldGroup, FieldLabel, Select, SelectTrigger, SelectValue, SelectContent, SelectGroup, SelectItem } from '@reka/ui';
 import { ExternalLink } from 'lucide-react';
-import { useAuthStore } from '../../../stores/auth.store';
+import { useAuth } from '../../auth/hooks/use-auth';
 import { useTheme } from '../../../components/theme/theme-provider';
 import { NotificationPreferencesDialog } from '../../notifications/components/notification-preferences-dialog';
 import { UsersPage } from '../../users/components/users-page';
@@ -27,7 +27,7 @@ function Preferences() {
 }
 
 function Profile() {
-  const user = useAuthStore(state => state.user);
+  const user = useAuth().user;
   return <section className="flex flex-col gap-6">
     <div className="flex items-center gap-4"><Avatar className="size-14"><AvatarImage src={user?.avatarUrl || undefined} alt={user?.name} /><AvatarFallback>{user?.name?.[0]?.toUpperCase() ?? '?'}</AvatarFallback></Avatar><p className="text-sm text-muted-foreground">Your profile is supplied by your signed-in account.</p></div>
     <dl className="flex flex-col divide-y divide-border">{[['Full name', user?.name], ['Email address', user?.email], ['GitHub username', user?.githubUsername ? `@${user.githubUsername}` : null]].map(([label, value]) => <div key={label} className="grid gap-1 py-4 sm:grid-cols-[180px_minmax(0,1fr)]"><dt className="text-sm text-muted-foreground">{label}</dt><dd className="break-all text-sm">{value || 'Not available'}</dd></div>)}</dl>
@@ -35,7 +35,7 @@ function Profile() {
 }
 
 function ConnectedAccounts() {
-  const username = useAuthStore(state => state.user?.githubUsername);
+  const username = useAuth().user?.githubUsername;
   return <section className="flex flex-col gap-4">
     <div className="flex flex-wrap items-center justify-between gap-4 border-b border-border pb-5"><div className="flex min-w-0 items-center gap-3"><GithubIcon className="size-5 shrink-0" /><div><h2 className="text-sm font-medium">GitHub</h2><p className="text-sm text-muted-foreground">{username ? `@${username}` : 'No verified GitHub identity available'}</p></div></div>{username && <Badge variant="success">Connected</Badge>}</div>
     <p className="text-sm text-muted-foreground">This is your sign-in identity. Workspace GitHub App installations are managed separately under Integrations.</p>
@@ -47,7 +47,7 @@ export function SettingsPage() {
   const location = useLocation();
   const section = getSettingsSection(location.pathname);
   const item = SETTINGS_ITEMS.find(item => item.id === section);
-  const role = useAuthStore(state => state.user?.role);
+  const role = useAuth().user?.role;
   const canAdminister = role === 'owner' || role === 'admin';
   const adminOnly = SETTINGS_GROUPS.some(group => group.adminOnly && group.items.some(item => item.id === section));
   React.useEffect(() => {

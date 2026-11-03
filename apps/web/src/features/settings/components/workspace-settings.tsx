@@ -1,6 +1,7 @@
 import * as React from 'react';
+import { useForm } from '@tanstack/react-form';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Alert, AlertDescription, Badge, Button, Card, CardHeader, CardTitle, CardDescription, CardContent, Field, FieldGroup, FieldLabel, Input, Skeleton, toast } from '@reka/ui';
+import { Alert, AlertDescription, Badge, Button, Card, CardHeader, CardTitle, CardDescription, CardContent, Field, FieldError, FieldGroup, FieldLabel, Input, Skeleton, toast } from '@reka/ui';
 import { getWorkspace, updateWorkspace, getWorkspaceInvitations, revokeWorkspaceInvitation, WORKSPACE_QUERY_KEY, INVITATIONS_QUERY_KEY } from '../api/workspace.api';
 import { InviteUserDialog } from '../../users/components/invite-user-dialog';
 
@@ -10,9 +11,13 @@ export function WorkspaceSettings() {
   const currentWorkspace = workspace.data;
   const canManage = workspace.data?.role === 'owner' || workspace.data?.role === 'admin';
   const invitations = useQuery({ queryKey: INVITATIONS_QUERY_KEY, queryFn: getWorkspaceInvitations, enabled: canManage });
-  const [name, setName] = React.useState<string | null>(null);
   const [inviteOpen, setInviteOpen] = React.useState(false);
-  const update = useMutation({ mutationFn: updateWorkspace, onSuccess: () => { queryClient.invalidateQueries({ queryKey: WORKSPACE_QUERY_KEY }); setName(null); toast.success('Workspace updated'); } });
+  const form = useForm({
+    defaultValues: { name: currentWorkspace?.name ?? '' },
+    onSubmit: ({ value }) => { update.mutate(value.name.trim()); },
+  });
+  React.useEffect(() => { form.reset(); }, [currentWorkspace?.name]);
+  const update = useMutation({ mutationFn: updateWorkspace, onSuccess: (_data, variables) => { queryClient.setQueryData<typeof currentWorkspace>(WORKSPACE_QUERY_KEY, current => current && { ...current, name: variables }); queryClient.invalidateQueries({ queryKey: WORKSPACE_QUERY_KEY }); toast.success('Workspace updated'); } });
   const revoke = useMutation({ mutationFn: revokeWorkspaceInvitation, onSuccess: () => { queryClient.invalidateQueries({ queryKey: INVITATIONS_QUERY_KEY }); toast.success('Invitation revoked'); } });
   return (
     <Card id="workspace">
@@ -21,9 +26,19 @@ export function WorkspaceSettings() {
         {workspace.isLoading && <Skeleton className="h-16 w-full" />}
         {workspace.isError && <Alert variant="destructive"><AlertDescription>Could not load your workspace. <Button variant="outline" size="sm" onClick={() => workspace.refetch()}>Retry workspace</Button></AlertDescription></Alert>}
         {currentWorkspace && (
-          <form className="flex flex-col items-start gap-3 sm:flex-row sm:items-end" onSubmit={event => { event.preventDefault(); update.mutate((name ?? currentWorkspace.name).trim()); }}>
-            <FieldGroup className="w-full min-w-0 sm:flex-1"><Field><FieldLabel htmlFor="workspace-name">Workspace name</FieldLabel><Input id="workspace-name" maxLength={255} required value={name ?? currentWorkspace.name} onChange={event => setName(event.target.value)} readOnly={!canManage} disabled={update.isPending} /></Field></FieldGroup>
-            {canManage && <Button type="submit" disabled={update.isPending || name === null || !name.trim()}>{update.isPending ? 'Saving…' : 'Save workspace'}</Button>}
+          <form className="flex flex-col items-start gap-3 sm:flex-row sm:items-end" onSubmit={event => { event.preventDefault(); event.stopPropagation(); form.handleSubmit(); }}>
+            <FieldGroup className="w-full min-w-0 sm:flex-1">
+              <form.Field name="name" validators={{ onChange: ({ value }) => (!value.trim() ? 'Workspace name is required' : undefined) }}>
+                {field => (
+                  <Field data-invalid={field.state.meta.isTouched && !field.state.meta.isValid}>
+                    <FieldLabel htmlFor="workspace-name">Workspace name</FieldLabel>
+                    <Input id="workspace-name" name={field.name} maxLength={255} required value={field.state.value} onBlur={field.handleBlur} onChange={event => field.handleChange(event.target.value)} readOnly={!canManage} disabled={update.isPending} />
+                    {field.state.meta.isTouched && !field.state.meta.isValid && <FieldError errors={field.state.meta.errors.map(message => ({ message: String(message) }))} />}
+                  </Field>
+                )}
+              </form.Field>
+            </FieldGroup>
+            {canManage && <form.Subscribe selector={state => [state.isDirty, state.values.name] as const}>{([isDirty, name]) => <Button type="submit" disabled={update.isPending || !isDirty || !name.trim()}>{update.isPending ? 'Saving…' : 'Save workspace'}</Button>}</form.Subscribe>}
           </form>
         )}
         {update.isError && <Alert variant="destructive"><AlertDescription>{update.error.message}</AlertDescription></Alert>}

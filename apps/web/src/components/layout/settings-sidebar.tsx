@@ -2,13 +2,13 @@ import * as React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { ArrowLeft, Settings } from 'lucide-react';
 import { Sidebar, SidebarHeader, SidebarContent, SidebarGroup, SidebarGroupLabel, SidebarGroupContent, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarRail, useSidebar } from '@reka/ui';
-import { useAuthStore } from '../../stores/auth.store';
+import { useAuth } from '../../features/auth/hooks/use-auth';
 import { getSettingsSection, SETTINGS_GROUPS } from '../../features/settings/lib/settings-navigation';
 
 export function SettingsSidebar() {
   const { pathname } = useLocation();
   const section = getSettingsSection(pathname);
-  const role = useAuthStore(state => state.user?.role);
+  const role = useAuth().user?.role;
   const canAdminister = role === 'owner' || role === 'admin';
   const { setOpenMobile } = useSidebar();
   React.useEffect(() => { setOpenMobile(false); }, [pathname, setOpenMobile]);

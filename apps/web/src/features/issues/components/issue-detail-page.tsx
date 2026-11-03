@@ -1,10 +1,10 @@
 import * as React from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
-import { Alert, AlertDescription, AlertTitle, Button, Skeleton } from '@reka/ui';
+import { Alert, AlertDescription, AlertTitle, Button, Skeleton, Spinner } from '@reka/ui';
 import { ArrowLeft } from 'lucide-react';
 import { useIssue } from '../hooks/use-issues';
-import { useFavorites, useToggleFavorite } from '../../views/hooks/use-views';
-import { useAuthStore } from '../../../stores/auth.store';
+import { useFavorites, useToggleFavorite } from '../../favorites/hooks/use-favorites';
+import { useAuth } from '../../auth/hooks/use-auth';
 import { IssueDetailContent } from './issue-detail-sheet';
 
 export function IssueDetailPage() {
@@ -14,7 +14,7 @@ export function IssueDetailPage() {
   const query = useIssue(id);
   const favorites = useFavorites();
   const toggle = useToggleFavorite();
-  const user = useAuthStore(state => state.user);
+  const user = useAuth().user;
   const returnTo = location.state?.returnTo as string | undefined;
   const close = () => {
     const target = returnTo?.startsWith('/') && !returnTo.startsWith('//') ? new URL(returnTo, window.location.origin) : null;
@@ -27,7 +27,7 @@ export function IssueDetailPage() {
     return () => { document.title = previous; };
   }, [query.data?.identifier, query.data?.title]);
 
-  if (query.isPending) return <div role="status" aria-label="Loading issue" className="mx-auto flex max-w-6xl flex-col gap-6 py-8"><Skeleton className="h-6 w-24" /><Skeleton className="h-10 w-3/4" /><Skeleton className="h-40 w-full" /></div>;
+  if (query.isPending) return <div className="mx-auto flex max-w-6xl flex-col gap-6 py-8"><Spinner aria-label="Loading issue" className="sr-only" /><Skeleton className="h-6 w-24" /><Skeleton className="h-10 w-3/4" /><Skeleton className="h-40 w-full" /></div>;
   if (query.isError || !query.data) return <div className="mx-auto flex max-w-xl flex-col gap-4 py-12">
     <Button variant="ghost" className="w-fit" onClick={close}><ArrowLeft data-icon="inline-start" />Back to issues</Button>
     <Alert><AlertTitle>Issue unavailable</AlertTitle><AlertDescription>This issue may have been removed, or you may not have access. Check your connection and try again.</AlertDescription></Alert>

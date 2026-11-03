@@ -12,7 +12,8 @@ let role = 'owner';
 let githubUsername = 'dimaspratama';
 let teamsFail = false, workflowFail = false, workflowSaveFail = false, workflowGate;
 const teamDetails = { name: 'Engineering', description: 'Platform and product engineering.', isPrivate: false };
-let workflow = ['triage', 'backlog', 'todo', 'in_progress', 'in_review', 'done', 'canceled', 'blocked'].map((key, position) => ({ key, name: key === 'todo' ? 'To do' : key.replaceAll('_', ' '), category: ({ triage: 'triage', backlog: 'backlog', todo: 'unstarted', done: 'completed', canceled: 'canceled' })[key] || 'started', color: '#6b7280', isActive: true, position }));
+const stamps = { teamId: 't1', createdAt: '2026-10-01T00:00:00Z', updatedAt: '2026-10-02T00:00:00Z' };
+let workflow = ['triage', 'backlog', 'todo', 'in_progress', 'in_review', 'done', 'canceled', 'blocked'].map((key, position) => ({ ...stamps, key, name: key === 'todo' ? 'To do' : key.replaceAll('_', ' '), category: ({ triage: 'triage', backlog: 'backlog', todo: 'unstarted', done: 'completed', canceled: 'canceled' })[key] || 'started', color: '#6b7280', isActive: true, position }));
 const people = [{ id: 'u1', name: 'Dimas Pratama', email: 'dimas@example.test', role: 'owner' }, { id: 'u2', name: 'Ayu Lestari', email: 'ayu@example.test', role: 'member' }];
 let members = [{ teamId: 't1', userId: 'u1', role: 'lead', user: people[0] }];
 let preferences = { mentions: true, comments: true, assignments: true, issueUpdates: true, projectUpdates: true, github: true, teamInvites: true };
@@ -43,7 +44,7 @@ try {
       if (request.method() === 'PATCH') {
         if (workflowGate) await workflowGate;
         if (workflowSaveFail) return route.fulfill({ status: 409, json: { message: 'This state is in use. Keep it active.' } });
-        workflow = request.postDataJSON().states;
+        workflow = request.postDataJSON().states.map(state => ({ ...stamps, ...state }));
       }
     }
     const team = { id: 't1', ...teamDetails, key: 'ENG', createdAt: '2026-10-01T00:00:00Z', currentMemberUserId: 'u1', canManage: ['owner', 'admin'].includes(role), canWrite: ['owner', 'admin'].includes(role), canDelete: ['owner', 'admin'].includes(role), members };
@@ -84,12 +85,12 @@ try {
       await page.getByRole('button', { name: 'Configure workflow' }).first().click();
       await page.getByRole('dialog', { name: 'Team settings' }).waitFor();
       await page.getByLabel('todo state name').waitFor();
-      await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+      await page.keyboard.press('Escape');
     }
     if (section === 'labels') {
       await page.getByRole('button', { name: 'Manage labels', exact: true }).first().click();
       await page.getByRole('dialog', { name: 'Manage labels' }).waitFor();
-      assert.equal(await page.getByLabel('Label team').inputValue(), 't1');
+      assert.match(await page.getByRole('combobox', { name: 'Label team' }).innerText(), /ENG · Engineering/);
       await page.getByRole('button', { name: 'New label color', exact: true }).click();
       await page.getByLabel('New label color hex value', { exact: true }).fill('#22aa88');
       await page.getByRole('dialog', { name: 'Manage labels' }).getByRole('button', { name: 'Close', exact: true }).first().click();
@@ -245,7 +246,7 @@ try {
   await page.getByLabel('Team name', { exact: true }).fill('Engineering operations');
   await page.getByLabel('Description', { exact: true }).fill('Owns platform delivery.');
   await page.getByRole('checkbox', { name: 'Private team', exact: true }).check();
-  await page.getByRole('button', { name: 'Save settings', exact: true }).click();
+  await page.getByRole('button', { name: 'Save changes', exact: true }).click();
   await page.getByRole('heading', { name: 'Engineering operations', exact: true }).waitFor();
   assert.equal(teamDetails.isPrivate, true);
   await page.reload();
@@ -260,7 +261,7 @@ try {
   await page.getByLabel('todo color hex value', { exact: true }).fill('#123456');
   await page.keyboard.press('Escape');
   const colorSave = page.waitForResponse(response => response.url().includes('/workflow-states') && response.request().method() === 'PATCH' && response.ok());
-  await page.getByRole('button', { name: 'Save workflow', exact: true }).click();
+  await page.getByRole('button', { name: 'Save changes', exact: true }).click();
   await colorSave;
   assert.equal(workflow.find(state => state.key === 'todo').color, '#123456', 'Color Picker changes persist through the existing workflow API');
   await page.reload();
@@ -268,20 +269,20 @@ try {
   assert.equal(await page.getByRole('button', { name: 'todo color', exact: true }).locator('[data-slot="color-picker-swatch"]').evaluate(element => getComputedStyle(element).backgroundColor), 'rgb(18, 52, 86)');
   await page.getByLabel('todo state name', { exact: true }).fill('Ready to start');
   workflowSaveFail = true;
-  await page.getByRole('button', { name: 'Save workflow', exact: true }).click();
+  await page.getByRole('button', { name: 'Save changes', exact: true }).click();
   await page.getByRole('alert').filter({ hasText: 'This state is in use. Keep it active.' }).waitFor();
   assert.equal(await page.getByLabel('todo state name', { exact: true }).inputValue(), 'Ready to start');
   workflowSaveFail = false;
   let releaseWorkflow;
   workflowGate = new Promise(resolve => { releaseWorkflow = resolve; });
-  await page.getByRole('button', { name: 'Save workflow', exact: true }).click();
+  await page.getByRole('button', { name: 'Save changes', exact: true }).click();
   await page.getByRole('button', { name: 'Saving…', exact: true }).waitFor();
   assert.equal(await page.getByLabel('Team name', { exact: true }).isDisabled(), true);
   assert.equal(await page.getByLabel('todo state name', { exact: true }).isDisabled(), true);
   assert.equal(await page.getByRole('button', { name: 'Add state', exact: true }).isDisabled(), true);
   assert.equal(await page.getByRole('button', { name: 'Delete team', exact: true }).isDisabled(), true);
   releaseWorkflow(); workflowGate = null;
-  await page.getByRole('button', { name: 'Save workflow', exact: true }).waitFor();
+  await page.getByRole('region', { name: 'Unsaved changes' }).waitFor({ state: 'hidden' });
   await page.reload(); await page.getByLabel('todo state name', { exact: true }).waitFor();
   assert.equal(await page.getByLabel('todo state name', { exact: true }).inputValue(), 'Ready to start');
   workflowFail = true; await page.reload();
@@ -289,6 +290,31 @@ try {
   assert.equal(await page.getByRole('button', { name: 'Add state', exact: true }).isDisabled(), true);
   workflowFail = false; await page.getByRole('button', { name: 'Retry', exact: true }).click();
   await page.getByLabel('todo state name', { exact: true }).waitFor();
+  // Workflow rows: every control is centred on the same line as the state-name input.
+  const rowTops = await page.locator('[data-workflow-state="todo"]').evaluate(row => {
+    const top = element => { const box = element.getBoundingClientRect(); return Math.round(box.top + box.height / 2); };
+    return [row.querySelector('input[aria-label="todo state name"]'), row.querySelector('[aria-label="todo category"]'),
+      row.querySelector('[aria-label="todo color"]'), row.querySelector('[aria-label="todo active"]'), row.querySelector('[aria-label="Delete todo state"]')].map(top);
+  });
+  assert.equal(new Set(rowTops).size, 1, `workflow row controls share one vertical centre: ${rowTops}`);
+  // Deleting a state removes it from the saved workflow; the last active completed state cannot be deleted.
+  assert.equal(await page.getByRole('button', { name: 'Delete done state', exact: true }).isDisabled(), true);
+  await page.getByRole('button', { name: 'Delete blocked state', exact: true }).click();
+  // The row stays (disabled, with Undo) until the workflow is saved.
+  assert.equal(await page.getByLabel('blocked state name', { exact: true }).isDisabled(), true);
+  await page.getByRole('button', { name: 'Undo delete blocked state', exact: true }).click();
+  assert.equal(await page.getByLabel('blocked state name', { exact: true }).isEnabled(), true);
+  assert.equal(await page.getByRole('region', { name: 'Unsaved changes' }).count(), 0, 'Undo returns the form to its saved state');
+  await page.getByRole('button', { name: 'Delete blocked state', exact: true }).click();
+  const bar = page.getByRole('region', { name: 'Unsaved changes' });
+  assert.match(await bar.innerText(), /1 section.*Issue workflow/s);
+  const deleteSave = page.waitForResponse(response => response.url().includes('/workflow-states') && response.request().method() === 'PATCH' && response.ok());
+  await page.getByRole('button', { name: 'Save changes', exact: true }).click();
+  const savedBody = (await deleteSave).request().postDataJSON();
+  assert.equal(savedBody.states.some(state => state.key === 'blocked'), false);
+  assert.deepEqual(Object.keys(savedBody.states[0]).sort(), ['category', 'color', 'isActive', 'key', 'name', 'position'], 'only API-accepted fields are sent (no createdAt/updatedAt/teamId)');
+  await page.reload(); await page.getByLabel('todo state name', { exact: true }).waitFor();
+  assert.equal(await page.getByLabel('blocked state name', { exact: true }).count(), 0);
   Object.assign(teamDetails, { name: 'Engineering', description: 'Platform and product engineering.', isPrivate: false });
   for (const theme of ['dark', 'light']) for (const width of [1920, 1440, 900, 390, 320]) {
     await page.setViewportSize({ width, height: 1000 });
@@ -312,7 +338,7 @@ try {
         assert.ok(alignment.gap >= 6 && alignment.gap <= 12, 'Privacy checkbox remains next to its label, not spread across the form');
         assert.ok(alignment.formWidth <= 768);
         assert.equal(alignment.nestedScroll, false, 'Workflow uses page scroll instead of a cramped inner scroller');
-        assert.equal(await page.locator('[data-workflow-state]').count(), 8);
+        assert.equal(await page.locator('[data-workflow-state]').count(), 7);
         assert.equal(await page.getByRole('button', { name: 'Add state', exact: true }).isEnabled(), true);
         if ([320, 390].includes(width)) {
           await page.getByRole('button', { name: 'todo color', exact: true }).click();
@@ -323,7 +349,7 @@ try {
       }
       await page.screenshot({ path: `${polishOut}/${theme}-${width}-${tab}.png`, fullPage: true });
       if (tab === 'settings' && [1440, 390].includes(width)) {
-        await page.getByRole('button', { name: 'Save workflow', exact: true }).scrollIntoViewIfNeeded();
+        await page.locator('[data-workflow-state]').last().scrollIntoViewIfNeeded();
         await page.screenshot({ path: `${polishOut}/${theme}-${width}-workflow.png`, fullPage: true });
       }
     }

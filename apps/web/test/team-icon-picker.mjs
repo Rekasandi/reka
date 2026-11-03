@@ -30,7 +30,7 @@ try {
       import { TeamsPage } from '/src/features/teams/components/teams-page.tsx';
       import '/src/styles/globals.css';
       ReactDOM.createRoot(document.getElementById('root')).render(
-        React.createElement(QueryClientProvider, { client: new QueryClient({ defaultOptions: { queries: { retry: false } } }) },
+        React.createElement(QueryClientProvider, { client: (window.__testQueryClient ??= (qc => (qc.setQueryData(['auth', 'me'], null), qc))(new QueryClient({ defaultOptions: { queries: { retry: false } } }))) },
           React.createElement(MemoryRouter, { initialEntries: ['/teams'] },
             React.createElement(Routes, null, React.createElement(Route, { path: '/teams', element: React.createElement(TeamsPage) }))
           )

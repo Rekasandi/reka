@@ -47,7 +47,7 @@ try {
       import '/@fs${css}';
       ReactDOM.createRoot(document.getElementById('root')).render(
         React.createElement(TooltipProvider, null, React.createElement(ThemeProvider, { defaultTheme: 'dark' },
-          React.createElement(QueryClientProvider, { client: new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } }) },
+          React.createElement(QueryClientProvider, { client: (window.__testQueryClient ??= (qc => (qc.setQueryData(['auth', 'me'], null), qc))(new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } }))) },
             React.createElement(MemoryRouter, { initialEntries: ['/projects/p1?teamId=t1'] },
               React.createElement(Routes, null, React.createElement(Route, { element: React.createElement(AppLayout) },
                 React.createElement(Route, { path: '/projects/:id', element: React.createElement(ProjectDetailPage) }))))))));

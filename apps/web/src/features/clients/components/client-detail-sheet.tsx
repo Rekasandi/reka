@@ -1,23 +1,6 @@
 import * as React from 'react';
 import type { Client, ClientContact } from '@reka/types';
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-  Button,
-  Badge,
-  Input,
-  Textarea,
-  Separator,
-  Select,
-  SelectTrigger,
-  SelectValue,
-  SelectContent,
-  SelectItem,
-  toast,
-} from '@reka/ui';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, Button, Badge, Input, Textarea, Separator, Select, SelectTrigger, SelectValue, SelectContent, SelectItem, toast, Label } from '@reka/ui';
 import {
   Building2,
   FolderKanban,
@@ -180,9 +163,9 @@ export function ClientDetailSheet({ client, open, onOpenChange }: ClientDetailSh
               <span className="text-xs font-semibold text-foreground block">Edit Client Info</span>
               <div className="space-y-3">
                 <div>
-                  <label className="text-xs font-medium text-muted-foreground block mb-1">
+                  <Label className="text-xs font-medium text-muted-foreground block mb-1">
                     Client Name
-                  </label>
+                  </Label>
                   <Input
                     value={editName}
                     onChange={(e) => setEditName(e.target.value)}
@@ -190,9 +173,9 @@ export function ClientDetailSheet({ client, open, onOpenChange }: ClientDetailSh
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-muted-foreground block mb-1">
+                  <Label className="text-xs font-medium text-muted-foreground block mb-1">
                     Industry
-                  </label>
+                  </Label>
                   <Input
                     value={editIndustry}
                     onChange={(e) => setEditIndustry(e.target.value)}
@@ -200,9 +183,9 @@ export function ClientDetailSheet({ client, open, onOpenChange }: ClientDetailSh
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-muted-foreground block mb-1">
+                  <Label className="text-xs font-medium text-muted-foreground block mb-1">
                     Notes & Scope
-                  </label>
+                  </Label>
                   <Textarea
                     value={editNotes}
                     onChange={(e) => setEditNotes(e.target.value)}
@@ -332,9 +315,9 @@ export function ClientDetailSheet({ client, open, onOpenChange }: ClientDetailSh
                 </span>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="text-xs font-medium text-muted-foreground block mb-1">
+                    <Label className="text-xs font-medium text-muted-foreground block mb-1">
                       Full Name *
-                    </label>
+                    </Label>
                     <Input
                       placeholder="e.g. Siska Dewi"
                       value={newContactName}
@@ -343,9 +326,9 @@ export function ClientDetailSheet({ client, open, onOpenChange }: ClientDetailSh
                     />
                   </div>
                   <div>
-                    <label className="text-xs font-medium text-muted-foreground block mb-1">
+                    <Label className="text-xs font-medium text-muted-foreground block mb-1">
                       Email Address *
-                    </label>
+                    </Label>
                     <Input
                       type="email"
                       placeholder="siska@client.com"
@@ -355,9 +338,9 @@ export function ClientDetailSheet({ client, open, onOpenChange }: ClientDetailSh
                     />
                   </div>
                   <div>
-                    <label className="text-xs font-medium text-muted-foreground block mb-1">
+                    <Label className="text-xs font-medium text-muted-foreground block mb-1">
                       Role / Position
-                    </label>
+                    </Label>
                     <Input
                       placeholder="e.g. VP Operations"
                       value={newContactRole}
@@ -366,9 +349,9 @@ export function ClientDetailSheet({ client, open, onOpenChange }: ClientDetailSh
                     />
                   </div>
                   <div>
-                    <label className="text-xs font-medium text-muted-foreground block mb-1">
+                    <Label className="text-xs font-medium text-muted-foreground block mb-1">
                       Phone Number
-                    </label>
+                    </Label>
                     <Input
                       placeholder="+62 811-xxxx-xxxx"
                       value={newContactPhone}

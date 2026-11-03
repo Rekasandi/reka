@@ -1,16 +1,6 @@
 import * as React from 'react';
 import { useSearchParams } from 'react-router-dom';
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardContent,
-  Badge,
-  Button,
-  Skeleton,
-  toast,
-} from '@reka/ui';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, Badge, Button, Skeleton, toast, Alert, FieldError } from '@reka/ui';
 import {
   GitBranch,
   Check,
@@ -23,7 +13,7 @@ import {
   FolderKanban,
   RefreshCw,
 } from 'lucide-react';
-import { useAuthStore } from '../../../stores/auth.store';
+import { useAuth } from '../../auth/hooks/use-auth';
 import {
   useGithubRepositories,
   useDeleteGithubRepository,
@@ -50,7 +40,7 @@ export function GithubIcon({ className }: { className?: string }) {
 }
 
 export function GithubSettings() {
-  const { user } = useAuthStore();
+  const { user } = useAuth();
   const canManageGithub = user?.role === 'owner' || user?.role === 'admin';
   const [searchParams, setSearchParams] = useSearchParams();
   const [isAddRepoOpen, setIsAddRepoOpen] = React.useState(false);
@@ -98,8 +88,8 @@ export function GithubSettings() {
           </CardHeader>
           <CardContent className="p-0">
             {deliveriesLoading ? <Skeleton className="h-16 w-full" />
-              : deliveriesError ? <div role="alert" className="flex items-center justify-between gap-3 text-sm text-destructive"><span>Could not load delivery status.</span><Button type="button" variant="outline" size="sm" onClick={() => void retryDeliveries()}>Retry</Button></div>
-              : deliveries.length ? <ul className="divide-y divide-border/60 rounded-md border border-border/70">{deliveries.map(delivery => <li key={delivery.id} className="flex flex-col gap-1 p-3 sm:flex-row sm:items-start sm:justify-between"><div className="min-w-0"><div className="flex items-center gap-2"><span className="font-mono text-xs font-medium">{delivery.event}</span><Badge variant={delivery.error ? 'destructive' : delivery.processed ? 'outline' : 'secondary'}>{delivery.error ? 'Failed' : delivery.processed ? 'Processed' : 'Queued'}</Badge></div><p className="mt-1 truncate font-mono text-[10px] text-muted-foreground" title={delivery.deliveryId}>{delivery.deliveryId}</p>{delivery.error && <p role="alert" className="mt-1 break-words text-xs text-destructive">{delivery.error}</p>}</div><time className="shrink-0 text-[10px] text-muted-foreground">{new Date(delivery.createdAt).toLocaleString()}</time></li>)}</ul>
+              : deliveriesError ? <Alert className="rounded-none border-0 bg-transparent px-0 py-0 text-foreground flex items-center justify-between gap-3 text-sm text-destructive"><span>Could not load delivery status.</span><Button type="button" variant="outline" size="sm" onClick={() => void retryDeliveries()}>Retry</Button></Alert>
+              : deliveries.length ? <ul className="divide-y divide-border/60 rounded-md border border-border/70">{deliveries.map(delivery => <li key={delivery.id} className="flex flex-col gap-1 p-3 sm:flex-row sm:items-start sm:justify-between"><div className="min-w-0"><div className="flex items-center gap-2"><span className="font-mono text-xs font-medium">{delivery.event}</span><Badge variant={delivery.error ? 'destructive' : delivery.processed ? 'outline' : 'secondary'}>{delivery.error ? 'Failed' : delivery.processed ? 'Processed' : 'Queued'}</Badge></div><p className="mt-1 truncate font-mono text-[10px] text-muted-foreground" title={delivery.deliveryId}>{delivery.deliveryId}</p>{delivery.error && <FieldError role="alert" className="mt-1 break-words text-xs text-destructive">{delivery.error}</FieldError>}</div><time className="shrink-0 text-[10px] text-muted-foreground">{new Date(delivery.createdAt).toLocaleString()}</time></li>)}</ul>
               : <p className="rounded-md border border-dashed border-border/70 p-3 text-xs text-muted-foreground">No webhook deliveries have been recorded for this workspace.</p>}
           </CardContent>
         </Card>}
@@ -134,7 +124,7 @@ export function GithubSettings() {
 
           <div className="rounded-lg border border-border/70 divide-y divide-border/50 bg-background/80 overflow-hidden">
             {isInstallationsLoading && <Skeleton className="h-20 w-full" />}
-            {isInstallationsError && <div role="alert" className="flex flex-wrap items-center gap-3 p-4"><p className="text-sm text-muted-foreground">Could not load GitHub connections.</p><Button variant="outline" size="sm" onClick={() => retryInstallations()}>Retry</Button></div>}
+            {isInstallationsError && <Alert className="rounded-none border-0 bg-transparent px-0 py-0 text-foreground flex flex-wrap items-center gap-3 p-4"><p className="text-sm text-muted-foreground">Could not load GitHub connections.</p><Button variant="outline" size="sm" onClick={() => retryInstallations()}>Retry</Button></Alert>}
             {installations.map((inst) => (
               <div key={inst.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 text-xs gap-3 hover:bg-secondary/30 transition-colors">
                 <div className="flex items-center gap-3 min-w-0">
@@ -167,14 +157,14 @@ export function GithubSettings() {
                     </a>
                   </Button>
 
-                  {canManageGithub && <button
+                  {canManageGithub && <Button variant="plain" size="auto"
                     type="button"
                     onClick={() => setDisconnectTargetOrg({ id: inst.id, name: inst.accountLogin })}
                     className="text-muted-foreground/30 hover:text-destructive p-1 rounded transition-colors text-xs"
                     title="Disconnect organization"
                   >
                     <Trash2 className="size-3.5" />
-                  </button>}
+                  </Button>}
                 </div>
               </div>
             ))}
@@ -241,7 +231,7 @@ export function GithubSettings() {
 
             <div className="rounded-lg border border-border/70 divide-y divide-border/50 bg-background/80 overflow-hidden max-h-[300px] overflow-y-auto">
               {isReposLoading && <Skeleton className="h-20 w-full" />}
-              {isReposError && <div role="alert" className="flex flex-wrap items-center gap-3 p-4"><p className="text-sm text-muted-foreground">Could not load repositories.</p><Button variant="outline" size="sm" onClick={() => retryRepositories()}>Retry</Button></div>}
+              {isReposError && <Alert className="rounded-none border-0 bg-transparent px-0 py-0 text-foreground flex flex-wrap items-center gap-3 p-4"><p className="text-sm text-muted-foreground">Could not load repositories.</p><Button variant="outline" size="sm" onClick={() => retryRepositories()}>Retry</Button></Alert>}
               {repositories.map((repo) => (
                 <div key={repo.id} className="flex items-center justify-between p-3 text-xs gap-3 hover:bg-secondary/30 transition-colors">
                   <div className="flex items-center gap-2.5 min-w-0">
@@ -275,14 +265,14 @@ export function GithubSettings() {
                         <ExternalLink className="size-3" />
                       </a>
                     </Button>
-                    {canManageGithub && <button
+                    {canManageGithub && <Button variant="plain" size="auto"
                       type="button"
                       onClick={() => setDisconnectTargetRepo({ id: repo.id, fullName: repo.fullName })}
                       className="text-muted-foreground/30 hover:text-destructive p-1 rounded transition-colors"
                       title="Disconnect repository"
                     >
                       <Trash2 className="size-3" />
-                    </button>}
+                    </Button>}
                   </div>
                 </div>
               ))}

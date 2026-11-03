@@ -1,10 +1,10 @@
 import * as React from 'react';
-import { Badge, Button, Skeleton } from '@reka/ui';
+import { Badge, Button, Skeleton, Alert, Spinner } from '@reka/ui';
 import { Plus, Users, CheckSquare, RefreshCw, ChevronRight } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useTeams } from '../hooks/use-teams';
 import { CreateTeamDialog } from './create-team-dialog';
-import { useAuthStore } from '../../../stores/auth.store';
+import { useAuth } from '../../auth/hooks/use-auth';
 
 export function TeamsPage() {
   const location = useLocation();
@@ -12,7 +12,7 @@ export function TeamsPage() {
   const [isCreateOpen, setIsCreateOpen] = React.useState(new URLSearchParams(location.search).get('create') === '1');
   React.useEffect(() => { setIsCreateOpen(new URLSearchParams(location.search).get('create') === '1'); }, [location.search]);
   const { data: teams = [], isLoading, isError, refetch } = useTeams();
-  const role = useAuthStore(state => state.user?.role);
+  const role = useAuth().user?.role;
   const canCreateTeam = role === 'owner' || role === 'admin' || role === 'member';
   return (
     <div className="flex flex-col gap-5 pb-10">
@@ -23,8 +23,8 @@ export function TeamsPage() {
         </div>
         {canCreateTeam && <Button onClick={() => setIsCreateOpen(true)}><Plus data-icon="inline-start" />Create team</Button>}
       </div>
-      {isLoading ? <div role="status" aria-label="Loading teams" className="flex flex-col gap-2">{[0, 1, 2].map(i => <Skeleton key={i} className="h-16 w-full" />)}</div> : isError ? (
-        <div role="alert" className="flex flex-wrap items-center gap-3 py-6"><p className="text-sm text-muted-foreground">Could not load teams.</p><Button variant="outline" size="sm" onClick={() => refetch()}><RefreshCw data-icon="inline-start" />Retry</Button></div>
+      {isLoading ? <div className="flex flex-col gap-2"><Spinner aria-label="Loading teams" className="sr-only" />{[0, 1, 2].map(i => <Skeleton key={i} className="h-16 w-full" />)}</div> : isError ? (
+        <Alert className="rounded-none border-0 bg-transparent px-0 py-0 text-foreground flex flex-wrap items-center gap-3 py-6"><p className="text-sm text-muted-foreground">Could not load teams.</p><Button variant="outline" size="sm" onClick={() => refetch()}><RefreshCw data-icon="inline-start" />Retry</Button></Alert>
       ) : teams.length ? (
         <ul aria-label="Teams" className="divide-y divide-border">
           {teams.map(team => <li key={team.id} className="flex items-center gap-3 py-4">

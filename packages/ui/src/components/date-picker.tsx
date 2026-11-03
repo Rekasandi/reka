@@ -15,6 +15,22 @@ export interface DatePickerProps {
   className?: string
   disabled?: boolean
   clearable?: boolean
+  id?: string
+  "aria-label"?: string
+}
+
+/** Parse a `YYYY-MM-DD` string as a local calendar date (no timezone shift). */
+export function parseDateOnly(value?: string | null): Date | undefined {
+  if (!value) return undefined
+  const [y, m, d] = value.slice(0, 10).split("-").map(Number)
+  return y && m && d ? new Date(y, m - 1, d) : undefined
+}
+
+/** Format a local calendar date as `YYYY-MM-DD`. */
+export function toDateOnly(date?: Date | null): string {
+  if (!date) return ""
+  const pad = (n: number) => String(n).padStart(2, "0")
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
 }
 
 export function DatePicker({
@@ -24,6 +40,8 @@ export function DatePicker({
   className,
   disabled,
   clearable = true,
+  id,
+  "aria-label": ariaLabel,
 }: DatePickerProps) {
   const [open, setOpen] = React.useState(false)
 
@@ -33,6 +51,8 @@ export function DatePicker({
         <Button
           type="button"
           variant="outline"
+          id={id}
+          aria-label={ariaLabel}
           disabled={disabled}
           className={cn(
             "h-8 w-full justify-start text-left font-normal text-xs px-2.5 rounded-[6px] border-border/70 bg-background/90 hover:bg-secondary/40",

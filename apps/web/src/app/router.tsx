@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { createBrowserRouter, Navigate, useRouteError, Link } from 'react-router-dom';
-import { useAuthStore } from '../stores/auth.store';
+import { useAuth } from '../features/auth/hooks/use-auth';
 import { Button } from '@reka/ui';
 import { AlertCircle, RotateCcw } from 'lucide-react';
 import { AppLayout } from '../components/layout/app-layout';
@@ -21,17 +21,13 @@ import { UsersPage } from '../features/users/components/users-page';
 import { ClientsPage } from '../features/clients/components/clients-page';
 import { InboxPage } from '../features/notifications/components/inbox-page';
 import { SettingsPage } from '../features/settings/components/settings-page';
-import { FavoritesPage } from '../features/views/components/favorites-page';
-import { ViewsPage } from '../features/views/components/views-page';
-import { InitiativesPage } from '../features/initiatives/components/initiatives-page';
-import { InitiativeDetailPage } from '../features/initiatives/components/initiative-detail-page';
-import { RoadmapPage } from '../features/initiatives/components/roadmap-page';
+import { FavoritesPage } from '../features/favorites/components/favorites-page';
 import { InsightsPage } from '../features/insights/components/insights-page';
 import { LoginPage } from '../features/auth/components/login-page';
 import { NotFoundPage } from '../features/common/components/not-found-page';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, isLoading } = useAuthStore();
+  const { isAuthenticated, isLoading } = useAuth();
   if (isLoading) return null;
   return isAuthenticated ? children : <Navigate to="/login" replace />;
 }
@@ -79,14 +75,10 @@ export const router = createBrowserRouter([
       { path: 'inbox', element: <InboxPage /> },
       { path: 'triage', element: <TriagePage /> },
       { path: 'favorites', element: <FavoritesPage /> },
-      { path: 'views', element: <ViewsPage /> },
       { path: 'my-issues', element: <IssuesPage /> },
       { path: 'issues', element: <IssuesPage /> },
       { path: 'issues/:id', element: <IssueDetailPage /> },
       { path: 'projects', element: <ProjectsPage /> },
-      { path: 'initiatives', element: <InitiativesPage /> },
-      { path: 'initiatives/:id', element: <InitiativeDetailPage /> },
-      { path: 'roadmap', element: <RoadmapPage /> },
       { path: 'insights', element: <InsightsPage /> },
       { path: 'projects/:id', element: <ProjectDetailPage /> },
       { path: 'documents', element: <DocumentsPage /> },

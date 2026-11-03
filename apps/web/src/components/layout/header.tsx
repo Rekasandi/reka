@@ -1,22 +1,9 @@
 import * as React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, Command, User, Settings, LogOut } from 'lucide-react';
-import {
-  Avatar,
-  AvatarFallback,
-  AvatarImage,
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  SidebarTrigger,
-  Separator,
-} from '@reka/ui';
+import { Avatar, AvatarFallback, AvatarImage, DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, SidebarTrigger, Separator, Button } from '@reka/ui';
 import { useUiStore } from '../../stores/ui.store';
-import { useAuthStore } from '../../stores/auth.store';
+import { useAuth, useLogout } from '../../features/auth/hooks/use-auth';
 import { ThemeToggle } from '../theme/theme-toggle';
 import { HeaderBreadcrumb } from './header-breadcrumb';
 
@@ -36,7 +23,8 @@ function GithubIcon({ className }: { className?: string }) {
 
 export function Header() {
   const setCommandPaletteOpen = useUiStore((state) => state.setCommandPaletteOpen);
-  const { user, logout } = useAuthStore();
+  const { user } = useAuth();
+  const logout = useLogout();
   const navigate = useNavigate();
 
   const displayName = user?.name || '';
@@ -54,7 +42,7 @@ export function Header() {
         <Separator orientation="vertical" className="h-4" />
         <HeaderBreadcrumb />
         <Separator orientation="vertical" className="h-4 shrink-0" />
-        <button
+        <Button variant="plain" size="auto"
           type="button"
           onClick={() => setCommandPaletteOpen(true)}
           aria-label="Search or jump to..."
@@ -65,7 +53,7 @@ export function Header() {
           <kbd className="ml-4 hidden md:flex items-center gap-0.5 rounded border border-border bg-background px-1.5 py-0.5 text-xs text-muted-foreground">
             <Command className="size-2.5" />K
           </kbd>
-        </button>
+        </Button>
       </div>
 
       <div className="flex shrink-0 items-center gap-2">
@@ -74,7 +62,7 @@ export function Header() {
         {/* User Profile Dropdown Menu */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button
+            <Button variant="plain" size="auto"
               type="button"
               aria-label="Open profile menu"
               className="flex size-8 items-center justify-center rounded-full transition-colors hover:bg-secondary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -85,7 +73,7 @@ export function Header() {
                   {displayInitial}
                 </AvatarFallback>
               </Avatar>
-            </button>
+            </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56 p-1.5 rounded-lg">
             <DropdownMenuLabel className="p-2 pb-2.5">
@@ -130,7 +118,7 @@ export function Header() {
 
             <DropdownMenuGroup>
               <DropdownMenuItem
-                onClick={() => logout()}
+                onClick={() => logout.mutate()}
                 className="text-destructive focus:text-destructive cursor-pointer"
               >
                 <LogOut className="size-3.5" />

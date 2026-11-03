@@ -3,11 +3,12 @@ import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { randomUUID } from 'node:crypto';
+import { selectOption } from './select-option.mjs';
 const require = createRequire(new URL('../../api/test/support/isolated-api.cjs', import.meta.url));
 const { createPersistentPostgres } = require('./persistent-postgres.cjs');
 const { createIsolatedApi } = require('./isolated-api.cjs');
 const { organizations, organizationMembers, users, teams, teamMembers, teamWorkflowStates, sessions, cycles, cycleSnapshots, issues, projects } = require('@reka/database');
-const modules = ['teams', 'projects', 'cycles', 'views', 'insights'].map(name => Object.values(require(`../../dist/${name}/${name}.module`))[0]);
+const modules = ['teams', 'projects', 'cycles', 'insights'].map(name => Object.values(require(`../../dist/${name}/${name}.module`))[0]);
 const ui = fileURLToPath(new URL('../../../packages/ui/src/index.ts', import.meta.url));
 const playwright = await import(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const { chromium } = playwright.chromium ? playwright : playwright.default;
@@ -52,12 +53,11 @@ try {
       import { TooltipProvider } from '/@fs${ui}';
       import { ThemeProvider } from '/src/components/theme/theme-provider.tsx';
       import { InsightsPage } from '/src/features/insights/components/insights-page.tsx';
-      import { useAuthStore } from '/src/stores/auth.store.ts';
-      import '/src/styles/globals.css';
-      useAuthStore.setState({ user: ${JSON.stringify(owner)}, isAuthenticated: true });
+            import '/src/styles/globals.css';
+      (window.__testQueryClient ??= new QueryClient({ defaultOptions: { queries: { retry: false } } })).setQueryData(['auth', 'me'], ${JSON.stringify(owner)});
       ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(TooltipProvider, null,
         React.createElement(ThemeProvider, { defaultTheme: new URLSearchParams(location.search).get('theme') || 'dark', storageKey: 'insights-e2e' },
-          React.createElement(QueryClientProvider, { client: new QueryClient({ defaultOptions: { queries: { retry: false } } }) },
+          React.createElement(QueryClientProvider, { client: (window.__testQueryClient ??= new QueryClient({ defaultOptions: { queries: { retry: false } } })) },
             React.createElement(MemoryRouter, { initialEntries: ['/insights'] }, React.createElement(Routes, null,
               React.createElement(Route, { path: '/insights', element: React.createElement(InsightsPage) })))))));
     ` });
@@ -67,12 +67,11 @@ try {
   await page.getByRole('heading', { name: 'Insights', exact: true }).waitFor();
   await page.getByRole('heading', { name: 'Completed issues', exact: true }).waitFor();
   await page.getByText('Completed reporting issue', { exact: true }).waitFor();
-  const teamFilter = page.getByLabel(/^Team/);
-  await teamFilter.selectOption(team.id); await page.waitForTimeout(300);
-  await page.getByLabel(/^Project/).selectOption(project.id); await page.waitForTimeout(300);
+  await selectOption(page, page.getByRole('combobox', { name: /^Team/ }), /Reporting team/); await page.waitForTimeout(300);
+  await selectOption(page, page.getByRole('combobox', { name: /^Project/ }), 'Reporting project'); await page.waitForTimeout(300);
   await page.getByRole('button', { name: 'Cycle delivery' }).click();
-  await page.getByLabel(/^Cycle/).selectOption(cycle.id);
-  await page.getByLabel(/^Unit/).selectOption('estimate');
+  await selectOption(page, page.getByRole('combobox', { name: /^Cycle/ }), 'Recorded cycle');
+  await selectOption(page, page.getByRole('combobox', { name: /^Unit/ }), 'Estimate points');
   await page.getByRole('heading', { name: 'Cycle velocity', exact: true }).waitFor();
   await page.getByRole('heading', { name: 'Burndown samples', exact: true }).waitFor();
   await page.getByRole('rowheader', { name: 'Recorded cycle', exact: true }).waitFor();

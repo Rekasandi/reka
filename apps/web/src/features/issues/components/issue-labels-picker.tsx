@@ -22,10 +22,10 @@ export function IssueLabelsPicker({ teamId, projectId, value, onChange, compact 
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         {appearance === 'badge' ? <Badge asChild variant="outline" className="h-6 max-w-52 gap-1.5 px-2 hover:bg-secondary/70">
-          <button type="button" aria-label="Issue labels" title={selected.map(label => label.name).join(', ') || 'Add label'}>
+          <Button variant="plain" size="auto" type="button" aria-label="Issue labels" title={selected.map(label => label.name).join(', ') || 'Add label'}>
             {selected[0] ? <span aria-hidden="true" className="size-2 shrink-0 rounded-full" style={{ backgroundColor: selected[0].color }} /> : <Tag aria-hidden="true" />}
             <span className="truncate">{selected[0]?.name ?? 'Labels'}{value.length > 1 ? ` +${value.length - 1}` : ''}</span>
-          </button>
+          </Button>
         </Badge> : <Button type="button" variant="outline" size={compact ? 'icon-xs' : 'sm'} aria-label="Issue labels" className={compact ? 'size-7' : 'justify-start'}>
           <Tag />{!compact && <span>Labels{value.length ? ` (${value.length})` : ''}</span>}
         </Button>}

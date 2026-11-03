@@ -22,7 +22,6 @@ try {
     if (path === '/api/projects/p1') return route.fulfill({ json: { id: 'p1', name: projectName } });
     if (path === '/api/cycles/c1') return route.fulfill({ json: { id: 'c1', number: 12, name: null } });
     if (path === '/api/documents/d1') return route.fulfill({ json: { id: 'd1', title: 'Delivery decisions' } });
-    if (path === '/api/initiatives/in1') return route.fulfill({ json: { id: 'in1', name: 'Customer experience' } });
     throw new Error(`Unexpected API request ${path}`);
   });
   const uiPath = new URL('../../../packages/ui/src/index.ts', import.meta.url).pathname;
@@ -41,7 +40,7 @@ try {
       import '/src/styles/globals.css';
       window.paletteIsOpen = () => useUiStore.getState().isCommandPaletteOpen;
       ReactDOM.createRoot(document.getElementById('root')).render(
-        React.createElement(QueryClientProvider, { client: new QueryClient({ defaultOptions: { queries: { retry: false } } }) },
+        React.createElement(QueryClientProvider, { client: (window.__testQueryClient ??= (qc => (qc.setQueryData(['auth', 'me'], null), qc))(new QueryClient({ defaultOptions: { queries: { retry: false } } }))) },
           React.createElement(MemoryRouter, { initialEntries: [location.pathname + location.search] },
             React.createElement(ThemeProvider, null,
               React.createElement(SidebarProvider, null,
@@ -58,10 +57,10 @@ try {
     ['/dashboard', 'Dashboard'], ['/inbox', 'Inbox'], ['/my-issues', 'My Issues'],
     ['/issues', 'Issues'], ['/projects', 'Projects'], ['/cycles', 'Cycles'],
     ['/teams', 'Teams'], ['/users', 'Users'], ['/clients', 'Clients'], ['/settings', 'Preferences'], ['/settings/profile', 'Profile'], ['/settings/github', 'GitHub'], ['/settings/workspace', 'Workspace'],
-    ['/triage', 'Triage'], ['/favorites', 'Favorites'], ['/documents', 'Documents'], ['/views', 'Views'],
-    ['/triage?teamId=t1', 'Triage'], ['/initiatives?teamId=t1', 'Initiatives'], ['/views?teamId=t1', 'Views'],
-    ['/initiatives', 'Initiatives'], ['/roadmap', 'Roadmap'], ['/insights', 'Insights'],
-    ['/documents/d1', 'Delivery decisions'], ['/initiatives/in1', 'Customer experience'],
+    ['/triage', 'Triage'], ['/favorites', 'Favorites'], ['/documents', 'Documents'],
+    ['/triage?teamId=t1', 'Triage'],
+    ['/insights', 'Insights'],
+    ['/documents/d1', 'Delivery decisions'],
     ['/teams/t1', teamName], ['/teams/t1/issues', 'Issues'],
     ['/projects?teamId=t1', 'Projects'], ['/cycles?teamId=t1', 'Cycles'],
     ['/projects/p1?teamId=t1', projectName], ['/cycles/c1?teamId=t1', 'Cycle 12'],

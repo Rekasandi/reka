@@ -1,9 +1,6 @@
 import * as React from 'react';
 import type { IssueType } from '@reka/types';
-import {
-  Badge, cn, DropdownMenu, DropdownMenuTrigger,
-  DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuShortcut,
-} from '@reka/ui';
+import { Badge, cn, DropdownMenu, DropdownMenuTrigger, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuShortcut, Button, FieldDescription } from '@reka/ui';
 import { IssuePickerMenu } from './issue-picker-menu';
 
 export const ISSUE_TYPES = [
@@ -38,18 +35,18 @@ export function IssueTypePicker({ type, onTypeChange, identifier, compact = fals
     <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger asChild onClick={(event) => event.stopPropagation()}>
         <Badge asChild variant={type === 'bug' ? 'destructive' : 'warning'} className={cn('h-6 gap-1.5 px-2 hover:bg-secondary/70', className)}>
-          <button type="button" id={id} title="Change issue type"
+          <Button variant="plain" size="auto" type="button" id={id} title="Change issue type"
             aria-label={`Change issue type${identifier ? ` for ${identifier}` : ''}: ${selected?.label ?? type}`}
             aria-keyshortcuts="1 2 3 4 5" onKeyDown={handleShortcut}>
             <span className="size-1.5 shrink-0 rounded-full bg-current" />
             <span className={cn('truncate', compact && 'hidden sm:inline')}>{selected?.label ?? type}</span>
-          </button>
+          </Button>
         </Badge>
       </DropdownMenuTrigger>
       <IssuePickerMenu label="Issue type" onKeyDown={handleShortcut}>
         {search => {
           const items = ISSUE_TYPES.filter(item => item.label.toLowerCase().includes(search));
-          if (!items.length) return <p role="status" className="p-3 text-center text-xs text-muted-foreground">No issue types found.</p>;
+          if (!items.length) return <FieldDescription role="status" className="p-3 text-center text-xs text-muted-foreground">No issue types found.</FieldDescription>;
           return <DropdownMenuRadioGroup value={type} onValueChange={(value) => {
           const item = ISSUE_TYPES.find((item) => item.value === value);
           if (item && item.value !== type) onTypeChange(item.value);

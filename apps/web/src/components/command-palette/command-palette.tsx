@@ -6,9 +6,9 @@ import {
   CommandItem, CommandShortcut, CommandSeparator,
 } from '@reka/ui';
 import { useUiStore } from '../../stores/ui.store';
-import { searchWorkspace, type SearchResults } from '../../features/views/api/views.api';
+import { searchWorkspace, type SearchResults } from '../../features/favorites/api/favorites.api';
 import {
-  CheckSquare, FolderKanban, FileText, Flag, CalendarDays, RotateCcw, Users, Building2, Settings,
+  CheckSquare, FolderKanban, FileText, RotateCcw, Users, Building2, Settings,
   PlusCircle, Inbox, Star, Search, ClipboardList, RefreshCw, LayoutDashboard, UserCheck, Activity,
 } from 'lucide-react';
 
@@ -60,8 +60,6 @@ export function CommandPalette() {
           <CommandItem onSelect={() => handleSelect(() => navigate('/inbox'))}><Inbox /><span>Go to Inbox</span></CommandItem>
           <CommandItem onSelect={() => handleSelect(() => navigate('/my-issues'))}><CheckSquare /><span>Go to My Issues</span><CommandShortcut>G I</CommandShortcut></CommandItem>
           <CommandItem onSelect={() => handleSelect(() => navigate('/projects'))}><FolderKanban /><span>Go to Projects</span><CommandShortcut>G P</CommandShortcut></CommandItem>
-          <CommandItem onSelect={() => handleSelect(() => navigate('/initiatives'))}><Flag /><span>Go to Initiatives</span><CommandShortcut>G N</CommandShortcut></CommandItem>
-          <CommandItem onSelect={() => handleSelect(() => navigate('/roadmap'))}><CalendarDays /><span>Go to Roadmap</span><CommandShortcut>G R</CommandShortcut></CommandItem>
           <CommandItem onSelect={() => handleSelect(() => navigate('/documents'))}><FileText /><span>Go to Documents</span><CommandShortcut>G D</CommandShortcut></CommandItem>
           <CommandItem onSelect={() => handleSelect(() => navigate('/cycles'))}><RotateCcw /><span>Go to Cycles</span></CommandItem>
           <CommandItem onSelect={() => handleSelect(() => navigate('/triage'))}><ClipboardList /><span>Go to Triage</span></CommandItem>

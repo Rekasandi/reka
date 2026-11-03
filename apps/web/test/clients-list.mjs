@@ -33,7 +33,7 @@ try {
       import { ClientsPage } from '/src/features/clients/components/clients-page.tsx';
       import '/src/styles/globals.css';
       ReactDOM.createRoot(document.getElementById('root')).render(
-        React.createElement(QueryClientProvider, { client: new QueryClient({ defaultOptions: { queries: { retry: false } } }) },
+        React.createElement(QueryClientProvider, { client: (window.__testQueryClient ??= new QueryClient({ defaultOptions: { queries: { retry: false } } })) },
           React.createElement(MemoryRouter, null,
             React.createElement('main', { className: 'p-6' }, React.createElement(ClientsPage)))));
     ` });

@@ -1,6 +1,7 @@
 // Actual application/router, controlled API fixtures; never changes live data.
 import assert from 'node:assert/strict';
 import { mkdir } from 'node:fs/promises';
+import { selectOption } from './select-option.mjs';
 const { chromium } = await import(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const browser = await chromium.launch({ ...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE } : {}) });
 const base = process.env.WEB_URL || 'http://localhost:5173';
@@ -128,10 +129,11 @@ try {
   }
   await panel.getByRole('button', { name: 'Accept', exact: true }).click();
   const accept = page.getByRole('dialog', { name: 'Accept ENG-1', exact: true });
-  await accept.getByLabel('Route to team').selectOption('t2');
-  await accept.getByLabel('Route assignee').locator('option[value="u2"]').waitFor({ state: 'attached' });
-  assert.equal(await accept.getByLabel('Route assignee').locator('option[value="u1"]').count(), 0, 'Private destination requires explicit membership');
-  await accept.getByLabel('Route assignee').selectOption('u2');
+  await selectOption(page, accept.getByRole('combobox', { name: 'Route to team' }), /Finance/);
+  await accept.getByRole('combobox', { name: 'Route assignee' }).click();
+  await page.getByRole('option', { name: /Ayu Wulandari/ }).waitFor();
+  assert.equal(await page.getByRole('option', { name: /Dimas Pratama/ }).count(), 0, 'Private destination requires explicit membership');
+  await page.getByRole('option', { name: /Ayu Wulandari/ }).click();
   await accept.getByRole('button', { name: 'Accept & route' }).click();
   await accept.waitFor({ state: 'hidden' });
   await page.waitForURL('**/triage?issueId=i2');
@@ -155,9 +157,10 @@ try {
   await page.waitForURL('**/triage?issueId=i3');
   await panel.getByRole('button', { name: 'Duplicate', exact: true }).click();
   const duplicate = page.getByRole('dialog', { name: 'Mark duplicate ENG-3', exact: true });
-  const targets = duplicate.getByLabel('Duplicate target');
-  assert.equal(await targets.locator('option[value="i3"],option[value="i4"],option[value="i6"]').count(), 0);
-  await targets.selectOption('i5'); await duplicate.getByRole('button', { name: 'Mark duplicate', exact: true }).click();
+  const targets = duplicate.getByRole('combobox', { name: 'Duplicate target' });
+  await targets.click();
+  assert.equal(await page.getByRole('option', { name: /^(ENG-3|FIN-4|ENG-6) ·/ }).count(), 0);
+  await page.getByRole('option', { name: /^ENG-5 ·/ }).click(); await duplicate.getByRole('button', { name: 'Mark duplicate', exact: true }).click();
   await duplicate.waitFor({ state: 'hidden' });
   assert.ok(issues[1].archivedAt && issues[2].archivedAt);
   assert.equal(requests.find(request => request.path === '/api/triage/i3/duplicate').body.relatedIssueId, 'i5');

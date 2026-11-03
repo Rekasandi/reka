@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Badge, Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, toast } from '@reka/ui';
+import { Badge, Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, toast, Alert, Spinner } from '@reka/ui';
 import { RefreshCw, Trash2 } from 'lucide-react';
 import { useUsers } from '../../users/hooks/use-users';
 
@@ -88,9 +88,9 @@ export function ProjectMembersDialog({ projectId, projectName, open, onOpenChang
           </div>
           <div className="max-h-60 divide-y divide-border overflow-y-auto rounded-md border border-border">
             {isMembersLoading ? (
-              <p role="status" className="p-3 text-sm text-muted-foreground">Loading members...</p>
+              <p className="p-3 text-sm text-muted-foreground inline-flex items-center gap-1.5"><Spinner className="size-3.5" aria-label="Loading members" />Loading members...</p>
             ) : isMembersError ? (
-              <div role="alert" className="flex items-center justify-between gap-2 p-3 text-sm"><span>Could not load project members.</span><Button variant="outline" size="sm" onClick={() => void refetchMembers()}><RefreshCw data-icon="inline-start" />Retry</Button></div>
+              <Alert className="rounded-none border-0 bg-transparent px-0 py-0 text-foreground flex items-center justify-between gap-2 p-3 text-sm"><span>Could not load project members.</span><Button variant="outline" size="sm" onClick={() => void refetchMembers()}><RefreshCw data-icon="inline-start" />Retry</Button></Alert>
             ) : members.length ? members.map((member) => (
               <div key={member.id} className="flex items-center justify-between gap-3 p-3 text-sm">
                 <div className="min-w-0">

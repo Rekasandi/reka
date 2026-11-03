@@ -25,6 +25,8 @@ import {
 import { useCreateIssue } from '../hooks/use-issues';
 import { ProjectPicker } from './project-picker';
 import { CyclePicker } from './cycle-picker';
+import { EstimatePicker } from './estimate-picker';
+import { TeamFeatureGate } from '../../teams/components/team-feature-gate';
 import { StatusPicker } from './status-picker';
 import { PriorityPicker } from './priority-picker';
 import { IssueTypePicker } from './issue-type-picker';
@@ -193,7 +195,7 @@ export function CreateIssueDialog({ open, onOpenChange, defaultProjectId, defaul
                       name={field.name}
                       value={field.state.value}
                       onValueChange={teamId => {
-                        if (teamId !== field.state.value) form.setFieldValue('cycleId', 'none');
+                        if (teamId !== field.state.value) { form.setFieldValue('cycleId', 'none'); form.setFieldValue('estimate', ''); }
                         field.handleChange(teamId);
                       }}
                     >
@@ -229,12 +231,14 @@ export function CreateIssueDialog({ open, onOpenChange, defaultProjectId, defaul
               <form.Field
                 name="cycleId"
                 children={(field) => (
-                  <Field>
-                    <FieldLabel htmlFor={field.name} className="text-muted-foreground">Cycle</FieldLabel>
-                    <form.Subscribe selector={state => state.values.teamId} children={teamId => (
-                      <CyclePicker id={field.name} cycleId={field.state.value === 'none' ? null : field.state.value} teamId={teamId} className="h-8 w-full justify-start" onCycleChange={cycleId => field.handleChange(cycleId ?? 'none')} />
-                    )} />
-                  </Field>
+                  <form.Subscribe selector={state => state.values.teamId} children={teamId => (
+                    <TeamFeatureGate teamId={teamId} feature="cycles">
+                      <Field>
+                        <FieldLabel htmlFor={field.name} className="text-muted-foreground">Cycle</FieldLabel>
+                        <CyclePicker id={field.name} cycleId={field.state.value === 'none' ? null : field.state.value} teamId={teamId} className="h-8 w-full justify-start" onCycleChange={cycleId => field.handleChange(cycleId ?? 'none')} />
+                      </Field>
+                    </TeamFeatureGate>
+                  )} />
                 )}
               />
 
@@ -302,10 +306,14 @@ export function CreateIssueDialog({ open, onOpenChange, defaultProjectId, defaul
                 name="estimate"
                 validators={{ onChange: ({ value }) => value !== '' && (!Number.isInteger(Number(value)) || Number(value) < 0 || Number(value) > 100) ? 'Use a whole number from 0 to 100' : undefined }}
                 children={(field) => (
-                  <Field>
-                    <FieldLabel htmlFor={field.name} className="text-muted-foreground">Estimate</FieldLabel>
-                    <Input id={field.name} name={field.name} type="number" min={0} max={100} step={1} value={field.state.value} onBlur={field.handleBlur} onChange={(event) => field.handleChange(event.target.value)} placeholder="Points" />
-                  </Field>
+                  <form.Subscribe selector={state => state.values.teamId} children={teamId => teamId ? (
+                    <TeamFeatureGate teamId={teamId} feature="estimates">
+                      <Field>
+                        <FieldLabel htmlFor={field.name} className="text-muted-foreground">Estimate</FieldLabel>
+                        <EstimatePicker id={field.name} ariaLabel="Estimate" teamId={teamId} value={field.state.value === '' ? null : Number(field.state.value)} onChange={points => field.handleChange(points === null ? '' : String(points))} />
+                      </Field>
+                    </TeamFeatureGate>
+                  ) : null} />
                 )}
               />
               <form.Field

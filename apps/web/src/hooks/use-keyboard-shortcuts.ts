@@ -17,7 +17,7 @@ export function useKeyboardShortcuts() {
       if (event.metaKey || event.ctrlKey || event.altKey || target.closest('input, textarea, select, [contenteditable="true"], [role="combobox"], [role="dialog"], [role="menu"], [role="menuitem"], button, a')) return;
       if (goPending.current) {
         goPending.current = false;
-        const routes: Record<string, string> = { i: '/my-issues', p: '/projects', d: '/documents', n: '/initiatives', r: '/roadmap', s: '/settings', f: '/favorites', t: '/triage' };
+        const routes: Record<string, string> = { i: '/my-issues', p: '/projects', d: '/documents', s: '/settings', f: '/favorites', t: '/triage' };
         const route = routes[event.key.toLowerCase()];
         if (route) { event.preventDefault(); navigate(route); }
         return;

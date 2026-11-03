@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Badge, Button, Card, CardContent, Skeleton } from '@reka/ui';
+import { Badge, Button, Card, CardContent, Skeleton, Alert, FieldError, Spinner } from '@reka/ui';
 import { Link } from 'react-router-dom';
 import { differenceInCalendarDays, format, formatDistanceToNow } from 'date-fns';
 import { getIssueStatusCategory, type Issue } from '@reka/types';
@@ -23,20 +23,20 @@ function Section({ title, count, children }: { title: string; count?: number; ch
 }
 
 function QueryContent({ loading, error, retry, children }: { loading: boolean; error: boolean; retry: () => void; children: React.ReactNode }) {
-  if (loading) return <div role="status" aria-label="Loading dashboard work" className="flex flex-col gap-2 py-2"><Skeleton className="h-12 w-full" /><Skeleton className="h-12 w-full" /></div>;
-  if (error) return <div role="alert" className="flex flex-wrap items-center gap-3 py-4"><p className="text-sm text-muted-foreground">Could not load this section.</p><Button variant="outline" size="sm" onClick={retry}>Retry</Button></div>;
+  if (loading) return <div className="flex flex-col gap-2 py-2"><Spinner aria-label="Loading dashboard work" className="sr-only" /><Skeleton className="h-12 w-full" /><Skeleton className="h-12 w-full" /></div>;
+  if (error) return <Alert className="rounded-none border-0 bg-transparent px-0 py-0 text-foreground flex flex-wrap items-center gap-3 py-4"><p className="text-sm text-muted-foreground">Could not load this section.</p><Button variant="outline" size="sm" onClick={retry}>Retry</Button></Alert>;
   return <>{children}</>;
 }
 
 function IssueButton({ issue, onSelect, children }: { issue: Issue; onSelect: (issue: Issue) => void; children?: React.ReactNode }) {
-  return <button type="button" aria-label={`Open issue ${issue.identifier}: ${issue.title}`} onClick={() => onSelect(issue)}
+  return <Button variant="plain" size="auto" type="button" aria-label={`Open issue ${issue.identifier}: ${issue.title}`} onClick={() => onSelect(issue)}
     className="flex w-full min-w-0 flex-col items-start gap-2 rounded-md px-2 py-3 text-left transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:flex-row sm:items-center sm:justify-between">
     <span className="flex w-full min-w-0 flex-1 items-center gap-2">
       <span className="shrink-0 text-xs text-muted-foreground">{issue.identifier}</span>
       <span className="truncate text-sm font-medium" title={issue.title}>{issue.title}</span>
     </span>
     {children && <span className="flex max-w-full shrink-0 flex-wrap items-center gap-1.5 text-xs text-muted-foreground">{children}</span>}
-  </button>;
+  </Button>;
 }
 
 function More({ total, expanded, onToggle }: { total: number; expanded: boolean; onToggle: () => void }) {
@@ -49,7 +49,7 @@ function ReviewIssue({ issue, onSelect }: { issue: Issue; onSelect: (issue: Issu
   return <li className="py-1">
     <IssueButton issue={issue} onSelect={onSelect}>{updated && `Updated ${formatDistanceToNow(updated, { addSuffix: true })}`}</IssueButton>
     <div className="flex min-w-0 flex-col gap-2 px-2 pb-3 text-xs text-muted-foreground">
-      {isPending ? <Skeleton className="h-5 w-48 max-w-full" /> : isError ? <div role="alert" className="flex flex-wrap items-center gap-2">Pull requests unavailable.<Button variant="outline" size="xs" onClick={() => { void refetch(); }}>Retry PRs</Button></div> : prs.length ? prs.map(pr => (
+      {isPending ? <Skeleton className="h-5 w-48 max-w-full" /> : isError ? <Alert className="rounded-none border-0 bg-transparent px-0 py-0 text-foreground flex flex-wrap items-center gap-2">Pull requests unavailable.<Button variant="outline" size="xs" onClick={() => { void refetch(); }}>Retry PRs</Button></Alert> : prs.length ? prs.map(pr => (
         <a key={pr.id} href={pr.htmlUrl} target="_blank" rel="noopener noreferrer" className="flex min-w-0 items-center gap-2 rounded-sm hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label={`Open pull request #${pr.prNumber}: ${pr.title}`}>
           <span className="shrink-0">#{pr.prNumber}</span><span className="truncate">{pr.title}</span><span className="shrink-0">{pr.merged ? 'Merged' : pr.state === 'closed' ? 'Closed' : 'Open'}</span>
         </a>
@@ -72,7 +72,8 @@ export function DashboardActionSections({ onSelectIssue }: { onSelectIssue: (iss
   const targets = upcomingTargets(issues, projects, now);
   const reviews = issues.filter(issue => issue.status === 'in_review').sort((a, b) =>
     (workDate(a.updatedAt)?.getTime() ?? Infinity) - (workDate(b.updatedAt)?.getTime() ?? Infinity));
-  const activeCycles = (cycleQuery.data ?? []).filter(cycle => cycle.status === 'active').sort((a, b) => a.teamId.localeCompare(b.teamId) || a.startDate.localeCompare(b.startDate));
+  const cycleTeamIds = new Set((teamQuery.data ?? []).filter(team => team.cyclesEnabled !== false).map(team => team.id));
+  const activeCycles = (cycleQuery.data ?? []).filter(cycle => cycle.status === 'active' && cycleTeamIds.has(cycle.teamId)).sort((a, b) => a.teamId.localeCompare(b.teamId) || a.startDate.localeCompare(b.startDate));
   const [allAttention, setAllAttention] = React.useState(false);
   const [allTargets, setAllTargets] = React.useState(false);
   const [allReviews, setAllReviews] = React.useState(false);
@@ -105,7 +106,7 @@ export function DashboardActionSections({ onSelectIssue }: { onSelectIssue: (iss
 
     <Section title="Active cycles" count={!cycleQuery.isLoading && !cycleQuery.isError ? activeCycles.length : undefined}>
       <QueryContent loading={cycleQuery.isLoading} error={cycleQuery.isError} retry={() => { void cycleQuery.refetch(); }}>
-        {teamQuery.isError && <p role="alert" className="flex flex-wrap items-center gap-2 py-2 text-xs text-muted-foreground">Team names unavailable.<Button variant="outline" size="xs" onClick={() => { void teamQuery.refetch(); }}>Retry teams</Button></p>}
+        {teamQuery.isError && <FieldError role="alert" className="flex flex-wrap items-center gap-2 py-2 text-xs text-muted-foreground">Team names unavailable.<Button variant="outline" size="xs" onClick={() => { void teamQuery.refetch(); }}>Retry teams</Button></FieldError>}
         {activeCycles.length ? <ul className="divide-y divide-border/50">{activeCycles.map(cycle => {
           const team = teamQuery.data?.find(item => item.id === cycle.teamId);
           const cycleIssues = issues.filter(issue => issue.cycleId === cycle.id && issue.status !== 'canceled');

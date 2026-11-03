@@ -40,7 +40,7 @@ try {
           query.data && React.createElement(ProjectDescriptionEditor, { projectId: 'p1', description: query.data.description }));
       }
       ReactDOM.createRoot(document.getElementById('root')).render(
-        React.createElement(QueryClientProvider, { client: new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } }) },
+        React.createElement(QueryClientProvider, { client: (window.__testQueryClient ??= new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })) },
           React.createElement(Harness)));
     ` });
   });

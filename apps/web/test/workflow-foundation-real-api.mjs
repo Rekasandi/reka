@@ -9,14 +9,16 @@ const require = createRequire(new URL('../../api/test/support/isolated-api.cjs',
 const { createPersistentPostgres } = require('./persistent-postgres.cjs');
 const { createIsolatedApi } = require('./isolated-api.cjs');
 
-const { organizations, organizationMembers, users, teams, teamMembers, sessions, issues, issueHistory, issueRecurrences, issueTemplates, issueRelations, activities, projects, cycles, savedViews, userFavorites, milestones, projectDependencies, projectUpdates, projectUpdateSubscriptions, documents } = require('@reka/database');
+const { organizations, organizationMembers, users, teams, teamMembers, sessions, issues, issueHistory, issueRecurrences, issueTemplates, issueRelations, activities, projects, cycles, userFavorites, milestones, projectDependencies, projectUpdates, projectUpdateSubscriptions, documents } = require('@reka/database');
 const { and, eq, asc } = require('drizzle-orm');
-const modules = ['issues', 'users', 'teams', 'projects', 'cycles', 'labels', 'activities', 'comments', 'attachments', 'github', 'triage', 'search', 'views', 'documents', 'initiatives'].map(name => {
+const modules = ['issues', 'users', 'teams', 'projects', 'cycles', 'labels', 'activities', 'comments', 'attachments', 'github', 'triage', 'search', 'favorites', 'documents'].map(name => {
   const exports = require(`../../dist/${name}/${name}.module`);
   return Object.values(exports)[0];
 });
 modules.push(require('../../dist/common/redis/redis.module').RedisModule);
 const { RedisService } = require('../../dist/common/redis/redis.service');
+import { pickDate } from './pick-date.mjs';
+import { selectOption } from './select-option.mjs';
 const ui = fileURLToPath(new URL('../../../packages/ui/src/index.ts', import.meta.url));
 const playwright = await import(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const { chromium } = playwright.chromium ? playwright : playwright.default;
@@ -81,16 +83,12 @@ try {
       import { ProjectDetailPage } from '/src/features/projects/components/project-detail-page.tsx';
       import { DocumentsPage } from '/src/features/projects/components/documents-page.tsx';
       import { DocumentDetailPage } from '/src/features/projects/components/document-detail-page.tsx';
-      import { FavoritesPage } from '/src/features/views/components/favorites-page.tsx';
-      import { InitiativesPage } from '/src/features/initiatives/components/initiatives-page.tsx';
-      import { InitiativeDetailPage } from '/src/features/initiatives/components/initiative-detail-page.tsx';
-      import { RoadmapPage } from '/src/features/initiatives/components/roadmap-page.tsx';
+      import { FavoritesPage } from '/src/features/favorites/components/favorites-page.tsx';
       import { CommandPalette } from '/src/components/command-palette/command-palette.tsx';
       import { useKeyboardShortcuts } from '/src/hooks/use-keyboard-shortcuts.ts';
       import { TeamSettingsDialog } from '/src/features/teams/components/team-settings-dialog.tsx';
-      import { useAuthStore } from '/src/stores/auth.store.ts';
-      import '/src/styles/globals.css';
-      useAuthStore.setState({ user: ${JSON.stringify(owner)}, isAuthenticated: true });
+            import '/src/styles/globals.css';
+      (window.__testQueryClient ??= new QueryClient({ defaultOptions: { queries: { retry: false } } })).setQueryData(['auth', 'me'], ${JSON.stringify(owner)});
       function RouteProbe() { const location = useLocation(); return React.createElement('output', { 'data-testid': 'route-location', className: 'sr-only' }, location.pathname + location.search); }
       function Harness() {
         useKeyboardShortcuts();
@@ -105,9 +103,6 @@ try {
             React.createElement(Route, { path: '/documents', element: React.createElement(DocumentsPage) }),
             React.createElement(Route, { path: '/documents/:id', element: React.createElement(DocumentDetailPage) }),
             React.createElement(Route, { path: '/favorites', element: React.createElement(FavoritesPage) }),
-            React.createElement(Route, { path: '/initiatives', element: React.createElement(InitiativesPage) }),
-            React.createElement(Route, { path: '/initiatives/:id', element: React.createElement(InitiativeDetailPage) }),
-            React.createElement(Route, { path: '/roadmap', element: React.createElement(RoadmapPage) }),
             React.createElement(Route, { path: '/triage', element: React.createElement(TriagePage) })),
           React.createElement(CommandPalette),
           React.createElement(TeamSettingsDialog, { team: ${JSON.stringify(team)}, open: settingsOpen, onOpenChange: setSettingsOpen }));
@@ -115,8 +110,8 @@ try {
       ReactDOM.createRoot(document.getElementById('root')).render(
         React.createElement(TooltipProvider, null,
           React.createElement(ThemeProvider, { defaultTheme: new URLSearchParams(location.search).get('theme') || 'dark', storageKey: 'foundation-e2e' },
-            React.createElement(QueryClientProvider, { client: new QueryClient({ defaultOptions: { queries: { retry: false } } }) },
-              React.createElement(MemoryRouter, { initialEntries: [new URLSearchParams(location.search).get('page') === 'triage' ? '/triage' : new URLSearchParams(location.search).get('page') === 'favorites' ? '/favorites' : new URLSearchParams(location.search).get('page') === 'project' ? '/projects/${project.id}' : new URLSearchParams(location.search).get('page') === 'documents' ? '/documents' : new URLSearchParams(location.search).get('page') === 'document' ? '/documents/' + new URLSearchParams(location.search).get('documentId') : new URLSearchParams(location.search).get('page') === 'initiatives' ? '/initiatives' : new URLSearchParams(location.search).get('page') === 'initiative' ? '/initiatives/' + new URLSearchParams(location.search).get('initiativeId') : new URLSearchParams(location.search).get('page') === 'roadmap' ? '/roadmap' : '/issues'] },
+            React.createElement(QueryClientProvider, { client: (window.__testQueryClient ??= new QueryClient({ defaultOptions: { queries: { retry: false } } })) },
+              React.createElement(MemoryRouter, { initialEntries: [new URLSearchParams(location.search).get('page') === 'triage' ? '/triage' : new URLSearchParams(location.search).get('page') === 'favorites' ? '/favorites' : new URLSearchParams(location.search).get('page') === 'project' ? '/projects/${project.id}' : new URLSearchParams(location.search).get('page') === 'documents' ? '/documents' : new URLSearchParams(location.search).get('page') === 'document' ? '/documents/' + new URLSearchParams(location.search).get('documentId') : '/issues'] },
                 React.createElement('main', { className: 'p-6' }, React.createElement(Harness)))))));
     ` });
   });
@@ -127,14 +122,34 @@ try {
   await settings.getByRole('button', { name: 'Add state' }).click();
   await settings.getByLabel('new_state state name').fill('Quality check');
   const workflowSave = page.waitForResponse(response => response.request().method() === 'PATCH' && new URL(response.url()).pathname === `/api/teams/${team.id}/workflow-states`);
-  await settings.getByRole('button', { name: 'Save workflow' }).click();
+  await settings.getByRole('button', { name: 'Save changes' }).click();
   assert.equal((await workflowSave).status(), 200);
-  await settings.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await page.keyboard.press('Escape');
+  // Second save: the states now come back from the database with createdAt/updatedAt, which the API must not receive.
+  await page.evaluate(() => window.__rekaOpenTeamSettings());
+  const reopened = page.getByRole('dialog', { name: 'Team settings' });
+  await reopened.getByLabel('new_state state name').fill('Quality check ');
+  const secondSave = page.waitForResponse(response => response.request().method() === 'PATCH' && new URL(response.url()).pathname === `/api/teams/${team.id}/workflow-states`);
+  await reopened.getByRole('button', { name: 'Save changes' }).click();
+  assert.equal((await secondSave).status(), 200);
+  await page.keyboard.press('Escape');
+  // Team features: cycles/estimates switches and the estimate scale persist through the API.
+  await page.evaluate(() => window.__rekaOpenTeamSettings());
+  const features = page.getByRole('dialog', { name: 'Team settings' });
+  assert.equal(await features.getByRole('switch', { name: 'Enable cycles', exact: true }).getAttribute('data-state'), 'checked');
+  assert.equal(await features.getByRole('switch', { name: 'Enable estimates', exact: true }).getAttribute('data-state'), 'checked');
+  assert.match((await features.getByRole('combobox', { name: 'Estimate scale', exact: true }).textContent()) ?? '', /Fibonacci/);
+  await selectOption(page, features.getByRole('combobox', { name: 'Estimate scale', exact: true }), /^Linear/);
+  const featuresSave = page.waitForResponse(response => response.request().method() === 'PATCH' && new URL(response.url()).pathname === `/api/teams/${team.id}`);
+  await features.getByRole('button', { name: 'Save changes' }).click();
+  assert.equal((await featuresSave).status(), 200);
+  assert.equal((await postgres.db.select().from(teams).where(eq(teams.id, team.id)))[0].estimateScale, 'linear');
+  await page.keyboard.press('Escape');
   await page.getByRole('button', { name: 'New Issue', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'New Issue', exact: true });
   await dialog.getByLabel('Title', { exact: true }).fill('Real API browser foundation');
   await dialog.getByLabel('Description', { exact: true }).fill('Browser-authored acceptance criteria.');
-  await dialog.getByLabel('Estimate', { exact: true }).fill('0');
+  await selectOption(page, dialog.getByRole('combobox', { name: 'Estimate', exact: true }), '0 points');
   await dialog.getByLabel('Due date', { exact: true }).fill('2026-11-18');
   await dialog.getByRole('button', { name: 'Change project: No project' }).click();
   await page.getByRole('menuitemradio', { name: 'Browser project' }).click();
@@ -171,7 +186,7 @@ try {
   await labelsDialog.getByRole('button', { name: 'Close', exact: true }).first().click();
   assert.equal((await postgres.db.select().from(require('@reka/database').issueLabels).where(eq(require('@reka/database').issueLabels.issueId, browserIssue.id))).length, 0);
   assert.equal((await postgres.db.select().from(issues).where(eq(issues.id, browserIssue.id))).length, 1);
-  await page.getByRole('button', { name: 'Board view' }).click();
+  await page.getByRole('radio', { name: 'Board view' }).click();
   const kanbanIssue = page.getByTestId(`kanban-issue-${browserIssue.id}`);
   await kanbanIssue.waitFor({ timeout: 5000 });
   const boardStatusUpdate = page.waitForResponse(response => response.request().method() === 'PATCH' && new URL(response.url()).pathname === `/api/issues/${browserIssue.id}`);
@@ -192,7 +207,7 @@ try {
   const restoreBoardStatus = page.waitForResponse(response => response.request().method() === 'PATCH' && new URL(response.url()).pathname === `/api/issues/${browserIssue.id}`);
   await page.getByTestId(`kanban-issue-${browserIssue.id}`).getByRole('button', { name: 'Change status: In Progress' }).click();
   await page.getByRole('menuitemradio', { name: 'Quality check' }).click(); assert.equal((await restoreBoardStatus).status(), 200);
-  await page.getByRole('button', { name: 'Grouped by status' }).click();
+  await page.getByRole('radio', { name: 'Grouped by status' }).click();
   await page.getByRole('button', { name: 'Done', exact: true }).click();
   assert.equal(await page.getByText('Real API browser foundation', { exact: true }).count(), 0, 'custom unstarted status is excluded from Done');
   await page.getByRole('button', { name: 'Active', exact: true }).click();
@@ -269,8 +284,7 @@ try {
   await detail.getByRole('button', { name: `Reopen ${subIssue.identifier}`, exact: true }).waitFor();
   assert.equal((await postgres.db.select().from(issues).where(eq(issues.id, subIssue.id)))[0].status, 'done', 'sub-task completion refreshes in the shared detail');
   const estimateUpdate = page.waitForResponse(response => response.request().method() === 'PATCH' && new URL(response.url()).pathname === `/api/issues/${persisted.id}`);
-  await detail.getByLabel('Issue estimate').fill('3');
-  await detail.getByLabel('Issue estimate').blur();
+  await selectOption(page, detail.getByRole('combobox', { name: 'Issue estimate', exact: true }), '3 points');
   assert.equal((await estimateUpdate).status(), 200);
   const dueDateUpdate = page.waitForResponse(response => response.request().method() === 'PATCH' && new URL(response.url()).pathname === `/api/issues/${persisted.id}`);
   await detail.getByLabel('Issue due date').fill('2026-12-01');
@@ -287,7 +301,7 @@ try {
   await page.getByRole('dialog', { name: `Issue ${persisted.identifier}` }).waitFor({ state: 'hidden' });
   await page.getByRole('button', { name: 'All', exact: true }).click();
   await page.getByText('Real API browser foundation', { exact: true }).waitFor();
-  await page.getByRole('button', { name: 'List view' }).click();
+  await page.getByRole('radio', { name: 'List view' }).click();
   await page.getByRole('checkbox', { name: `Select issue ${persisted.identifier}` }).click();
   await page.getByRole('checkbox', { name: `Select issue ${secondIssue.identifier}` }).click();
   await page.getByRole('button', { name: 'Status...' }).click();
@@ -317,8 +331,10 @@ try {
   assert.equal(events[0].afterState.title, persisted.title);
   assert(seenApi.includes('POST /api/issues'));
 
-  await page.getByLabel('Group issues by').selectOption('none');
-  await page.getByLabel('Sort issues by').selectOption('priority');
+  await page.getByRole('button', { name: 'Display options', exact: true }).click();
+  await selectOption(page, page.getByRole('combobox', { name: 'Group issues by' }), 'None');
+  await selectOption(page, page.getByRole('combobox', { name: 'Sort issues by' }), 'Priority');
+  await page.keyboard.press('Escape');
   const orderedRows = await page.locator('[data-testid^="issue-row-"]').evaluateAll(elements => elements.map(element => element.getAttribute('data-testid')));
   assert.ok(orderedRows.indexOf(`issue-row-${persisted.id}`) < orderedRows.indexOf(`issue-row-${secondIssue.id}`), 'priority sorting places high before medium');
   await page.getByRole('button', { name: 'Show filters', exact: true }).click();
@@ -327,25 +343,6 @@ try {
   await filterPanel.getByRole('button', { name: /High/ }).click();
   await page.getByTestId(`issue-row-${persisted.id}`).waitFor();
   await page.getByTestId(`issue-row-${secondIssue.id}`).waitFor({ state: 'detached' });
-  await page.getByRole('button', { name: 'Save view', exact: true }).click();
-  const saveViewDialog = page.getByRole('dialog', { name: 'Save issue view' });
-  await saveViewDialog.getByLabel('View name').fill('Saved browser view');
-  const saveViewResponse = page.waitForResponse(response => response.request().method() === 'POST' && new URL(response.url()).pathname === '/api/views');
-  await saveViewDialog.getByRole('button', { name: 'Save view', exact: true }).click();
-  assert.equal((await saveViewResponse).status(), 201);
-  const [savedView] = await postgres.db.select().from(savedViews).where(eq(savedViews.name, 'Saved browser view'));
-  assert.equal(savedView.config.groupBy, 'none');
-  assert.equal(savedView.config.sortBy, 'priority');
-  assert.deepEqual(savedView.config.filters.priorities, ['high']);
-  await page.getByLabel('Saved issue view').selectOption('');
-  await page.getByLabel('Group issues by').selectOption('status');
-  await page.getByLabel('Sort issues by').selectOption('manual');
-  await page.getByLabel('Saved issue view').selectOption(savedView.id);
-  await page.waitForFunction(() => document.querySelector('[aria-label="Group issues by"]').value === 'none' && document.querySelector('[aria-label="Sort issues by"]').value === 'priority');
-  await page.getByLabel('Add view to favorites').click();
-  await page.waitForResponse(response => response.request().method() === 'POST' && new URL(response.url()).pathname === '/api/favorites');
-  assert.equal((await postgres.db.select().from(userFavorites).where(eq(userFavorites.resourceId, savedView.id))).length, 1);
-
   await page.keyboard.press('Control+k');
   const commandInput = page.getByPlaceholder('Search issues, projects, and documents…');
   await commandInput.fill(persisted.identifier);
@@ -368,16 +365,14 @@ try {
   const healthSave = page.waitForResponse(response => response.request().method() === 'PATCH' && new URL(response.url()).pathname === `/api/projects/${project.id}`);
   await page.getByRole('option', { name: 'At Risk' }).click();
   assert.equal((await healthSave).status(), 200);
-  await page.getByText('Set start date', { exact: true }).click();
-  const startDay = await page.evaluate(() => new Date(2026, 9, 20).toLocaleDateString());
   const startDateSave = page.waitForResponse(response => response.request().method() === 'PATCH' && new URL(response.url()).pathname === `/api/projects/${project.id}`);
-  await page.locator(`[data-day="${startDay}"]`).click();
+  await pickDate(page, page.getByText('Set start date', { exact: true }), '2026-10-20');
   assert.equal((await startDateSave).status(), 200);
-  await page.getByText('Set target date', { exact: true }).click();
-  const targetDay = await page.evaluate(() => new Date(2026, 9, 29).toLocaleDateString());
   const targetDateSave = page.waitForResponse(response => response.request().method() === 'PATCH' && new URL(response.url()).pathname === `/api/projects/${project.id}`);
-  await page.locator(`[data-day="${targetDay}"]`).click();
+  await pickDate(page, page.getByText('Set target date', { exact: true }), '2026-10-29');
   assert.equal((await targetDateSave).status(), 200);
+  const startDay = await page.evaluate(() => new Date(2026, 9, 20).toLocaleDateString());
+  const targetDay = await page.evaluate(() => new Date(2026, 9, 29).toLocaleDateString());
   const savedProjectDates = (await postgres.db.select().from(projects).where(eq(projects.id, project.id)))[0];
   assert.equal(new Date(savedProjectDates.startDate).toLocaleDateString(), startDay);
   assert.equal(new Date(savedProjectDates.targetDate).toLocaleDateString(), targetDay);
@@ -409,8 +404,7 @@ try {
   const milestoneDialog = page.getByRole('dialog', { name: 'New milestone' });
   await milestoneDialog.getByLabel('Milestone name').fill('Browser delivery milestone');
   await milestoneDialog.getByLabel('Milestone description').fill('Track browser-verified delivery.');
-  await milestoneDialog.getByLabel('Target date').fill('2026-11-15');
-  await milestoneDialog.getByLabel('Target date').fill('2026-12-15');
+  await pickDate(page, milestoneDialog.getByRole('button', { name: 'Milestone target date' }), '2026-12-15');
   const milestoneCreate = page.waitForResponse(response => response.request().method() === 'POST' && new URL(response.url()).pathname === `/api/projects/${project.id}/milestones`);
   await milestoneDialog.getByRole('button', { name: 'Create milestone' }).click();
   const milestoneResponse = await milestoneCreate;
@@ -434,7 +428,7 @@ try {
   await page.getByRole('button', { name: 'Subscribe to updates' }).click();
   assert.equal((await subscribeToUpdates).status(), 201);
   assert.equal((await postgres.db.select().from(projectUpdateSubscriptions).where(and(eq(projectUpdateSubscriptions.projectId, project.id), eq(projectUpdateSubscriptions.userId, owner.id)))).length, 1);
-  await page.getByLabel('Health update').selectOption('at_risk');
+  await selectOption(page, page.getByRole('combobox', { name: 'Health update' }), 'At risk');
   await page.getByLabel('Project update', { exact: true }).fill('Browser verified risk and mitigation update.');
   const updateSave = page.waitForResponse(response => response.request().method() === 'POST' && new URL(response.url()).pathname === `/api/projects/${project.id}/updates`);
   await page.getByRole('button', { name: 'Post update' }).click();
@@ -482,80 +476,21 @@ try {
   assert.equal((await postgres.db.select().from(projectUpdates).where(eq(projectUpdates.projectId, project.id))).length, 1);
   assert.equal((await postgres.db.select().from(projectUpdateSubscriptions).where(and(eq(projectUpdateSubscriptions.projectId, project.id), eq(projectUpdateSubscriptions.userId, owner.id)))).length, 1);
 
-  // Initiative create/edit, cross-project grouping, real progress and roadmap render via the same authenticated API.
-  await page.goto(`${url}?page=initiatives`);
-  await page.getByRole('heading', { name: 'Initiatives', exact: true }).waitFor();
-  await page.getByRole('button', { name: 'New initiative', exact: true }).click();
-  const initiativeDialog = page.getByRole('dialog', { name: 'New initiative' });
-  await initiativeDialog.getByLabel('Initiative name').fill('Browser roadmap initiative');
-  await initiativeDialog.getByLabel('Initiative description').fill('Initiative created by the authenticated browser workflow.');
-  await initiativeDialog.getByLabel('Initiative status').selectOption('in_progress');
-  await initiativeDialog.getByLabel('Initiative health').selectOption('at_risk');
-  await initiativeDialog.getByLabel('Initiative start date').fill('2026-10-01');
-  await initiativeDialog.getByLabel('Initiative target date').fill('2026-12-31');
-  const createInitiativeResponse = page.waitForResponse(response => response.request().method() === 'POST' && new URL(response.url()).pathname === '/api/initiatives');
-  await initiativeDialog.getByRole('button', { name: 'Create initiative' }).click();
-  const initiativeCreateResponse = await createInitiativeResponse;
-  assert.equal(initiativeCreateResponse.status(), 201);
-  const browserInitiative = await initiativeCreateResponse.json();
-  const browserInitiativeDb = (await postgres.db.select().from(require('@reka/database').initiatives).where(eq(require('@reka/database').initiatives.id, browserInitiative.id)))[0];
-  assert.equal(browserInitiativeDb.status, 'in_progress');
-  assert.equal(new Date(browserInitiativeDb.startDate).toISOString().slice(0, 10), '2026-10-01');
-  await page.getByRole('link', { name: /Browser roadmap initiative/ }).click();
-  await page.getByRole('heading', { name: 'Browser roadmap initiative', exact: true }).waitFor();
-  await page.getByLabel('Project to add').selectOption(project.id);
-  const addInitiativeProject = page.waitForResponse(response => response.request().method() === 'POST' && new URL(response.url()).pathname === `/api/initiatives/${browserInitiative.id}/projects`);
-  await page.getByRole('button', { name: 'Add project', exact: true }).click();
-  assert.equal((await addInitiativeProject).status(), 201);
-  await page.getByLabel('Project to add').selectOption(prerequisiteProject.id);
-  const addPrerequisiteToInitiative = page.waitForResponse(response => response.request().method() === 'POST' && new URL(response.url()).pathname === `/api/initiatives/${browserInitiative.id}/projects`);
-  await page.getByRole('button', { name: 'Add project', exact: true }).click();
-  assert.equal((await addPrerequisiteToInitiative).status(), 201);
-  await page.getByRole('link', { name: 'Browser project', exact: true }).waitFor();
-  await page.getByLabel('Edit initiative target date').fill('2027-01-15');
-  const updateInitiativeResponse = page.waitForResponse(response => response.request().method() === 'PATCH' && new URL(response.url()).pathname === `/api/initiatives/${browserInitiative.id}`);
-  await page.getByRole('button', { name: 'Save changes' }).click();
-  assert.equal((await updateInitiativeResponse).status(), 200);
-  const initiativeProjectsDb = await postgres.db.select().from(require('@reka/database').initiativeProjects).where(eq(require('@reka/database').initiativeProjects.initiativeId, browserInitiative.id));
-  assert.equal(initiativeProjectsDb.length, 2);
-  const persistedInitiative = (await postgres.db.select().from(require('@reka/database').initiatives).where(eq(require('@reka/database').initiatives.id, browserInitiative.id)))[0];
-  assert.equal(new Date(persistedInitiative.targetDate).toISOString().slice(0, 10), '2027-01-15');
-  await page.getByRole('link', { name: 'Open roadmap' }).click();
-  await page.getByRole('heading', { name: 'Roadmap', exact: true }).waitFor();
-  await page.getByRole('img', { name: /initiative Browser roadmap initiative/ }).waitFor();
-  await page.getByRole('img', { name: /project Browser project/ }).waitFor();
-  await page.getByRole('img', { name: /milestone Browser project · Browser delivery milestone/ }).waitFor();
-  await page.getByRole('heading', { name: 'Dependencies' }).waitFor();
-  for (const theme of ['dark', 'light']) for (const width of [1440, 390]) {
-    await page.setViewportSize({ width, height: 900 });
-    await page.goto(`${url}?page=roadmap&theme=${theme}`);
-    await page.getByRole('heading', { name: 'Roadmap', exact: true }).waitFor();
-    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
-    await page.screenshot({ path: `/tmp/reka-roadmap-${theme}-${width}.png` });
-    await page.goto(`${url}?page=initiatives&theme=${theme}`);
-    await page.getByRole('heading', { name: 'Initiatives', exact: true }).waitFor();
-    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
-    await page.screenshot({ path: `/tmp/reka-initiatives-${theme}-${width}.png` });
-  }
-
   await page.evaluate(() => document.activeElement instanceof HTMLElement && document.activeElement.blur());
-  await page.keyboard.press('g'); await page.keyboard.press('r');
-  await page.getByRole('heading', { name: 'Roadmap', exact: true }).waitFor();
-  await page.keyboard.press('g'); await page.keyboard.press('n');
-  await page.getByRole('heading', { name: 'Initiatives', exact: true }).waitFor();
   await page.keyboard.press('g'); await page.keyboard.press('f');
   await page.getByRole('heading', { name: 'Favorites', exact: true }).waitFor();
   for (const theme of ['dark', 'light']) for (const width of [1440, 390]) {
     await page.setViewportSize({ width, height: 900 });
     await page.goto(`${url}?page=favorites&theme=${theme}`);
     await page.getByRole('heading', { name: 'Favorites', exact: true }).waitFor();
-    await page.getByRole('link', { name: /Saved browser view/ }).waitFor();
+    await page.getByRole('link', { name: new RegExp(persisted.identifier) }).waitFor();
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
     await page.screenshot({ path: `/tmp/reka-favorites-${theme}-${width}.png` });
   }
-  await page.getByRole('link', { name: /Saved browser view/ }).click();
-  await page.waitForFunction((id) => document.querySelector('[data-testid="route-location"]')?.textContent === `/issues?viewId=${id}`, savedView.id);
-  await page.waitForFunction(() => document.querySelector('[aria-label="Group issues by"]').value === 'none' && document.querySelector('[aria-label="Sort issues by"]').value === 'priority');
+  await page.getByRole('link', { name: new RegExp(persisted.identifier) }).click();
+  await page.waitForFunction((id) => document.querySelector('[data-testid="route-location"]')?.textContent === `/issues?issueId=${id}`, persisted.id);
+  await page.goto(`${url}?theme=dark`);
+  await page.getByPlaceholder('Search issues...').waitFor();
   await page.keyboard.press('Control+k');
   await page.getByPlaceholder('Search issues, projects, and documents…').waitFor();
   await page.keyboard.press('Escape');
@@ -592,8 +527,7 @@ try {
   await page.getByRole('button', { name: `Review ${intakeIssue.identifier}: ${intakeIssue.title}`, exact: true }).click();
   await page.getByRole('button', { name: 'Accept', exact: true }).click();
   const review = page.getByRole('dialog', { name: `Accept ${intakeIssue.identifier}`, exact: true });
-  await review.locator(`option[value="${member.id}"]`).waitFor({ state: 'attached' });
-  await review.getByLabel('Route assignee').selectOption(member.id);
+  await selectOption(page, review.getByRole('combobox', { name: 'Route assignee' }), /Browser Member/);
   const acceptRequest = page.waitForResponse(response => response.request().method() === 'POST' && new URL(response.url()).pathname === `/api/triage/${intakeIssue.id}/accept`);
   await review.getByRole('button', { name: 'Accept & route' }).click();
   const acceptedResponse = await acceptRequest;
@@ -630,7 +564,7 @@ try {
   await page.getByRole('button', { name: `Review ${duplicateIssue.identifier}: ${duplicateIssue.title}`, exact: true }).click();
   await page.getByRole('button', { name: 'Duplicate', exact: true }).click();
   const duplicateReview = page.getByRole('dialog', { name: `Mark duplicate ${duplicateIssue.identifier}`, exact: true });
-  await duplicateReview.getByLabel('Duplicate target').selectOption(persisted.id);
+  await selectOption(page, duplicateReview.getByRole('combobox', { name: 'Duplicate target' }), new RegExp(`^${persisted.identifier} ·`));
   const duplicateRequest = page.waitForResponse(response => response.request().method() === 'POST' && new URL(response.url()).pathname === `/api/triage/${duplicateIssue.id}/duplicate`);
   await duplicateReview.getByRole('button', { name: 'Mark duplicate' }).click();
   assert.equal((await duplicateRequest).status(), 201);
@@ -670,7 +604,7 @@ try {
     await page.screenshot({ path: `/tmp/reka-project-document-${theme}-${width}.png` });
   }
   assert.deepEqual(errors, []);
-  console.log('PASS: authenticated browser → Nest HTTP → isolated Postgres verifies saved views/search/favorites, issue/triage workflows, project lifecycle/milestones/dependencies/update subscriptions/documents, and initiative create/edit/project grouping/progress/roadmap dates/dependencies/restart. Issues, Favorites, Triage, Milestones, Documents, Initiatives and Roadmap desktop/mobile light/dark captures have no horizontal overflow. OAuth and live GitHub provider behavior are not validated by this browser test.');
+  console.log('PASS: authenticated browser → Nest HTTP → isolated Postgres verifies search/favorites, issue/triage workflows, project lifecycle/milestones/dependencies/update subscriptions/documents, and favorites desktop/mobile captures have no horizontal overflow. OAuth and live GitHub provider behavior are not validated by this browser test.');
 } finally {
   if (browser) await browser.close();
   if (api) await api.close();

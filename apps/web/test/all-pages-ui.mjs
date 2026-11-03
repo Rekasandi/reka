@@ -20,8 +20,6 @@ const triageIssue = { ...issues[0], id: 'intake1', identifier: 'ENG-4', number: 
 const clients = [{ id: 'c1', name: 'Bukit Vista Hospitality', industry: 'Travel & Hospitality', notes: 'Guest booking platform.', contactCount: 1, projectCount: 1, contacts: [{ id: 'ct1', name: 'Nadia Putri', email: 'nadia@example.com', role: 'Product lead' }], createdAt: '2026-09-27' }];
 const notifications = [{ id: 'n1', userId: 'u1', type: 'assignment', title: 'Booking confirmation assigned to you', body: 'Review the booking confirmation flow before the next release.', read: false, metadata: { issueIdentifier: 'ENG-1' }, createdAt: '2026-10-13T08:00:00Z' }];
 const documents = [{ id: 'd1', title: 'Delivery decision log', content: '# Delivery decisions\n\nCapture context, acceptance criteria, and next actions.', projectId: 'p1', teamId: null, archivedAt: null, updatedAt: '2026-10-13' }];
-const initiatives = [{ id: 'in1', name: 'Customer experience', description: 'A clear path from discovery to delivery.', ownerId: user.id, status: 'in_progress', health: 'on_track', startDate: '2026-10-01', targetDate: '2027-02-27', projects, projectCount: 1, progress: 33, totalIssues: 3, completedIssues: 1 }];
-const roadmap = { initiatives, projects: projects.map(project => ({ ...project, startDate: '2026-10-01', scheduled: true })), milestones: [], dependencies: [] };
 const sample = { averageHours: 8, medianHours: 6, sampleSize: 1, missingHistoryCount: 0, points: [] };
 const overview = { history: { hasHistory: true, baselineIssueCount: 0 }, throughput: { total: 1, repeatedCompletionEvents: 0, baselineCompletionCount: 0, points: [{ date: '2026-10-13', count: 1 }] }, leadTime: sample, cycleTime: sample, completions: { page: 1, totalPages: 1, total: 1, rows: [{ issueId: 'i2', identifier: 'ENG-3', title: issues[2].title, completedAt: '2026-10-13T08:00:00Z' }] }, quality: { explanation: 'Measured workflow history only.' } };
 const favorites = [{ resourceType: 'project', resourceId: 'p1', name: projects[0].name, href: '/projects/p1' }, { resourceType: 'document', resourceId: 'd1', name: documents[0].title, href: '/documents/d1' }];
@@ -30,24 +28,20 @@ const components = [
   ['ProjectsPage', 'projects'], ['ProjectDetailPage', 'projects'], ['CyclesPage', 'cycles'], ['CycleDetailPage', 'cycles'],
   ['TeamsPage', 'teams'], ['TeamDetailPage', 'teams'], ['TeamIssuesPage', 'teams'], ['UsersPage', 'users'],
   ['ClientsPage', 'clients'], ['SettingsPage', 'settings'], ['LoginPage', 'auth'], ['NotFoundPage', 'common'],
-  ['TriagePage', 'issues', 'triage'], ['FavoritesPage', 'views'], ['DocumentsPage', 'projects'], ['DocumentDetailPage', 'projects'],
-  ['InitiativesPage', 'initiatives'], ['InitiativeDetailPage', 'initiatives'], ['RoadmapPage', 'initiatives'], ['InsightsPage', 'insights'],
+  ['TriagePage', 'issues', 'triage'], ['FavoritesPage', 'favorites'], ['DocumentsPage', 'projects'], ['DocumentDetailPage', 'projects'],
+  ['InsightsPage', 'insights'],
 ];
-const routes = ['/dashboard', '/inbox', '/my-issues', '/issues', '/projects', '/projects/p1', '/cycles', '/cycles/cy1', '/teams', '/teams/t1', '/teams/t1/issues', '/users', '/clients', '/settings', '/triage', '/favorites', '/documents', '/documents/d1', '/initiatives', '/initiatives/in1', '/roadmap', '/insights', '/login', '/missing'];
-const config = [['/dashboard','DashboardPage'], ['/inbox','InboxPage'], ['/my-issues','IssuesPage'], ['/issues','IssuesPage'], ['/projects','ProjectsPage'], ['/projects/:id','ProjectDetailPage'], ['/cycles','CyclesPage'], ['/cycles/:id','CycleDetailPage'], ['/teams','TeamsPage'], ['/teams/:id','TeamDetailPage'], ['/teams/:id/issues','TeamIssuesPage'], ['/users','UsersPage'], ['/clients','ClientsPage'], ['/settings/:section?','SettingsPage'], ['/triage','TriagePage'], ['/favorites','FavoritesPage'], ['/documents','DocumentsPage'], ['/documents/:id','DocumentDetailPage'], ['/initiatives','InitiativesPage'], ['/initiatives/:id','InitiativeDetailPage'], ['/roadmap','RoadmapPage'], ['/insights','InsightsPage']];
+const routes = ['/dashboard', '/inbox', '/my-issues', '/issues', '/projects', '/projects/p1', '/cycles', '/cycles/cy1', '/teams', '/teams/t1', '/teams/t1/issues', '/users', '/clients', '/settings', '/triage', '/favorites', '/documents', '/documents/d1', '/insights', '/login', '/missing'];
+const config = [['/dashboard','DashboardPage'], ['/inbox','InboxPage'], ['/my-issues','IssuesPage'], ['/issues','IssuesPage'], ['/projects','ProjectsPage'], ['/projects/:id','ProjectDetailPage'], ['/cycles','CyclesPage'], ['/cycles/:id','CycleDetailPage'], ['/teams','TeamsPage'], ['/teams/:id','TeamDetailPage'], ['/teams/:id/issues','TeamIssuesPage'], ['/users','UsersPage'], ['/clients','ClientsPage'], ['/settings/:section?','SettingsPage'], ['/triage','TriagePage'], ['/favorites','FavoritesPage'], ['/documents','DocumentsPage'], ['/documents/:id','DocumentDetailPage'], ['/insights','InsightsPage']];
 const findings = [];
 let teamsMode = 'populated';
 let favoritesMode = 'populated';
-const viewConfig = { filterTab: 'all', viewMode: 'list', groupBy: 'none', sortBy: 'manual', showSubtasks: true, filters: { assigneeIds: [], labelIds: [], priorities: [], projectIds: [] } };
-const views = [{ id: 'v1', name: 'Engineering delivery', teamId: 't1', visibility: 'shared', ownerId: 'u1', config: viewConfig }, { id: 'v2', name: 'Design delivery', teamId: 't2', visibility: 'private', ownerId: 'u1', config: viewConfig }];
 // Unrelated team fixtures catch accidental workspace-wide submenu destinations.
 projects.push({ ...projects[0], id: 'p2', teamId: 't2', name: 'Design system foundations', slug: 'design-system' });
 cycles.push({ ...cycles[0], id: 'cy2', teamId: 't2', name: 'Design current cycle' }, { ...cycles[0], id: 'cy3', name: 'Engineering upcoming cycle', status: 'upcoming' });
-initiatives.push({ ...initiatives[0], id: 'in2', name: 'Design foundation initiative', projects: [projects[1]] });
 teams[1].isPrivate = true;
-components.push(['ViewsPage', 'views']);
-routes.push('/views', '/issues/i0', ...['preferences', 'profile', 'accounts', 'workflows', 'labels', 'projects', 'github', 'workspace', 'members', 'teams'].map(section => `/settings/${section}`));
-config.push(['/views', 'ViewsPage'], ['/issues/:id', 'IssueDetailPage'], ['/settings/teams/:teamId', 'SettingsPage']);
+routes.push('/issues/i0', ...['preferences', 'profile', 'accounts', 'workflows', 'labels', 'projects', 'github', 'workspace', 'members', 'teams'].map(section => `/settings/${section}`));
+config.push(['/issues/:id', 'IssueDetailPage'], ['/settings/teams/:teamId', 'SettingsPage']);
 routes.push('/settings/teams/t1', '/teams/t1?tab=members', '/teams/t1?tab=settings');
 try {
   const page = await browser.newPage();
@@ -58,13 +52,13 @@ try {
     const path = requestUrl.pathname;
     if (!path.startsWith('/api/')) return route.continue();
     if (route.request().method() !== 'GET') return route.fulfill({ status: 405, json: { message: 'Audit is read-only' } });
+    // AUDIT_FAIL_API=1 renders every page's error state (all data requests fail; session and workspace stay valid).
+    if (process.env.AUDIT_FAIL_API && !['/api/workspace', '/api/auth/me'].includes(path)) return route.fulfill({ status: 503, json: { message: 'Controlled fixture error' } });
     if (path === '/api/teams' && teamsMode === 'error') return route.fulfill({ status: 503, json: { message: 'Controlled fixture error' } });
     if (path === '/api/favorites' && favoritesMode === 'error') return route.fulfill({ status: 503, json: { message: 'Controlled favorite error' } });
     const data = path === '/api/workspace' ? { id: 'workspace', name: 'REKA', slug: 'reka', role: user.role }
       : path === '/api/documents' ? documents : path === '/api/documents/d1' ? documents[0]
-      : path === '/api/initiatives/roadmap' ? roadmap : path === '/api/initiatives' ? initiatives : path === '/api/initiatives/in1' ? initiatives[0]
       : path.endsWith('/recurrence') ? null
-      : path === '/api/views' ? views.filter(view => !requestUrl.searchParams.get('teamId') || !view.teamId || view.teamId === requestUrl.searchParams.get('teamId'))
       : path === '/api/favorites' ? (favoritesMode === 'empty' ? [] : favorites) : path === '/api/triage' ? [triageIssue]
       : path === '/api/issue-templates' ? [{ id: 'it1', teamId: 't1', name: 'Bug report', fields: [{ key: 'details', label: 'Details', type: 'textarea', required: true }] }]
       : path === '/api/insights/overview' ? overview
@@ -91,18 +85,18 @@ try {
       import { TooltipProvider } from '/@fs${ui}';
       import { ThemeProvider } from '/src/components/theme/theme-provider.tsx';
       import { AppLayout } from '/src/components/layout/app-layout.tsx';
-      import { useAuthStore } from '/src/stores/auth.store.ts';
-      ${components.map(([name, feature, file]) => `import { ${name} } from '/src/features/${feature}/components/${file || name.replace(/Page$/, '').replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase()}-page.tsx';`).join('\n')}
+            ${components.map(([name, feature, file]) => `import { ${name} } from '/src/features/${feature}/components/${file || name.replace(/Page$/, '').replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase()}-page.tsx';`).join('\n')}
       import '/src/styles/globals.css';
       import '/@fs${css}';
       import { buildBurndownData } from '/src/features/cycles/components/burndown-chart.tsx';
       window.__auditBurndown = buildBurndownData([{ snapshotAt: '2026-10-13T08:00:00Z', remainingIssueCount: 4, remainingEstimate: 8 }], 'issues');
       const params = new URLSearchParams(window.location.search);
-      useAuthStore.setState({ user: ${JSON.stringify(user)}, isAuthenticated: true });
-      window.__auditSetIdentity = patch => useAuthStore.setState({ user: { ...useAuthStore.getState().user, ...patch } });
+      (window.__testQueryClient ??= new QueryClient({ defaultOptions: { queries: { retry: false } } })).setQueryData(['auth', 'me'], ${JSON.stringify(user)});
+      // The query cache notifies observers asynchronously, so resolve after the UI has re-rendered.
+      window.__auditSetIdentity = patch => { window.__testQueryClient.setQueryData(['auth', 'me'], current => ({ ...current, ...patch })); return new Promise(resolve => setTimeout(resolve, 100)); };
       ReactDOM.createRoot(document.getElementById('root')).render(
         React.createElement(TooltipProvider, null, React.createElement(ThemeProvider, { defaultTheme: params.get('theme') || 'dark', storageKey: 'audit-theme' },
-          React.createElement(QueryClientProvider, { client: new QueryClient({ defaultOptions: { queries: { retry: false } } }) },
+          React.createElement(QueryClientProvider, { client: (window.__testQueryClient ??= new QueryClient({ defaultOptions: { queries: { retry: false } } })) },
             React.createElement(MemoryRouter, { initialEntries: [params.get('route') || '/dashboard'] },
               React.createElement(Routes, null,
                 React.createElement(Route, { path: '/login', element: React.createElement(LoginPage) }),
@@ -195,26 +189,30 @@ try {
   await page.goto(`${process.env.WEB_URL || 'http://localhost:5173'}?route=%2Fmy-issues&theme=dark`);
   await page.getByRole('heading', { name: 'My Issues', exact: true }).waitFor();
   await page.getByTitle('Expand subtasks', { exact: true }).waitFor();
-  await page.getByRole('button', { name: 'Customize view', exact: true }).click();
-  const showSubIssues = page.getByRole('menuitemcheckbox', { name: 'Show sub-issues', exact: true });
-  assert.equal(await showSubIssues.getAttribute('data-state'), 'checked');
-  await showSubIssues.click();
-  await page.getByRole('button', { name: 'Customize view', exact: true }).waitFor();
+  await page.waitForTimeout(1500); await page.screenshot({ path: '/tmp/mi-' + Date.now() + '.png' });
+  // Display options popover (shared issues page): the "Show sub-issues" switch replaced the old Customize view menu.
+  const toggleSubIssues = async () => {
+    await page.getByRole('button', { name: 'Display options', exact: true }).click();
+    await page.getByRole('switch', { name: 'Show sub-issues', exact: true }).click();
+    await page.keyboard.press('Escape');
+  };
+  await page.getByRole('button', { name: 'Display options', exact: true }).click();
+  assert.equal(await page.getByRole('switch', { name: 'Show sub-issues', exact: true }).getAttribute('data-state'), 'checked');
+  await page.keyboard.press('Escape');
+  await toggleSubIssues();
+  await page.getByRole('button', { name: 'Display options', exact: true }).waitFor();
   assert.equal(await page.getByTitle('Expand subtasks', { exact: true }).count(), 0);
   assert.equal(await page.getByText('Test payment reconciliation', { exact: true }).count(), 0);
   await page.reload();
   await page.getByRole('heading', { name: 'My Issues', exact: true }).waitFor();
   assert.equal(await page.getByTitle('Expand subtasks', { exact: true }).count(), 0, 'View choice persists on reload');
-  await page.getByRole('button', { name: 'Customize view', exact: true }).click();
-  await page.getByRole('menuitemcheckbox', { name: 'Show sub-issues', exact: true }).click();
-  await page.getByRole('button', { name: 'Board view', exact: true }).click();
+  await toggleSubIssues();
+  await page.getByRole('radio', { name: 'Board view', exact: true }).click();
   await page.getByText('Test payment reconciliation', { exact: true }).waitFor();
-  await page.getByRole('button', { name: 'Customize view', exact: true }).click();
-  await page.getByRole('menuitemcheckbox', { name: 'Show sub-issues', exact: true }).click();
+  await toggleSubIssues();
   assert.equal(await page.getByText('Test payment reconciliation', { exact: true }).count(), 0, 'Sub-issues are hidden on board as well');
-  await page.getByRole('button', { name: 'Customize view', exact: true }).click();
-  await page.getByRole('menuitemcheckbox', { name: 'Show sub-issues', exact: true }).click();
-  await page.getByRole('button', { name: 'List view', exact: true }).click();
+  await toggleSubIssues();
+  await page.getByRole('radio', { name: 'List view', exact: true }).click();
   await page.getByTitle('Expand sub-tasks', { exact: true }).waitFor();
 
   // Context menu keyboard navigation must not trigger page-level issue shortcuts.
@@ -397,23 +395,6 @@ try {
     await page.getByRole('button', { name: 'Toggle Engineering upcoming cycle summary', exact: true }).click();
     await page.getByRole('link', { name: 'Open cycle Engineering upcoming cycle', exact: true }).waitFor();
     assert.equal(await page.getByRole('link', { name: 'Open cycle October delivery', exact: true }).count(), 0);
-    if (width < 768) await page.getByRole('button', { name: 'Toggle Sidebar', exact: true }).click();
-    await nav.locator('a[href="/initiatives?teamId=t1"]').click();
-    await page.getByRole('heading', { name: 'Initiatives', exact: true }).waitFor();
-    await page.getByRole('link', { name: /Customer experience/ }).first().waitFor();
-    assert.equal(await page.getByRole('link', { name: /Design foundation initiative/ }).count(), 0);
-    if (width < 768) await page.getByRole('button', { name: 'Toggle Sidebar', exact: true }).click();
-    await nav.locator('a[href="/views?teamId=t1"]').click();
-    await page.getByRole('heading', { name: 'Views', exact: true }).waitFor();
-    await page.getByRole('list', { name: 'Saved views', exact: true }).getByRole('link', { name: /Engineering delivery/ }).waitFor();
-    assert.equal(await page.getByRole('list', { name: 'Saved views', exact: true }).getByRole('link', { name: /Design delivery/ }).count(), 0);
-    await page.getByRole('textbox', { name: 'Search views', exact: true }).fill('missing view');
-    await page.getByText('No matching views', { exact: true }).waitFor();
-    await page.getByRole('textbox', { name: 'Search views', exact: true }).fill('');
-    await page.getByRole('list', { name: 'Saved views', exact: true }).getByRole('link', { name: /Engineering delivery/ }).click();
-    await page.getByRole('button', { name: 'List view', exact: true }).waitFor();
-    await page.waitForFunction(() => document.querySelector('[aria-label="Saved issue view"]')?.value === 'v1');
-    assert.equal(await page.getByRole('button', { name: 'List view', exact: true }).getAttribute('aria-pressed'), 'true');
   }
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto(`${process.env.WEB_URL || 'http://localhost:5173'}?route=${encodeURIComponent('/triage?teamId=t2')}&theme=dark`);
@@ -429,7 +410,7 @@ try {
   await sidebar.getByRole('button', { name: 'More workspace pages', exact: true }).focus();
   await page.keyboard.press('Enter');
   const moreMenu = page.getByRole('menu');
-  assert.equal(await moreMenu.getByRole('menuitem').count(), 11);
+  assert.equal(await moreMenu.getByRole('menuitem').count(), 10);
   await page.keyboard.press('Escape');
   assert.equal(await page.getByRole('menu').count(), 0);
   await page.evaluate(() => window.__auditSetIdentity({ role: 'guest' }));

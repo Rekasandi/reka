@@ -8,7 +8,7 @@ const { createPersistentPostgres } = require('./persistent-postgres.cjs');
 const { createIsolatedApi } = require('./isolated-api.cjs');
 const { organizations, organizationMembers, users, teams, teamMembers, teamWorkflowStates, sessions, issues, comments, notifications, issueSubscriptions, notificationPreferences, attachments, githubInstallations, githubRepositories, githubBranches, githubPullRequests, webhookEvents } = require('@reka/database');
 const { eq } = require('drizzle-orm');
-const modules = ['activities', 'attachments', 'comments', 'cycles', 'github', 'issues', 'issue-subscriptions', 'labels', 'notifications', 'projects', 'teams', 'users', 'views', 'workspace'].map(name => Object.values(require(`../../dist/${name}/${name}.module`))[0]);
+const modules = ['activities', 'attachments', 'comments', 'cycles', 'github', 'issues', 'issue-subscriptions', 'labels', 'notifications', 'projects', 'teams', 'users', 'favorites', 'workspace'].map(name => Object.values(require(`../../dist/${name}/${name}.module`))[0]);
 modules.push(Object.values(require('../../dist/common/redis/redis.module'))[0]);
 const { RedisService } = require('../../dist/common/redis/redis.service');
 const ui = fileURLToPath(new URL('../../../packages/ui/src/index.ts', import.meta.url));
@@ -91,14 +91,13 @@ try {
         import { IssueDetailPage } from '/src/features/issues/components/issue-detail-page.tsx';
         import { InboxPage } from '/src/features/notifications/components/inbox-page.tsx';
         import { SettingsPage } from '/src/features/settings/components/settings-page.tsx';
-        import { useAuthStore } from '/src/stores/auth.store.ts';
-        import '/src/styles/globals.css';
+                import '/src/styles/globals.css';
         const issue = ${JSON.stringify(issue)};
-        useAuthStore.setState({ user: ${JSON.stringify(user)}, isAuthenticated: true });
+        (window.__testQueryClient ??= new QueryClient({ defaultOptions: { queries: { retry: false } } })).setQueryData(['auth', 'me'], ${JSON.stringify(user)});
         function IssueRoute() { return React.createElement(IssueDetailSheet, { issue, open: true, onOpenChange: () => {} }); }
         ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(TooltipProvider, null,
           React.createElement(ThemeProvider, { defaultTheme: new URLSearchParams(location.search).get('theme') || 'light', storageKey: 'collaboration-e2e' },
-            React.createElement(QueryClientProvider, { client: new QueryClient({ defaultOptions: { queries: { retry: false } } }) },
+            React.createElement(QueryClientProvider, { client: (window.__testQueryClient ??= new QueryClient({ defaultOptions: { queries: { retry: false } } })) },
               React.createElement(MemoryRouter, { initialEntries: [new URLSearchParams(location.search).get('page') === 'inbox' ? '/inbox' : new URLSearchParams(location.search).get('page') === 'github-settings' ? '/settings/github' : '/issue'] },
                 React.createElement(Routes, null,
                   React.createElement(Route, { path: '/issue', element: React.createElement(IssueRoute) }),

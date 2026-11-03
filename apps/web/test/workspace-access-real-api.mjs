@@ -83,9 +83,8 @@ try {
         import { TeamsPage } from '/src/features/teams/components/teams-page.tsx';
         import { TeamDetailPage } from '/src/features/teams/components/team-detail-page.tsx';
         import { TeamsSettings } from '/src/features/settings/components/teams-settings.tsx';
-        import { useAuthStore } from '/src/stores/auth.store.ts';
-        import '/src/styles/globals.css';
-        await useAuthStore.getState().fetchCurrentUser();
+                import '/src/styles/globals.css';
+        await (window.__testQueryClient ??= new QueryClient({ defaultOptions: { queries: { retry: false } } })).fetchQuery({ queryKey: ['auth', 'me'], queryFn: () => fetch('/api/auth/me').then(r => r.ok ? r.json() : null), staleTime: 0 });
         const surface = React.createElement(Routes, null,
           React.createElement(Route, { path: '/login', element: React.createElement(LoginPage) }),
           React.createElement(Route, { path: '/teams', element: React.createElement(TeamsPage) }),
@@ -95,7 +94,7 @@ try {
           React.createElement(Route, { path: '*', element: React.createElement('main', { className: 'flex flex-col gap-6 p-6' }, React.createElement(UsersPage), React.createElement(WorkspaceSettings)) }));
         ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(TooltipProvider, null,
           React.createElement(ThemeProvider, { defaultTheme: new URLSearchParams(location.search).get('theme') || 'dark', storageKey: 'workspace-e2e' },
-            React.createElement(QueryClientProvider, { client: new QueryClient({ defaultOptions: { queries: { retry: false } } }) },
+            React.createElement(QueryClientProvider, { client: (window.__testQueryClient ??= new QueryClient({ defaultOptions: { queries: { retry: false } } })) },
               React.createElement(BrowserRouter, null, surface, React.createElement(Toaster))))));
       ` });
     });
@@ -270,7 +269,7 @@ try {
   await owner.getByRole('button', { name: 'Team settings', exact: true }).click();
   const settings = owner.getByRole('dialog', { name: 'Team settings' });
   await settings.getByLabel('Private team').click();
-  await settings.getByRole('button', { name: 'Save settings' }).click();
+  await settings.getByRole('button', { name: 'Save changes' }).click();
   await owner.getByText('Team "Private engineering" updated', { exact: true }).waitFor();
   await postgres.reopen();
   privateTeam = (await postgres.db.select().from(require('@reka/database').teams).where(require('drizzle-orm').eq(require('@reka/database').teams.id, privateTeam.id)))[0];

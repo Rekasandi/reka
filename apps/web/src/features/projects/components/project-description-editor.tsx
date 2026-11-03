@@ -7,7 +7,7 @@ import TaskItem from '@tiptap/extension-task-item';
 import { TextStyle } from '@tiptap/extension-text-style';
 import Color from '@tiptap/extension-color';
 import Highlight from '@tiptap/extension-highlight';
-import { Button } from '@reka/ui';
+import { Button, FieldError } from '@reka/ui';
 import { BlockEditor, CodeBlock, SlashCommand, getSlashCommandSuggestion, defaultSlashCommandItems } from '@reka/ui/block-editor';
 import { useUpdateProject } from '../hooks/use-projects';
 import { parseProjectDescription } from '../lib/project-description';
@@ -112,7 +112,7 @@ export default function ProjectDescriptionEditor({ projectId, description }: Pro
         </div>
       </div>
       <BlockEditor editor={editor} className="project-description-editor text-sm leading-relaxed" />
-      {error && <p role="alert" className="mt-2 text-xs text-destructive">{error}</p>}
+      {error && <FieldError role="alert" className="mt-2 text-xs text-destructive">{error}</FieldError>}
     </section>
   );
 }

@@ -1,10 +1,5 @@
 import * as React from 'react';
-import {
-  Badge,
-  Button,
-  Input,
-  Skeleton,
-} from '@reka/ui';
+import { Badge, Button, Input, Skeleton, Spinner } from '@reka/ui';
 import {
   Building2,
   Plus,
@@ -167,21 +162,21 @@ export function ClientsPage() {
             className="h-8 pl-8 pr-7 text-xs bg-background"
           />
           {searchQuery && (
-            <button
+            <Button variant="plain" size="auto"
               type="button"
               onClick={() => setSearchQuery('')}
               aria-label="Clear client search"
               className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground hover:text-foreground"
             >
               <X className="size-3.5" />
-            </button>
+            </Button>
           )}
         </div>
       </div>
 
       {/* Client list */}
       {isLoading ? (
-        <div role="status" aria-label="Loading clients" className="flex flex-col gap-2">
+        <div className="flex flex-col gap-2"><Spinner aria-label="Loading clients" className="sr-only" />
           {[1, 2, 3, 4, 5, 6].map((i) => (
             <Skeleton key={i} className="h-16 w-full rounded-md" />
           ))}
@@ -226,7 +221,7 @@ export function ClientsPage() {
               const primaryContact = client.contacts?.[0];
               return (
                 <li key={client.id}>
-                  <button
+                  <Button variant="plain" size="auto"
                     type="button"
                     aria-label={`Open client ${client.name}`}
                     onClick={() => handleOpenDetail(client)}
@@ -254,7 +249,7 @@ export function ClientsPage() {
                     <span className="hidden items-center gap-2 text-xs tabular-nums text-muted-foreground xl:flex"><Users className="size-3.5" />{client.contactCount || 0}<span className="sr-only">contacts</span></span>
                     <span className="hidden text-xs text-muted-foreground xl:block">{new Date(client.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}</span>
                     <ChevronRight className="size-4 text-muted-foreground" />
-                  </button>
+                  </Button>
                 </li>
               );
             })}

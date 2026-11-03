@@ -1,11 +1,6 @@
 import * as React from 'react';
 import { useParams, Link, useLocation, useNavigate } from 'react-router-dom';
-import {
-  Card, CardHeader, CardTitle, CardDescription, CardContent, Badge, Button,
-  Skeleton, Select, SelectTrigger, SelectValue, SelectContent, SelectGroup,
-  SelectItem, DatePicker, Tabs, TabsList, TabsTrigger, TabsContent,
-  Avatar, AvatarImage, AvatarFallback, toast, cn,
-} from '@reka/ui';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, Badge, Button, Skeleton, Select, SelectTrigger, SelectValue, SelectContent, SelectGroup, SelectItem, DatePicker, Tabs, TabsList, TabsTrigger, TabsContent, Avatar, AvatarImage, AvatarFallback, toast, cn, Label, Progress, Spinner } from '@reka/ui';
 import {
   Plus, CheckCircle2, AlertTriangle, AlertCircle, Trash2, RefreshCw,
   GitBranch, Lock, Globe, ExternalLink, Users, Circle, CircleDot,
@@ -28,8 +23,8 @@ import { ConfirmDeleteDialog } from '../../../components/common/confirm-delete-d
 import { parseProjectDescription } from '../lib/project-description';
 import { getIssueStatusCategory, type Issue } from '@reka/types';
 import type { Project, ProjectRepository } from '../api/projects.api';
-import { useFavorites, useToggleFavorite } from '../../views/hooks/use-views';
-import { useAuthStore } from '../../../stores/auth.store';
+import { useFavorites, useToggleFavorite } from '../../favorites/hooks/use-favorites';
+import { useAuth } from '../../auth/hooks/use-auth';
 
 const ProjectDescriptionEditor = React.lazy(() => import('./project-description-editor'));
 const STATUS_OPTIONS = [
@@ -98,7 +93,7 @@ export function ProjectDetailPage() {
   const [isMembersOpen, setIsMembersOpen] = React.useState(false);
   const [unlinkRepoTarget, setUnlinkRepoTarget] = React.useState<ProjectRepository | null>(null);
   const { data: project, isLoading, isError, refetch } = useProject(id);
-  const { user } = useAuthStore();
+  const { user } = useAuth();
   const canFavorite = user?.role === 'owner' || user?.role === 'admin' || user?.role === 'member';
   const { data: favorites = [] } = useFavorites();
   const toggleFavorite = useToggleFavorite();
@@ -118,7 +113,7 @@ export function ProjectDetailPage() {
   const completedCount = progressIssues.filter((issue) => getIssueStatusCategory(issue) === 'completed').length;
   const progressPercent = progressIssues.length ? Math.round(completedCount / progressIssues.length * 100) : 0;
 
-  if (isLoading) return <div className="flex flex-col gap-6" role="status" aria-label="Loading project"><Skeleton className="h-8 w-64" /><Skeleton className="h-48 w-full" /><Skeleton className="h-64 w-full" /></div>;
+  if (isLoading) return <div className="flex flex-col gap-6"><Spinner aria-label="Loading project" className="sr-only" /><Skeleton className="h-8 w-64" /><Skeleton className="h-48 w-full" /><Skeleton className="h-64 w-full" /></div>;
   if (isError || !project) return (
     <div className="flex flex-col items-center gap-3 py-20">
       <p className="text-sm text-muted-foreground">Failed to load project details.</p>
@@ -267,7 +262,7 @@ export function ProjectDetailPage() {
                 <div className="project-property-row"><dt>Health</dt><dd><PropertySelect label="Project health" value={project.health} options={HEALTH_OPTIONS} onChange={(health) => updateMutation.mutate({ id: project.id, data: { health } })} /></dd></div>
                 <div className="project-property-row"><dt>Lead</dt><dd><Select value={project.ownerId} onValueChange={(ownerId) => updateMutation.mutate({ id: project.id, data: { ownerId } })}><SelectTrigger aria-label="Project lead" size="sm" className="project-property-select"><SelectValue placeholder="Select lead" /></SelectTrigger><SelectContent><SelectGroup>{users.map((candidate) => <SelectItem key={candidate.id} value={candidate.id}>{candidate.name}</SelectItem>)}</SelectGroup></SelectContent></Select></dd></div>
                 <div className="project-property-row"><dt>Members</dt><dd><Button variant="ghost" size="sm" onClick={() => setIsMembersOpen(true)}><Users data-icon="inline-start" />Manage members</Button></dd></div>
-                <div className="project-property-row"><dt>Dates</dt><dd className="flex min-w-0 flex-col gap-2"><label className="flex flex-col gap-1 text-[11px] text-muted-foreground">Start date<DatePicker date={project.startDate ? new Date(project.startDate) : undefined} placeholder="Set start date" onDateChange={(date) => updateMutation.mutate({ id: project.id, data: { startDate: date?.toISOString() ?? null } })} /></label><label className="flex flex-col gap-1 text-[11px] text-muted-foreground">Target date<DatePicker date={project.targetDate ? new Date(project.targetDate) : undefined} placeholder="Set target date" onDateChange={(date) => updateMutation.mutate({ id: project.id, data: { targetDate: date?.toISOString() ?? null } })} /></label></dd></div>
+                <div className="project-property-row"><dt>Dates</dt><dd className="flex min-w-0 flex-col gap-2"><Label className="flex flex-col gap-1 text-[11px] text-muted-foreground">Start date<DatePicker date={project.startDate ? new Date(project.startDate) : undefined} placeholder="Set start date" onDateChange={(date) => updateMutation.mutate({ id: project.id, data: { startDate: date?.toISOString() ?? null } })} /></Label><Label className="flex flex-col gap-1 text-[11px] text-muted-foreground">Target date<DatePicker date={project.targetDate ? new Date(project.targetDate) : undefined} placeholder="Set target date" onDateChange={(date) => updateMutation.mutate({ id: project.id, data: { targetDate: date?.toISOString() ?? null } })} /></Label></dd></div>
                 <div className="project-property-row"><dt>Team</dt><dd className="py-1">{team ? <Link to={`/teams/${team.id}`} className="flex items-center gap-2 hover:underline"><span aria-hidden="true" className="inline-flex size-5 shrink-0 items-center justify-center rounded border border-border bg-muted px-0.5 text-[9px] font-semibold text-muted-foreground">{team.key}</span><span className="truncate">{team.name}</span></Link> : <span className="text-muted-foreground">No team</span>}</dd></div>
               </dl>
             </CardContent>
@@ -278,7 +273,7 @@ export function ProjectDetailPage() {
             <CardContent className="flex flex-col gap-5">
               {isIssuesLoading ? <Skeleton className="h-24 w-full" /> : isIssuesError ? <p className="text-sm text-muted-foreground">Progress unavailable</p> : <>
                 <dl className="grid grid-cols-2 gap-4 text-sm"><div className="flex flex-col gap-1"><dt className="text-muted-foreground">Scope</dt><dd className="text-lg tabular-nums">{projectIssues.length}</dd></div><div className="flex flex-col gap-1"><dt className="text-muted-foreground">Completed</dt><dd className="text-lg tabular-nums">{completedCount}</dd></div></dl>
-                <div className="flex flex-col gap-2"><div className="flex justify-between text-xs text-muted-foreground"><span>Completion</span><span className="tabular-nums">{progressPercent}%</span></div><div role="progressbar" aria-label="Project completion" aria-valuenow={progressPercent} aria-valuemin={0} aria-valuemax={100} className="h-1.5 overflow-hidden rounded-full bg-secondary"><div className="h-full rounded-full bg-primary" style={{ width: `${progressPercent}%` }} /></div></div>
+                <div className="flex flex-col gap-2"><div className="flex justify-between text-xs text-muted-foreground"><span>Completion</span><span className="tabular-nums">{progressPercent}%</span></div><Progress aria-label="Project completion" value={progressPercent} className="h-1.5 bg-secondary" /></div>
                 <div className="flex flex-wrap gap-1" aria-label="Group project progress">{['assignees', 'labels', 'teams'].map((group) => <Button key={group} variant="category" size="sm" aria-pressed={progressGrouping === group} onClick={() => setProgressGrouping(group)}>{group === 'assignees' ? 'Assignees' : group === 'labels' ? 'Labels' : 'Teams'}</Button>)}</div>
                 <ul className="flex flex-col gap-3">{Array.from(groups, ([id, group]) => <li key={id} className="flex items-center justify-between gap-3 text-sm"><span className="flex min-w-0 items-center gap-2">{progressGrouping === 'labels' ? <Tag className="size-4 shrink-0 text-muted-foreground" /> : <Users className="size-4 shrink-0 text-muted-foreground" />}<span className="truncate">{group.name}</span></span><span className="shrink-0 text-xs tabular-nums text-muted-foreground">{group.completed} / {group.total}</span></li>)}</ul>
                 {!projectIssues.length && <p className="text-sm text-muted-foreground">No issues in this project yet.</p>}

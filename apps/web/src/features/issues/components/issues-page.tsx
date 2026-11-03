@@ -1,11 +1,12 @@
 import * as React from 'react';
 import { useLocation, useSearchParams } from 'react-router-dom';
-import { Button, Skeleton, Input, Badge, Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetTrigger, DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuLabel, DropdownMenuCheckboxItem, Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@reka/ui';
-import { Filter, PanelRight, Plus, LayoutGrid, List, RefreshCw, Search, Layers, X, SlidersHorizontal, Star, Trash2, Save, Tag, BarChart2 } from 'lucide-react';
+import { SelectField } from '../../../components/common/select-field';
+import { Button, Skeleton, Input, Badge, Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetTrigger, Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, Label, ToggleGroup, ToggleGroupItem, Popover, PopoverTrigger, PopoverContent, Separator, Switch } from '@reka/ui';
+import { Filter, PanelRight, Plus, LayoutGrid, List, RefreshCw, Search, Layers, X, SlidersHorizontal, Tag, BarChart2 } from 'lucide-react';
 import { useIssues, useIssueLabels } from '../hooks/use-issues';
 import { useUsers } from '../../users/hooks/use-users';
 import { useProjects } from '../../projects/hooks/use-projects';
-import { useAuthStore } from '../../../stores/auth.store';
+import { useAuth } from '../../auth/hooks/use-auth';
 import { CreateIssueDialog } from './create-issue-dialog';
 import { IssueDetailSheet } from './issue-detail-sheet';
 import { IssueListView } from './issue-list-view';
@@ -13,11 +14,10 @@ import { IssueGroupedListView } from './issue-grouped-list-view';
 import { IssueKanbanBoard } from './issue-kanban-board';
 import { IssueFiltersSidebar, type FilterCategory } from './issue-filters-sidebar';
 import { IssueMetricsAside } from './issue-metrics-aside';
+import { useFavorites, useToggleFavorite } from '../../favorites/hooks/use-favorites';
 import { ManageLabelsDialog } from './manage-labels-dialog';
 import { EMPTY_ISSUE_FILTERS, filterIssues, type IssueFilters } from '../lib/issue-filters';
 import { getIssueStatusCategory, isIssueClosed, type Issue } from '@reka/types';
-import { useCreateSavedView, useDeleteSavedView, useFavorites, useSavedViews, useToggleFavorite, useUpdateSavedView } from '../../views/hooks/use-views';
-import type { SavedView, SavedViewConfig } from '../../views/api/views.api';
 import { useTeams } from '../../teams/hooks/use-teams';
 import { WorkPageHeader } from '../../../components/common/work-list';
 
@@ -28,7 +28,7 @@ interface IssuesPageProps {
 export function IssuesPage({ teamId }: IssuesPageProps) {
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { user } = useAuthStore();
+  const { user } = useAuth();
   const isMyIssues = location.pathname === '/my-issues';
 
   const [isCreateOpen, setIsCreateOpen] = React.useState(false);
@@ -37,11 +37,6 @@ export function IssuesPage({ teamId }: IssuesPageProps) {
   const [viewMode, setViewMode] = React.useState<'grouped' | 'list' | 'board'>('grouped');
   const [groupBy, setGroupBy] = React.useState<'status' | 'none'>('status');
   const [sortBy, setSortBy] = React.useState<'manual' | 'updated' | 'priority' | 'dueDate'>('manual');
-  const [selectedViewId, setSelectedViewId] = React.useState('');
-  const [saveViewOpen, setSaveViewOpen] = React.useState(false);
-  const [viewName, setViewName] = React.useState('');
-  const [viewVisibility, setViewVisibility] = React.useState<'private' | 'shared'>('private');
-  const appliedViewId = React.useRef('');
   const [createStatus, setCreateStatus] = React.useState<string | undefined>(undefined);
   const [filterTab, setFilterTab] = React.useState('all');
   const [filters, setFilters] = React.useState<IssueFilters>(EMPTY_ISSUE_FILTERS);
@@ -66,31 +61,11 @@ export function IssuesPage({ teamId }: IssuesPageProps) {
   const { data: projects = [] } = useProjects();
   const { data: labels = [], isLoading: labelsLoading } = useIssueLabels();
   const { data: teams = [] } = useTeams();
-  const { data: savedViews = [], isLoading: viewsLoading, isError: viewsError, refetch: refetchViews } = useSavedViews(teamId);
   const { data: favorites = [] } = useFavorites();
-  const createSavedView = useCreateSavedView();
-  const updateSavedView = useUpdateSavedView();
-  const deleteSavedView = useDeleteSavedView();
   const toggleFavorite = useToggleFavorite();
-  const currentSavedView = savedViews.find(view => view.id === selectedViewId);
-  const currentViewFavorite = favorites.some(item => item.resourceType === 'view' && item.resourceId === selectedViewId);
   const canFavorite = user?.role === 'owner' || user?.role === 'admin' || user?.role === 'member';
-  const canCreateView = canFavorite && (!teamId || !!teams.find(team => team.id === teamId)?.canWrite);
   const canManageLabels = teamId ? !!teams.find(team => team.id === teamId)?.canManage : teams.some(team => team.canManage);
-  const canShareView = teamId ? !!teams.find(team => team.id === teamId)?.canManage : user?.role === 'owner' || user?.role === 'admin';
-  const viewConfig: SavedViewConfig = { filterTab: filterTab as SavedViewConfig['filterTab'], viewMode, groupBy, sortBy, showSubtasks, filters };
 
-  const applySavedView = (view: SavedView) => {
-    setSelectedViewId(view.id); setFilterTab(view.config.filterTab); setViewMode(view.config.viewMode);
-    setGroupBy(view.config.groupBy); setSortBy(view.config.sortBy); setShowSubtasks(view.config.showSubtasks);
-    setFilters(view.config.filters);
-  };
-  React.useEffect(() => {
-    const viewId = searchParams.get('viewId');
-    if (!viewId) { appliedViewId.current = ''; setSelectedViewId(''); return; }
-    const view = savedViews.find(item => item.id === viewId);
-    if (view && appliedViewId.current !== view.id) { applySavedView(view); appliedViewId.current = view.id; }
-  }, [searchParams, savedViews]);
   React.useEffect(() => {
     if (searchParams.get('create') !== '1') return;
     setIsCreateOpen(true);
@@ -111,30 +86,6 @@ export function IssuesPage({ teamId }: IssuesPageProps) {
   const handleOpenDetail = (issue: Issue) => {
     setSelectedIssue(issue); setIsDetailOpen(true);
     const next = new URLSearchParams(searchParams); next.set('issueId', issue.id); setSearchParams(next, { replace: true });
-  };
-  const handleSelectView = (id: string) => {
-    if (!id) { appliedViewId.current = ''; setSelectedViewId(''); const next = new URLSearchParams(searchParams); next.delete('viewId'); setSearchParams(next, { replace: true }); return; }
-    const view = savedViews.find(item => item.id === id);
-    if (view) { applySavedView(view); const next = new URLSearchParams(searchParams); next.set('viewId', id); setSearchParams(next, { replace: true }); }
-  };
-  const handleSaveView = () => {
-    const name = viewName.trim(); if (!name) return;
-    createSavedView.mutate({ name, teamId: teamId ?? null, visibility: viewVisibility, config: viewConfig }, { onSuccess: view => {
-      applySavedView(view); appliedViewId.current = view.id; const next = new URLSearchParams(searchParams); next.set('viewId', view.id); setSearchParams(next, { replace: true });
-      setSaveViewOpen(false); setViewName('');
-    } });
-  };
-  const handleUpdateView = () => {
-    if (!currentSavedView?.canEdit) return;
-    updateSavedView.mutate({ id: currentSavedView.id, input: { config: viewConfig } });
-  };
-  const handleRemoveView = () => {
-    if (!currentSavedView?.canEdit || !window.confirm(`Delete saved view “${currentSavedView.name}”?`)) return;
-    deleteSavedView.mutate(currentSavedView.id, { onSuccess: () => handleSelectView('') });
-  };
-  const handleToggleViewFavorite = () => {
-    if (!selectedViewId) return;
-    toggleFavorite.mutate({ resourceType: 'view', resourceId: selectedViewId, favorite: !currentViewFavorite });
   };
 
   // Scope to my-issues if on that route
@@ -276,27 +227,91 @@ export function IssuesPage({ teamId }: IssuesPageProps) {
           </Sheet>
 
           {/* View switcher */}
-          <div role="group" aria-label="Issue view" className="flex items-center rounded-md border bg-muted/60 p-0.5">
-            <Button type="button" variant={viewMode === 'grouped' ? 'secondary' : 'ghost'} size="icon-sm" onClick={() => setViewMode('grouped')} aria-pressed={viewMode === 'grouped'} title="Grouped by status" aria-label="Grouped by status">
-              <Layers />
-            </Button>
-            <Button type="button" variant={viewMode === 'list' ? 'secondary' : 'ghost'} size="icon-sm" onClick={() => setViewMode('list')} aria-pressed={viewMode === 'list'} title="List view" aria-label="List view">
-              <List />
-            </Button>
-            <Button type="button" variant={viewMode === 'board' ? 'secondary' : 'ghost'} size="icon-sm" onClick={() => { if (groupBy === 'none') setGroupBy('status'); setViewMode('board'); }} aria-pressed={viewMode === 'board'} title="Board view" aria-label="Board view">
-              <LayoutGrid />
-            </Button>
-          </div>
+          <ToggleGroup type="single" variant="outline" aria-label="Issue view" value={viewMode} onValueChange={(next) => {
+            if (!next) return;
+            if (next === 'board' && groupBy === 'none') setGroupBy('status');
+            setViewMode(next as typeof viewMode);
+          }} className="rounded-md bg-muted/60 p-0.5">
+            <ToggleGroupItem value="grouped" size="icon-sm" title="Grouped by status" aria-label="Grouped by status"><Layers /></ToggleGroupItem>
+            <ToggleGroupItem value="list" size="icon-sm" title="List view" aria-label="List view"><List /></ToggleGroupItem>
+            <ToggleGroupItem value="board" size="icon-sm" title="Board view" aria-label="Board view"><LayoutGrid /></ToggleGroupItem>
+          </ToggleGroup>
 
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button type="button" variant="outline" size="icon-sm" aria-label="Customize view" title="Customize view"><SlidersHorizontal /></Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-52">
-              <DropdownMenuLabel>Customize view</DropdownMenuLabel>
-              <DropdownMenuCheckboxItem checked={showSubtasks} onCheckedChange={handleShowSubtasksChange}>Show sub-issues</DropdownMenuCheckboxItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          {/* Display options popover */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8 gap-1.5 px-2.5 text-xs text-muted-foreground hover:text-foreground"
+                aria-label="Display options"
+              >
+                <SlidersHorizontal className="size-3.5" />
+                <span>Display</span>
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="end" className="w-72 p-3 space-y-3">
+              <div className="flex items-center justify-between border-b border-border/60 pb-2">
+                <span className="text-xs font-semibold text-foreground">Display options</span>
+              </div>
+
+              <div className="space-y-2.5">
+                <div className="flex items-center justify-between gap-2">
+                  <Label htmlFor="display-group-by" className="text-xs text-muted-foreground font-normal">
+                    Group by
+                  </Label>
+                  <SelectField
+                    id="display-group-by"
+                    aria-label="Group issues by"
+                    value={groupBy}
+                    onValueChange={(value) => {
+                      const next = value as 'status' | 'none';
+                      setGroupBy(next);
+                      if (next === 'none' && viewMode === 'board') setViewMode('list');
+                    }}
+                    options={[
+                      { value: 'status', label: 'Status' },
+                      { value: 'none', label: 'None' },
+                    ]}
+                    className="w-36 h-7.5 text-xs"
+                  />
+                </div>
+
+                <div className="flex items-center justify-between gap-2">
+                  <Label htmlFor="display-sort-by" className="text-xs text-muted-foreground font-normal">
+                    Ordering
+                  </Label>
+                  <SelectField
+                    id="display-sort-by"
+                    aria-label="Sort issues by"
+                    value={sortBy}
+                    onValueChange={(value) => setSortBy(value as typeof sortBy)}
+                    options={[
+                      { value: 'manual', label: 'Manual order' },
+                      { value: 'updated', label: 'Recently updated' },
+                      { value: 'priority', label: 'Priority' },
+                      { value: 'dueDate', label: 'Due date' },
+                    ]}
+                    className="w-36 h-7.5 text-xs"
+                  />
+                </div>
+              </div>
+
+              <Separator />
+
+              <div className="flex items-center justify-between gap-2 pt-0.5">
+                <Label htmlFor="show-subtasks" className="text-xs font-normal text-foreground cursor-pointer">
+                  Show sub-issues
+                </Label>
+                <Switch
+                  id="show-subtasks"
+                  checked={showSubtasks}
+                  onCheckedChange={handleShowSubtasksChange}
+                />
+              </div>
+            </PopoverContent>
+          </Popover>
 
           {canManageLabels && <Button type="button" variant="outline" onClick={() => setManageLabelsOpen(true)}><Tag data-icon="inline-start" /><span>Manage labels</span></Button>}
           <Button onClick={() => setIsCreateOpen(true)} className="px-3">
@@ -304,26 +319,6 @@ export function IssuesPage({ teamId }: IssuesPageProps) {
             <span>New Issue</span>
           </Button>
       </WorkPageHeader>
-
-      <div className="flex flex-wrap items-center gap-2 rounded-md bg-muted/30 px-3 py-2" role="group" aria-label="Saved view and display options">
-        <label className="sr-only" htmlFor="saved-issue-view">Saved view</label>
-        <select id="saved-issue-view" aria-label="Saved issue view" value={selectedViewId} onChange={event => handleSelectView(event.target.value)} disabled={viewsLoading} className="h-8 max-w-56 rounded-md border border-input bg-background px-2 text-xs">
-          <option value="">Current filters</option>{savedViews.map(view => <option key={view.id} value={view.id}>{view.name} · {view.visibility}</option>)}
-        </select>
-        {viewsError && <Button type="button" size="sm" variant="ghost" onClick={() => void refetchViews()}>Retry views</Button>}
-        {canCreateView && <Button type="button" size="sm" variant="outline" onClick={() => { setViewName(''); setViewVisibility('private'); setSaveViewOpen(true); }}><Save data-icon="inline-start" />Save view</Button>}
-        {currentSavedView?.canEdit && <Button type="button" size="sm" variant="outline" onClick={handleUpdateView} disabled={updateSavedView.isPending}>Save changes</Button>}
-        {currentSavedView?.canEdit && <Button type="button" size="icon-sm" variant="ghost" aria-label="Delete saved view" title="Delete saved view" onClick={handleRemoveView}><Trash2 /></Button>}
-        <Button type="button" size="icon-sm" variant="ghost" aria-label={currentViewFavorite ? 'Remove view from favorites' : 'Add view to favorites'} title={selectedViewId ? 'Toggle favorite view' : 'Select a saved view to favorite'} disabled={!canFavorite || !selectedViewId || toggleFavorite.isPending} onClick={handleToggleViewFavorite}><Star className={currentViewFavorite ? 'fill-current text-amber-500' : ''} /></Button>
-        <label className="flex items-center gap-1.5 text-xs text-muted-foreground">Group<select aria-label="Group issues by" value={groupBy} onChange={event => { const next = event.target.value as 'status' | 'none'; setGroupBy(next); if (next === 'none' && viewMode === 'board') setViewMode('list'); }} className="h-8 rounded-md border border-input bg-background px-2 text-foreground"><option value="status">Status</option><option value="none">None</option></select></label>
-        <label className="flex items-center gap-1.5 text-xs text-muted-foreground">Sort<select aria-label="Sort issues by" value={sortBy} onChange={event => setSortBy(event.target.value as typeof sortBy)} className="h-8 rounded-md border border-input bg-background px-2 text-foreground"><option value="manual">Manual order</option><option value="updated">Recently updated</option><option value="priority">Priority</option><option value="dueDate">Due date</option></select></label>
-        <Dialog open={saveViewOpen} onOpenChange={setSaveViewOpen}><DialogContent className="sm:max-w-md"><DialogHeader><DialogTitle>Save issue view</DialogTitle><DialogDescription>Save these filters, sorting and layout to your workspace account.</DialogDescription></DialogHeader>
-          <label className="flex flex-col gap-1.5 text-xs font-medium">View name<Input autoFocus maxLength={80} value={viewName} onChange={event => setViewName(event.target.value)} placeholder="e.g. High priority bugs" /></label>
-          <label className="flex flex-col gap-1.5 text-xs font-medium">Visibility<select aria-label="View visibility" value={viewVisibility} onChange={event => setViewVisibility(event.target.value as 'private' | 'shared')} className="h-9 rounded-md border border-input bg-background px-2 text-sm"><option value="private">Only me</option><option value="shared" disabled={!canShareView}>Shared with {teamId ? 'team' : 'workspace'}</option></select></label>
-          {!canShareView && <p className="text-xs text-muted-foreground">Only team leads or workspace admins can publish shared views.</p>}
-          <DialogFooter><Button type="button" variant="outline" onClick={() => setSaveViewOpen(false)}>Cancel</Button><Button type="button" onClick={handleSaveView} disabled={!viewName.trim() || createSavedView.isPending}>Save view</Button></DialogFooter>
-        </DialogContent></Dialog>
-      </div>
 
       {/* Linear Search & Filter Bar */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 border-b border-border/70 pb-3">

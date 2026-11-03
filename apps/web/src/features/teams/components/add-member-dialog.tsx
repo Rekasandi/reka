@@ -4,7 +4,7 @@ import { X } from 'lucide-react';
 import { useAddTeamMember } from '../hooks/use-teams';
 import { useUsers } from '../../users/hooks/use-users';
 import { InviteUserDialog } from '../../users/components/invite-user-dialog';
-import { useAuthStore } from '../../../stores/auth.store';
+import { useAuth } from '../../auth/hooks/use-auth';
 import type { User } from '../../users/api/users.api';
 
 export function AddMemberDialog({ teamId, open, onOpenChange, existingMemberUserIds = [] }: {
@@ -13,7 +13,7 @@ export function AddMemberDialog({ teamId, open, onOpenChange, existingMemberUser
   const [selectedUser, setSelectedUser] = React.useState<User | null>(null);
   const [role, setRole] = React.useState('member');
   const [inviteOpen, setInviteOpen] = React.useState(false);
-  const workspaceRole = useAuthStore(state => state.user?.role);
+  const workspaceRole = useAuth().user?.role;
   const canInvite = workspaceRole === 'owner' || workspaceRole === 'admin';
   const query = useUsers(false, open);
   const add = useAddTeamMember(teamId);

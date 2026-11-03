@@ -11,6 +11,7 @@ const { eq } = require('drizzle-orm');
 const { captureCurrentCycleSnapshots } = await import('../../worker/dist/processors/cycle-planning.js');
 const modules = ['cycles', 'issues', 'teams', 'users', 'projects'].map(name => Object.values(require(`../../dist/${name}/${name}.module`))[0]);
 const { RedisService } = require('../../dist/common/redis/redis.service');
+import { pickDate } from './pick-date.mjs';
 const ui = fileURLToPath(new URL('../../../packages/ui/src/index.ts', import.meta.url));
 const playwright = await import(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const { chromium } = playwright.chromium ? playwright : playwright.default;
@@ -73,12 +74,11 @@ try {
       import { ThemeProvider } from '/src/components/theme/theme-provider.tsx';
       import { CyclesPage } from '/src/features/cycles/components/cycles-page.tsx';
       import { CycleDetailPage } from '/src/features/cycles/components/cycle-detail-page.tsx';
-      import { useAuthStore } from '/src/stores/auth.store.ts';
-      import '/src/styles/globals.css';
-      useAuthStore.setState({ user: ${JSON.stringify(owner)}, isAuthenticated: true });
+            import '/src/styles/globals.css';
+      (window.__testQueryClient ??= new QueryClient({ defaultOptions: { queries: { retry: false } } })).setQueryData(['auth', 'me'], ${JSON.stringify(owner)});
       ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(TooltipProvider, null,
         React.createElement(ThemeProvider, { defaultTheme: new URLSearchParams(location.search).get('theme') || 'dark', storageKey: 'cycle-e2e' },
-          React.createElement(QueryClientProvider, { client: new QueryClient({ defaultOptions: { queries: { retry: false } } }) },
+          React.createElement(QueryClientProvider, { client: (window.__testQueryClient ??= new QueryClient({ defaultOptions: { queries: { retry: false } } })) },
             React.createElement(MemoryRouter, { initialEntries: [new URLSearchParams(location.search).get('page') === 'detail' ? '/cycles/${cycle.id}' : '/cycles'] },
               React.createElement(Routes, null,
                 React.createElement(Route, { path: '/cycles', element: React.createElement(CyclesPage) }),
@@ -99,8 +99,8 @@ try {
   await schedule.locator('input[aria-label="Cycle duration days"]').fill('14');
   await schedule.locator('input[aria-label="Cycle cooldown days"]').fill('1');
   const scheduledDate = new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10);
-  await schedule.locator('input[aria-label="Next cycle start date"]').fill(scheduledDate);
-  await schedule.locator('input[aria-label="Automatically create cycles"]').check();
+  await pickDate(page, schedule.getByRole('button', { name: 'Next cycle start date' }), scheduledDate);
+  await schedule.getByRole('checkbox', { name: 'Automatically create cycles' }).check();
   const saveSettings = page.waitForResponse(response => response.request().method() === 'PUT' && new URL(response.url()).pathname === `/api/cycles/settings/${team.id}`);
   await schedule.getByRole('button', { name: 'Save schedule' }).click();
   assert.equal((await saveSettings).status(), 200);

@@ -1,6 +1,8 @@
 export interface NotificationPreferences {
   comments: boolean; mentions: boolean; assignments: boolean; issueUpdates: boolean;
   projectUpdates: boolean; github: boolean; teamInvites: boolean;
+  /** Opt-in: also email each notification. */
+  emailNotifications?: boolean;
 }
 
 export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {

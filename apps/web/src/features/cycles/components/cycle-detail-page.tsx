@@ -26,6 +26,7 @@ import { CreateIssueDialog } from '../../issues/components/create-issue-dialog';
 import { IssueDetailSheet } from '../../issues/components/issue-detail-sheet';
 import { CompleteCycleDialog } from './complete-cycle-dialog';
 import { BurndownChart } from './burndown-chart';
+import { useTeamFeatures } from '../../teams/hooks/use-team-features';
 import { CycleStatusBadge } from './cycle-status-badge';
 import { ConfirmDeleteDialog } from '../../../components/common/confirm-delete-dialog';
 import { getIssueStatusCategory, isIssueClosed, type Issue } from '@reka/types';
@@ -49,6 +50,7 @@ export function CycleDetailPage() {
   const [issueFilterTab, setIssueFilterTab] = React.useState('all');
 
   const { data: cycle, isLoading, isError, refetch } = useCycle(id);
+  const { estimatesEnabled } = useTeamFeatures(cycle?.teamId);
   const { data: history, isLoading: historyLoading, isError: historyError, refetch: refetchHistory } = useCycleHistory(id);
   const { data: allIssues = [] } = useIssues();
   const updateIssueMutation = useUpdateIssue();
@@ -188,7 +190,7 @@ export function CycleDetailPage() {
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className="flex min-w-0 flex-col gap-6">
       {/* Burndown Chart Component */}
-      <BurndownChart snapshots={history?.snapshots ?? []} isLoading={historyLoading} isError={historyError} onRetry={() => void refetchHistory()} />
+      <BurndownChart estimatesEnabled={estimatesEnabled} snapshots={history?.snapshots ?? []} isLoading={historyLoading} isError={historyError} onRetry={() => void refetchHistory()} />
 
       {/* Issues in Cycle Section */}
       <div className="flex flex-col gap-3">
@@ -273,7 +275,7 @@ export function CycleDetailPage() {
             <p className="text-xs text-muted-foreground">Schedule</p>
             <p className="mt-1 font-mono text-xs text-foreground">{formatDateRange(cycle.startDate, cycle.endDate)}</p>
           </div>
-          <div className="mt-4 border-t border-border/60 pt-4">
+          {estimatesEnabled && <div className="mt-4 border-t border-border/60 pt-4">
             <p className="text-xs font-semibold text-foreground">Capacity & estimates</p>
             <div className="mt-2 grid grid-cols-2 gap-3 text-xs">
               <div><p className="text-muted-foreground">Planned</p><p className="mt-0.5 font-mono text-foreground">{cycle.plannedEstimate ?? 0} pts</p></div>
@@ -283,7 +285,7 @@ export function CycleDetailPage() {
             </div>
             {cycle.capacity !== null && cycle.capacity !== undefined && <p className="mt-2 text-xs text-muted-foreground">{cycle.remainingCapacity! < 0 ? `${Math.abs(cycle.remainingCapacity!)} pts over capacity` : `${cycle.remainingCapacity} pts capacity remaining`}</p>}
             {!!cycle.missingEstimateCount && <p className="mt-2 text-xs text-amber-700 dark:text-amber-400">{cycle.missingEstimateCount} planned issue{cycle.missingEstimateCount === 1 ? '' : 's'} missing an estimate.</p>}
-          </div>
+          </div>}
         </aside>
       </div>
 

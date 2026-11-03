@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { useForm } from '@tanstack/react-form';
 import {
   Dialog,
   DialogContent,
@@ -10,13 +11,8 @@ import {
   Field,
   FieldLabel,
   FieldDescription,
-  Select,
-  SelectTrigger,
-  SelectValue,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
 } from '@reka/ui';
+import { SelectField } from '../../../components/common/select-field';
 import { useCompleteCycle, useCycles } from '../hooks/use-cycles';
 import type { Cycle } from '../api/cycles.api';
 
@@ -27,46 +23,33 @@ interface CompleteCycleDialogProps {
 }
 
 export function CompleteCycleDialog({ cycle, open, onOpenChange }: CompleteCycleDialogProps) {
-  const [action, setAction] = React.useState<'backlog' | 'next_cycle'>('next_cycle');
-  const [nextCycleId, setNextCycleId] = React.useState<string>('auto');
-
   const { data: cycles = [] } = useCycles();
   const completeMutation = useCompleteCycle();
-
   const incompleteCount = cycle?.remainingIssues ?? Math.max((cycle?.totalIssues || 0) - (cycle?.completedIssues || 0), 0);
   const upcomingCycles = React.useMemo(() => cycles
     .filter(c => c.teamId === cycle?.teamId && !c.isCompleted && c.id !== cycle?.id && new Date(c.startDate) >= new Date(cycle?.endDate ?? 0))
     .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime()), [cycles, cycle?.teamId, cycle?.id, cycle?.endDate]);
+  const form = useForm({
+    defaultValues: { action: (upcomingCycles.length ? 'next_cycle' : 'backlog') as 'backlog' | 'next_cycle', nextCycleId: 'auto' },
+    onSubmit: async ({ value }) => {
+      if (!cycle) return;
+      completeMutation.mutate(
+        { id: cycle.id, data: { incompleteIssuesAction: value.action, nextCycleId: value.nextCycleId === 'auto' ? undefined : value.nextCycleId } },
+        { onSuccess: () => { onOpenChange(false); } },
+      );
+    },
+  });
+
   React.useEffect(() => {
-    if (open) { setAction(upcomingCycles.length ? 'next_cycle' : 'backlog'); setNextCycleId('auto'); }
+    if (open) form.reset();
   }, [open, cycle?.id, upcomingCycles.length]);
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!cycle) return;
-
-    completeMutation.mutate(
-      {
-        id: cycle.id,
-        data: {
-          incompleteIssuesAction: action,
-          nextCycleId: nextCycleId === 'auto' ? undefined : nextCycleId,
-        },
-      },
-      {
-        onSuccess: () => {
-          onOpenChange(false);
-        },
-      },
-    );
-  };
 
   if (!cycle) return null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-full sm:max-w-md max-w-md">
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <form onSubmit={(e) => { e.preventDefault(); e.stopPropagation(); void form.handleSubmit(); }} className="flex flex-col gap-4">
           <DialogHeader>
             <DialogTitle>Complete {cycle.name || `Cycle ${cycle.number}`}</DialogTitle>
             <DialogDescription>
@@ -84,49 +67,51 @@ export function CompleteCycleDialog({ cycle, open, onOpenChange }: CompleteCycle
 
             {incompleteCount > 0 ? (
               <div className="flex flex-col gap-3">
-                <Field>
-                  <FieldLabel>What to do with {incompleteCount} incomplete issues?</FieldLabel>
-                  <FieldDescription>
-                    Choose where to move issues that were not marked as done in this cycle.
-                  </FieldDescription>
-                  <Select
-                    value={upcomingCycles.length ? action : 'backlog'}
-                    onValueChange={(val) => setAction(val as 'backlog' | 'next_cycle')}
-                    disabled={!upcomingCycles.length}
-                  >
-                    <SelectTrigger size="compact" className="w-full mt-1.5">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectGroup>
-                        {upcomingCycles.length > 0 && <SelectItem value="next_cycle">Move to next cycle</SelectItem>}
-                        <SelectItem value="backlog">Move back to Backlog</SelectItem>
-                      </SelectGroup>
-                    </SelectContent>
-                  </Select>
-                </Field>
+                <form.Field
+                  name="action"
+                  children={(field) => (
+                    <Field>
+                      <FieldLabel>What to do with {incompleteCount} incomplete issues?</FieldLabel>
+                      <FieldDescription>
+                        Choose where to move issues that were not marked as done in this cycle.
+                      </FieldDescription>
+                      <SelectField
+                        className="w-full mt-1.5"
+                        value={upcomingCycles.length ? field.state.value : 'backlog'}
+                        onValueChange={(val) => field.handleChange(val as 'backlog' | 'next_cycle')}
+                        disabled={!upcomingCycles.length}
+                        options={[
+                          ...(upcomingCycles.length > 0 ? [{ value: 'next_cycle', label: 'Move to next cycle' }] : []),
+                          { value: 'backlog', label: 'Move back to Backlog' },
+                        ]}
+                      />
+                    </Field>
+                  )}
+                />
 
                 {!upcomingCycles.length && <p className="text-xs text-muted-foreground">No later open cycle exists. Incomplete work will return to Backlog.</p>}
-                {action === 'next_cycle' && upcomingCycles.length > 0 && (
-                  <Field>
-                    <FieldLabel className="text-muted-foreground">Target Cycle</FieldLabel>
-                    <Select value={nextCycleId} onValueChange={setNextCycleId}>
-                      <SelectTrigger size="compact" className="w-full mt-1">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectGroup>
-                          <SelectItem value="auto">Next upcoming cycle (automatic)</SelectItem>
-                          {upcomingCycles.map((uc) => (
-                            <SelectItem key={uc.id} value={uc.id}>
-                              {uc.name || `Cycle ${uc.number}`}
-                            </SelectItem>
-                          ))}
-                        </SelectGroup>
-                      </SelectContent>
-                    </Select>
-                  </Field>
-                )}
+                <form.Subscribe
+                  selector={(state) => state.values.action}
+                  children={(action) => action === 'next_cycle' && upcomingCycles.length > 0 ? (
+                    <form.Field
+                      name="nextCycleId"
+                      children={(field) => (
+                        <Field>
+                          <FieldLabel className="text-muted-foreground">Target Cycle</FieldLabel>
+                          <SelectField
+                            className="w-full mt-1"
+                            value={field.state.value}
+                            onValueChange={field.handleChange}
+                            options={[
+                              { value: 'auto', label: 'Next upcoming cycle (automatic)' },
+                              ...upcomingCycles.map((uc) => ({ value: uc.id, label: uc.name || `Cycle ${uc.number}` })),
+                            ]}
+                          />
+                        </Field>
+                      )}
+                    />
+                  ) : null}
+                />
               </div>
             ) : (
               <p className="text-xs text-muted-foreground leading-relaxed">

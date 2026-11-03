@@ -4,15 +4,7 @@ import {
 } from 'lucide-react';
 import type { ComponentType } from 'react';
 import type { EntityIconName } from '@reka/types';
-import {
-  cn,
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuLabel,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuTrigger,
-} from '@reka/ui';
+import { cn, DropdownMenu, DropdownMenuContent, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger, Button } from '@reka/ui';
 
 const ENTITY_ICONS: Record<EntityIconName, ComponentType<{ className?: string }>> = {
   FolderKanban,
@@ -50,7 +42,7 @@ export function EntityIconPicker({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button
+        <Button variant="plain" size="auto"
           type="button"
           onClick={(event) => event.stopPropagation()}
           aria-label={`Change ${label} icon`}
@@ -61,7 +53,7 @@ export function EntityIconPicker({
           )}
         >
           <SelectedIcon className={size === 'lg' ? 'size-6' : 'size-4'} />
-        </button>
+        </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-52" onClick={(event) => event.stopPropagation()}>
         <DropdownMenuLabel>{label} icon</DropdownMenuLabel>

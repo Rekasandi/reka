@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { getIssueStatusCategory, type Issue } from '@reka/types';
-import { Checkbox } from '@reka/ui';
+import { Checkbox, Button } from '@reka/ui';
 import { useUpdateIssue, useDeleteIssue, useArchiveIssue, useMoveIssueToTop } from '../hooks/use-issues';
 import {
   Trash2,
@@ -159,28 +159,28 @@ export function IssueGroupedListView({
                   />
                   <div className="issue-row-main flex min-w-0 flex-1 items-center gap-2" style={{ marginLeft: `${36 + depth * 16}px` }}>
                   {nested ? (
-                    <button type="button" onClick={(event) => toggleSubtasks(subtask.id, event)}
+                    <Button variant="plain" size="auto" type="button" onClick={(event) => toggleSubtasks(subtask.id, event)}
                       className="flex size-5 shrink-0 items-center justify-center rounded-[4px] text-muted-foreground/70 transition-colors hover:bg-secondary hover:text-foreground"
                       aria-label={`${expanded ? 'Collapse' : 'Expand'} sub-issues for ${subtask.identifier}`}
                       aria-expanded={expanded}>
                       <ChevronRight className={`size-3.5 transition-transform ${expanded ? 'rotate-90' : ''}`} />
-                    </button>
+                    </Button>
                   ) : <span className="size-5 shrink-0" aria-hidden="true" />}
                   <PriorityPicker priority={subtask.priority} onPriorityChange={(priority) => updateMutation.mutate({ id: subtask.id, data: { priority: priority as any } })} />
                   <span className="shrink-0 font-mono text-xs font-medium text-muted-foreground">{subtask.identifier}</span>
                   <StatusPicker teamId={subtask.teamId} status={subtask.status} appearance="badge" onStatusChange={(status) => updateMutation.mutate({ id: subtask.id, data: { status: status as any } })} />
-                  <button type="button" className="issue-row-title min-w-0 truncate rounded-sm text-left text-muted-foreground group-hover/sub:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label={`Open issue ${subtask.identifier}: ${subtask.title}`} title={subtask.title}>{subtask.title}</button>
+                  <Button variant="plain" size="auto" type="button" className="issue-row-title min-w-0 truncate rounded-sm text-left text-muted-foreground group-hover/sub:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label={`Open issue ${subtask.identifier}: ${subtask.title}`} title={subtask.title}>{subtask.title}</Button>
                   {nested && <span className="shrink-0 rounded-[4px] border border-border/50 bg-secondary/60 px-1.5 py-0.2 font-mono text-xs text-muted-foreground">{childrenDoneCount(subtask)}/{subtaskMap[subtask.id].length}</span>}
                   </div>
                 </div>
                 <div className="issue-row-meta flex shrink-0 items-center gap-1.5 sm:gap-3">
                   <IssueRowProperties issue={subtask} onUpdate={(data) => updateMutation.mutate({ id: subtask.id, data })} />
                   <span className="hidden w-16 shrink-0 text-right font-mono text-xs text-muted-foreground/70 sm:inline">{formatDate(subtask.createdAt)}</span>
-                  <button type="button" onClick={(event) => { event.stopPropagation(); setDeleteTargetId(subtask.id); }}
+                  <Button variant="plain" size="auto" type="button" onClick={(event) => { event.stopPropagation(); setDeleteTargetId(subtask.id); }}
                     className="rounded-[4px] p-0.5 text-muted-foreground opacity-0 transition-opacity hover:bg-destructive/10 hover:text-destructive group-hover/sub:opacity-100 focus-visible:opacity-100"
                     title="Delete sub-issue" aria-label={`Delete sub-issue ${subtask.identifier}`}>
                     <Trash2 className="size-3.5" />
-                  </button>
+                  </Button>
                 </div>
               </div>
               </IssueContextMenu>
@@ -261,7 +261,7 @@ export function IssueGroupedListView({
 
                           {/* Subtask chevron toggle */}
                           {hasSubtasks ? (
-                            <button
+                            <Button variant="plain" size="auto"
                               type="button"
                               onClick={(e) => toggleSubtasks(issue.id, e)}
                               className="size-5 shrink-0 rounded-[4px] flex items-center justify-center text-muted-foreground/70 hover:text-foreground hover:bg-secondary transition-colors"
@@ -272,7 +272,7 @@ export function IssueGroupedListView({
                                   isSubtasksExpanded ? 'rotate-90' : ''
                                 }`}
                               />
-                            </button>
+                            </Button>
                           ) : (
                             <div className="size-5 shrink-0" aria-hidden="true" />
                           )}
@@ -297,9 +297,9 @@ export function IssueGroupedListView({
                             }
                           />
 
-                          <button type="button" className="issue-row-title truncate rounded-sm text-left font-medium tracking-tight text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label={`Open issue ${issue.identifier}: ${issue.title}`} title={issue.title}>
+                          <Button variant="plain" size="auto" type="button" className="issue-row-title truncate rounded-sm text-left font-medium tracking-tight text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label={`Open issue ${issue.identifier}: ${issue.title}`} title={issue.title}>
                             {issue.title}
-                          </button>
+                          </Button>
 
                           {/* GitHub Issue Tag */}
                           {issue.githubIssueNumber && (
@@ -335,7 +335,7 @@ export function IssueGroupedListView({
                           </span>
 
                           {/* Quick delete button on hover */}
-                          <button
+                          <Button variant="plain" size="auto"
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
@@ -345,7 +345,7 @@ export function IssueGroupedListView({
                             title="Delete issue"
                           >
                             <Trash2 className="size-3.5" />
-                          </button>
+                          </Button>
                         </div>
                       </div>
                       </IssueContextMenu>

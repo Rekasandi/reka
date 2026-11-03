@@ -1,4 +1,6 @@
 import * as React from 'react';
+import { SelectField } from '../../../components/common/select-field';
+import { useForm, useStore } from '@tanstack/react-form';
 import {
   Dialog,
   DialogContent,
@@ -11,12 +13,6 @@ import {
   FieldLabel,
   Input,
   Badge,
-  Select,
-  SelectTrigger,
-  SelectValue,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
 } from '@reka/ui';
 import { GitBranch, Check, Search, Lock, Globe, RefreshCw, Building2, User } from 'lucide-react';
 import { useAddGithubRepository, useAvailableGithubRepositories, useGithubRepositories } from '../hooks/use-github-repos';
@@ -27,9 +23,33 @@ interface AddRepositoryDialogProps {
 }
 
 export function AddRepositoryDialog({ open, onOpenChange }: AddRepositoryDialogProps) {
-  const [selectedOwner, setSelectedOwner] = React.useState<string>('all');
-  const [search, setSearch] = React.useState('');
-  const [selectedRepo, setSelectedRepo] = React.useState<string>('');
+  const form = useForm({
+    defaultValues: { selectedOwner: 'all', search: '', selectedRepo: '' },
+    onSubmit: ({ value }) => {
+      const repo = availableRepos.find((r) => r.fullName === value.selectedRepo);
+      const fullNameToUse = repo ? repo.fullName : value.search.trim();
+      if (!fullNameToUse || !fullNameToUse.includes('/')) return;
+      addRepoMutation.mutate(
+        {
+          fullName: fullNameToUse,
+          defaultBranch: repo?.defaultBranch || 'main',
+          isPrivate: repo?.isPrivate || false,
+        },
+        {
+          onSuccess: () => {
+            form.setFieldValue('search', '');
+            form.setFieldValue('selectedRepo', '');
+            onOpenChange(false);
+          },
+        },
+      );
+    },
+  });
+  const selectedOwner = useStore(form.store, (state) => state.values.selectedOwner);
+  const search = useStore(form.store, (state) => state.values.search);
+  const selectedRepo = useStore(form.store, (state) => state.values.selectedRepo);
+  const setSelectedOwner = (value: string) => form.setFieldValue('selectedOwner', value);
+  const setSelectedRepo = (value: string) => form.setFieldValue('selectedRepo', value);
 
   const {
     data: availableRepos = [],
@@ -81,33 +101,16 @@ export function AddRepositoryDialog({ open, onOpenChange }: AddRepositoryDialogP
     );
   }, [availableRepos, selectedOwner, search]);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const repo = availableRepos.find((r) => r.fullName === selectedRepo);
-    const fullNameToUse = repo ? repo.fullName : search.trim();
-
-    if (!fullNameToUse || !fullNameToUse.includes('/')) return;
-
-    addRepoMutation.mutate(
-      {
-        fullName: fullNameToUse,
-        defaultBranch: repo?.defaultBranch || 'main',
-        isPrivate: repo?.isPrivate || false,
-      },
-      {
-        onSuccess: () => {
-          setSearch('');
-          setSelectedRepo('');
-          onOpenChange(false);
-        },
-      },
-    );
-  };
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-full sm:max-w-2xl max-w-2xl p-6 bg-popover rounded-lg border border-border shadow-2xl">
-        <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            form.handleSubmit();
+          }}
+          className="flex flex-col gap-5">
           <DialogHeader className="gap-1 text-left">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2.5">
@@ -144,22 +147,10 @@ export function AddRepositoryDialog({ open, onOpenChange }: AddRepositoryDialogP
                   <Building2 className="size-3.5 text-muted-foreground" />
                   <span>Organization</span>
                 </FieldLabel>
-                <Select value={selectedOwner} onValueChange={setSelectedOwner}>
-                  <SelectTrigger size="compact" className="w-full bg-background border-border/80 font-mono">
-                    <SelectValue placeholder="Select Organization" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectGroup>
-                      <SelectItem value="all">All Accounts ({availableRepos.length})</SelectItem>
-                      {availableOwners.map(({ owner, count }) => (
-                        <SelectItem key={owner} value={owner}>
-                          <span className="font-mono text-xs">{owner}</span>
-                          <span className="ml-1.5 text-xs text-muted-foreground font-mono">({count})</span>
-                        </SelectItem>
-                      ))}
-                    </SelectGroup>
-                  </SelectContent>
-                </Select>
+                <SelectField name="selectedOwner" value={selectedOwner} onValueChange={setSelectedOwner} placeholder="Select Organization" className="w-full bg-background border-border/80 font-mono" options={[
+                  { value: 'all', label: `All Accounts (${availableRepos.length})` },
+                  ...availableOwners.map(({ owner, count }) => ({ value: owner, label: <><span className="font-mono text-xs">{owner}</span><span className="ml-1.5 text-xs text-muted-foreground font-mono">({count})</span></> })),
+                ]} />
               </div>
 
               {/* Step 2: Search Input Filter */}
@@ -171,9 +162,10 @@ export function AddRepositoryDialog({ open, onOpenChange }: AddRepositoryDialogP
                 <div className="relative">
                   <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
                   <Input
+                    name="search"
                     placeholder="Search repository by name..."
                     value={search}
-                    onChange={(e) => setSearch(e.target.value)}
+                    onChange={(e) => form.setFieldValue('search', e.target.value)}
                     autoFocus
                     className="h-8 pl-8 text-xs font-mono bg-background rounded-[6px] border-border/80"
                   />

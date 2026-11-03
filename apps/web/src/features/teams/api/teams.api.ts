@@ -1,4 +1,4 @@
-import type { EntityIconName, Issue } from '@reka/types';
+import type { EntityIconName, EstimateScale, Issue } from '@reka/types';
 import type { Cycle } from '../../cycles/api/cycles.api';
 
 export interface TeamMember {
@@ -23,6 +23,9 @@ export interface Team {
   icon?: EntityIconName | null;
   description?: string | null;
   isPrivate: boolean;
+  cyclesEnabled: boolean;
+  estimatesEnabled: boolean;
+  estimateScale: EstimateScale;
   currentMemberUserId?: string;
   currentMemberRole?: 'lead' | 'member' | 'viewer' | null;
   canManage?: boolean;
@@ -52,6 +55,9 @@ export interface UpdateTeamInput {
   icon?: EntityIconName | null;
   description?: string;
   isPrivate?: boolean;
+  cyclesEnabled?: boolean;
+  estimatesEnabled?: boolean;
+  estimateScale?: EstimateScale;
 }
 
 export interface AddTeamMemberInput {

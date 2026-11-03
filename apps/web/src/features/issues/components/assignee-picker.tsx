@@ -14,7 +14,7 @@ import {
 } from '@reka/ui';
 import { User, Check, Search, UserCheck, X } from 'lucide-react';
 import { useUsers } from '../../users/hooks/use-users';
-import { useAuthStore } from '../../../stores/auth.store';
+import { useAuth } from '../../auth/hooks/use-auth';
 
 interface AssigneePickerProps {
   assigneeId?: string | null;
@@ -35,7 +35,7 @@ export function AssigneePicker({
   const [searchQuery, setSearchQuery] = React.useState('');
 
   const { data: users = [] } = useUsers();
-  const { user: currentUser } = useAuthStore();
+  const { user: currentUser } = useAuth();
 
   const assignedUser = React.useMemo(() => {
     if (!assigneeId) return null;
