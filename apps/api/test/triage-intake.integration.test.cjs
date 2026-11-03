@@ -9,6 +9,7 @@ const { eq } = require('drizzle-orm');
 const { organizations, organizationMembers, users, teams, teamMembers, sessions, issues, activities, issueRelations, issueTemplates, teamWorkflowStates } = require('@reka/database');
 const { TriageModule } = require('../dist/triage/triage.module');
 const { TeamsModule } = require('../dist/teams/teams.module');
+const { insertLegacyTeam } = require('./support/legacy-team.cjs');
 const { createPersistentPostgres } = require('./support/persistent-postgres.cjs');
 const { createIsolatedApi } = require('./support/isolated-api.cjs');
 
@@ -158,7 +159,7 @@ test('triage migration preserves existing custom workflow states and issue rows 
     const suffix = randomUUID().replaceAll('-', '').slice(0, 8).toLowerCase();
     const [org] = await postgres.db.insert(organizations).values({ name: 'Legacy workflow', slug: `legacy-${suffix}` }).returning();
     const [owner] = await postgres.db.insert(users).values({ name: 'Legacy owner', email: `legacy-${suffix}@example.test`, role: 'owner' }).returning();
-    const [team] = await postgres.db.insert(teams).values({ organizationId: org.id, name: 'Legacy team', key: `L${suffix.slice(0, 4).toUpperCase()}` }).returning();
+    const team = await insertLegacyTeam(postgres.db, { organizationId: org.id, name: 'Legacy team', key: `L${suffix.slice(0, 4).toUpperCase()}` });
     await postgres.db.insert(teamWorkflowStates).values([
       { teamId: team.id, key: 'qa', name: 'Quality assurance', category: 'started', color: '#123456', position: 8, isActive: true },
       { teamId: team.id, key: 'done', name: 'Finished', category: 'completed', color: '#654321', position: 9, isActive: true },

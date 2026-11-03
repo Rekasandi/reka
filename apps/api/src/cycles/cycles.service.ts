@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { sql, eq, desc, and, inArray, isNull } from 'drizzle-orm';
-import { cycles, cycleSnapshots, issues, teamCycleSettings } from '@reka/database';
+import { cycles, cycleSnapshots, issues, teamCycleSettings, teams } from '@reka/database';
 import { DatabaseService } from '../common/database/database.service';
 import { loadIssueStatusCategories, getIssueStatusCategory } from '../issues/issue-status';
 import { requireWorkspace, requireTeam, requireTeamManager, requireCycle, cycleScope, issueScope } from '../common/access/workspace-access';
@@ -12,6 +12,12 @@ const INCLUDED_CATEGORIES = new Set(['unstarted', 'started', 'completed']);
 @Injectable()
 export class CyclesService {
   constructor(private readonly database: DatabaseService) {}
+
+  private async requireCyclesEnabled(teamId: string) {
+    const [team] = await this.database.db.select({ enabled: teams.cyclesEnabled }).from(teams).where(eq(teams.id, teamId));
+    if (!team) throw new NotFoundException('Team not found');
+    if (!team.enabled) throw new BadRequestException('Cycles are disabled for this team');
+  }
 
   private metrics(cycle: typeof cycles.$inferSelect, cycleIssues: typeof issues.$inferSelect[], categories: Map<string, string>) {
     const included = cycleIssues.filter(issue => INCLUDED_CATEGORIES.has(getIssueStatusCategory(issue, categories)));
@@ -75,6 +81,7 @@ export class CyclesService {
   async create(dto: CreateCycleDto, actorId: string) {
     const actor = await requireWorkspace(this.database.db, actorId);
     await requireTeamManager(this.database.db, actor, dto.teamId);
+    await this.requireCyclesEnabled(dto.teamId);
     const startDate = new Date(dto.startDate); const endDate = new Date(dto.endDate);
     this.validateCycleDates(startDate, endDate);
     const [latest] = await this.database.db.select({ number: cycles.number }).from(cycles)
@@ -153,6 +160,7 @@ export class CyclesService {
   async saveTeamSettings(teamId: string, dto: TeamCycleSettingsDto, actorId: string) {
     const actor = await requireWorkspace(this.database.db, actorId);
     await requireTeamManager(this.database.db, actor, teamId);
+    await this.requireCyclesEnabled(teamId);
     try { new Intl.DateTimeFormat('en-US', { timeZone: dto.timezone }); }
     catch { throw new BadRequestException('Timezone must be a valid IANA timezone'); }
     const parsedStart = new Date(`${dto.nextStartDate}T00:00:00Z`);

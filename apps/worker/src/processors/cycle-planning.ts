@@ -13,6 +13,7 @@ export async function processDueTeamCycleSchedules(db: DbClient, now = new Date(
     WITH due AS (
       SELECT s.* FROM team_cycle_settings s
       WHERE s.auto_create = true AND (s.next_start_date::timestamp AT TIME ZONE s.timezone) <= ${now.toISOString()}::timestamptz
+        AND EXISTS (SELECT 1 FROM teams t WHERE t.id = s.team_id AND t.cycles_enabled = true)
       ORDER BY s.team_id LIMIT 100 FOR UPDATE SKIP LOCKED
     ), ranges AS (
       SELECT d.*, d.next_start_date::timestamp AT TIME ZONE d.timezone AS starts_at,

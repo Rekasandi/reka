@@ -1,3 +1,4 @@
+const { insertLegacyTeam } = require('./support/legacy-team.cjs');
 const { equal } = require('node:assert/strict');
 const { test } = require('node:test');
 const { mkdtempSync, mkdirSync, copyFileSync, readFileSync, writeFileSync, rmSync } = require('node:fs');
@@ -28,7 +29,7 @@ test('collaboration migration preserves legacy comments, attachment locations an
       { name: 'Legacy owner', email: `legacy-owner-${randomUUID()}@example.test` },
       { name: 'Legacy member', email: `legacy-member-${randomUUID()}@example.test` },
     ]).returning();
-    const [team] = await db.insert(teams).values({ organizationId: org.id, name: 'Legacy team', key: `L${randomUUID().replaceAll('-', '').slice(0, 6)}` }).returning();
+    const team = await insertLegacyTeam(db, { organizationId: org.id, name: 'Legacy team', key: `L${randomUUID().replaceAll('-', '').slice(0, 6)}` });
     const issueId = randomUUID(); const commentId = randomUUID(); const attachmentId = randomUUID(); const notificationId = randomUUID();
     await db.execute(sql`INSERT INTO issues (id, identifier, number, title, team_id, reporter_id, status) VALUES (${issueId}::uuid, ${`${team.key}-1`}, 1, 'Legacy issue', ${team.id}::uuid, ${owner.id}::uuid, 'todo')`);
     await db.execute(sql`INSERT INTO comments (id, issue_id, author_id, body) VALUES (${commentId}::uuid, ${issueId}::uuid, ${owner.id}::uuid, 'Legacy comment')`);

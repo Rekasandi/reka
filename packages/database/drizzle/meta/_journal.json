@@ -218,6 +218,13 @@
       "when": 1793715295236,
       "tag": "0030_cycle_auto_add_started",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1793716113636,
+      "tag": "0031_team_cycles_estimates_settings",
+      "breakpoints": true
     }
   ]
 }

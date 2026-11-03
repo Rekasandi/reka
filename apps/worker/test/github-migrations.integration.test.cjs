@@ -1,3 +1,4 @@
+const { insertLegacyTeam } = require('../../api/test/support/legacy-team.cjs');
 const { equal, match, rejects } = require('node:assert/strict');
 const { test } = require('node:test');
 const { mkdtempSync, mkdirSync, copyFileSync, readFileSync, writeFileSync, rmSync } = require('node:fs');
@@ -26,7 +27,7 @@ test('GitHub idempotency migrations fail safely on ambiguous legacy rows and pre
     const marker = randomUUID().replaceAll('-', '').slice(0, 10).toUpperCase();
     const [org] = await db.insert(organizations).values({ name: 'Legacy GitHub', slug: `legacy-github-${marker.toLowerCase()}` }).returning();
     const [owner] = await db.insert(users).values({ name: 'Legacy owner', email: `legacy-github-${marker}@example.test` }).returning();
-    const [team] = await db.insert(teams).values({ organizationId: org.id, name: 'Legacy team', key: `G${marker.slice(0, 5)}` }).returning();
+    const team = await insertLegacyTeam(db, { organizationId: org.id, name: 'Legacy team', key: `G${marker.slice(0, 5)}` });
     const [issue] = await db.insert(issues).values({ identifier: `${team.key}-1`, number: 1, title: 'Legacy issue', status: 'todo', teamId: team.id, reporterId: owner.id }).returning();
     const [installation] = await db.insert(githubInstallations).values({ organizationId: org.id, installationId: Date.now() + 100, accountLogin: 'legacy' }).returning();
     const [repository] = await db.insert(githubRepositories).values({ installationId: installation.id, repoId: Date.now() + 101, owner: 'legacy', name: 'repo', fullName: 'legacy/repo' }).returning();

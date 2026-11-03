@@ -1,5 +1,5 @@
 import { IsString, IsNotEmpty, IsOptional, MaxLength, IsIn, IsBoolean, IsUUID } from 'class-validator';
-import { ENTITY_ICON_NAMES } from '@reka/types';
+import { ENTITY_ICON_NAMES, ESTIMATE_SCALES } from '@reka/types';
 
 export class CreateTeamDto {
   @IsString()
@@ -44,6 +44,19 @@ export class UpdateTeamDto {
   @IsOptional()
   @IsIn(ENTITY_ICON_NAMES)
   icon?: string;
+
+  @IsBoolean()
+  @IsOptional()
+  cyclesEnabled?: boolean;
+
+  @IsBoolean()
+  @IsOptional()
+  estimatesEnabled?: boolean;
+
+  @IsString()
+  @IsOptional()
+  @IsIn([...ESTIMATE_SCALES])
+  estimateScale?: string;
 }
 
 export class AddTeamMemberDto {

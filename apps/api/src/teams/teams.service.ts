@@ -162,7 +162,9 @@ export class TeamsService {
       throw new BadRequestException('A workflow state used by existing issues cannot be disabled or removed');
     }
     const keys = dto.states.map((state) => state.key);
-    await db.update(teamWorkflowStates).set({ isActive: false, updatedAt: new Date() })
+    // States left out of the request are deleted. The checks above guarantee none of them is used by an issue,
+    // recurring issue or intake form, so no work references them.
+    await db.delete(teamWorkflowStates)
       .where(and(eq(teamWorkflowStates.teamId, id), notInArray(teamWorkflowStates.key, keys)));
     await db.insert(teamWorkflowStates).values(dto.states.map((state) => ({ teamId: id, ...state, name: state.name.trim() })))
       .onConflictDoUpdate({
@@ -187,6 +189,9 @@ export class TeamsService {
           ...(dto.name !== undefined ? [sql`name = ${dto.name.trim()}`] : []),
           ...(dto.key !== undefined ? [sql`key = ${dto.key.trim().toUpperCase()}`] : []),
           ...(dto.description !== undefined ? [sql`description = ${dto.description.trim() || null}`] : []),
+          ...(dto.cyclesEnabled !== undefined ? [sql`cycles_enabled = ${dto.cyclesEnabled}`] : []),
+          ...(dto.estimatesEnabled !== undefined ? [sql`estimates_enabled = ${dto.estimatesEnabled}`] : []),
+          ...(dto.estimateScale !== undefined ? [sql`estimate_scale = ${dto.estimateScale}`] : []),
           sql`updated_at = now()`,
         ];
         const enrolled = await db.execute(sql`

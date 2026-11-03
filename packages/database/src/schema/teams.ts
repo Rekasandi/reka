@@ -1,4 +1,5 @@
-import { pgTable, text, timestamp, uuid, varchar, primaryKey, boolean, integer } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
+import { pgTable, text, timestamp, uuid, varchar, primaryKey, boolean, integer, check } from 'drizzle-orm/pg-core';
 import { organizations } from './organizations';
 import { users } from './users';
 
@@ -12,10 +13,15 @@ export const teams = pgTable('teams', {
   icon: varchar('icon', { length: 64 }),
   description: text('description'),
   isPrivate: boolean('is_private').notNull().default(false),
+  cyclesEnabled: boolean('cycles_enabled').notNull().default(true),
+  estimatesEnabled: boolean('estimates_enabled').notNull().default(true),
+  estimateScale: varchar('estimate_scale', { length: 16 }).notNull().default('fibonacci'),
   issueCounter: integer('issue_counter').notNull().default(0),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
-});
+}, (t) => [
+  check('teams_estimate_scale_check', sql`${t.estimateScale} IN ('fibonacci', 'exponential', 'linear', 'free')`),
+]);
 
 export const teamMembers = pgTable(
   'team_members',

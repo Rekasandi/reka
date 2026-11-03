@@ -16,6 +16,7 @@ import { IssueSubscriptionsService } from '../issue-subscriptions/issue-subscrip
 import { DEFAULT_TEAM_WORKFLOW_STATES } from '../teams/workflow-state-defaults';
 import { ConfigureIssueRecurrenceDto } from './dto/issue-recurrence.dto';
 import type { RecurringIssueTemplate } from '@reka/database';
+import { estimateScaleValues, type EstimateScale } from '@reka/types';
 
 @Injectable()
 export class IssuesService {
@@ -70,11 +71,25 @@ export class IssuesService {
     if (!DEFAULT_TEAM_WORKFLOW_STATES.some((state) => state.key === status)) throw new BadRequestException('Status is not active in this team workflow');
   }
 
+  /** Rejects cycle/estimate writes that the team's settings do not allow (feature disabled, or value outside its estimate scale). */
+  private async validateTeamFeatures(teamId: string, input: { cycleId?: string | null; estimate?: number | null }) {
+    if (!input.cycleId && (input.estimate === undefined || input.estimate === null)) return;
+    const [team] = await this.database.db.select({ cyclesEnabled: teams.cyclesEnabled, estimatesEnabled: teams.estimatesEnabled, estimateScale: teams.estimateScale })
+      .from(teams).where(eq(teams.id, teamId));
+    if (!team) throw new NotFoundException('Team not found');
+    if (input.cycleId && !team.cyclesEnabled) throw new BadRequestException('Cycles are disabled for this team');
+    if (input.estimate !== undefined && input.estimate !== null) {
+      if (!team.estimatesEnabled) throw new BadRequestException('Estimates are disabled for this team');
+      const allowed = estimateScaleValues(team.estimateScale as EstimateScale);
+      if (allowed && !allowed.includes(input.estimate)) throw new BadRequestException(`Estimate must be one of ${allowed.join(', ')} for this team`);
+    }
+  }
+
   /** Current open cycle for a team when its "auto-add started issues" setting is on and `status` is in the Started category. */
   private async autoAddCycleId(teamId: string, status: string): Promise<string | null> {
-    const [settings] = await this.database.db.select({ enabled: teamCycleSettings.autoAddStarted })
-      .from(teamCycleSettings).where(eq(teamCycleSettings.teamId, teamId));
-    if (!settings?.enabled) return null;
+    const [settings] = await this.database.db.select({ enabled: teamCycleSettings.autoAddStarted, cyclesEnabled: teams.cyclesEnabled })
+      .from(teamCycleSettings).innerJoin(teams, eq(teams.id, teamCycleSettings.teamId)).where(eq(teamCycleSettings.teamId, teamId));
+    if (!settings?.enabled || !settings.cyclesEnabled) return null;
     const categories = await loadIssueStatusCategories(this.database.db, [teamId]);
     if (getIssueStatusCategory({ teamId, status }, categories) !== 'started') return null;
     const now = new Date();
@@ -156,6 +171,7 @@ export class IssuesService {
     const teamKey = team.key;
     await this.validateRelations(actor, teamId, dto.projectId, dto.cycleId, dto.parentId, undefined, dto.milestoneId);
     await this.validateStatus(teamId, dto.status ?? 'todo');
+    await this.validateTeamFeatures(teamId, { cycleId: dto.cycleId, estimate: dto.estimate });
     if (dto.assigneeId) await requireEligibleUser(this.database.db, actor, dto.assigneeId, teamId);
     await this.validateLabelIds(actor, dto.labelIds, teamId, dto.projectId);
 
@@ -333,6 +349,10 @@ ${issue.description || 'No description provided.'}
       dto.parentId !== undefined ? dto.parentId : existing.parentId, id,
       dto.milestoneId !== undefined ? dto.milestoneId : existing.milestoneId);
     await requireTeamWrite(this.database.db, actor, targetTeamId);
+    await this.validateTeamFeatures(targetTeamId, {
+      cycleId: dto.cycleId !== undefined && dto.cycleId !== existing.cycleId ? dto.cycleId : undefined,
+      estimate: dto.estimate !== undefined && dto.estimate !== existing.estimate ? dto.estimate : undefined,
+    });
     if (dto.assigneeId) await requireEligibleUser(this.database.db, actor, dto.assigneeId, targetTeamId);
     const targetProjectId = dto.projectId !== undefined ? dto.projectId : existing.projectId;
     await this.validateLabelIds(actor, dto.labelIds, targetTeamId, targetProjectId);
@@ -435,6 +455,7 @@ ${issue.description || 'No description provided.'}
     for (const teamId of new Set(current.map((issue) => issue.teamId))) {
       await requireTeamWrite(this.database.db, actor, teamId);
       if (dto.status) await this.validateStatus(teamId, dto.status);
+      await this.validateTeamFeatures(teamId, { estimate: dto.estimate });
     }
     const autoCycleByTeam = new Map<string, string>();
     if (dto.status) {

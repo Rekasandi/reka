@@ -46,6 +46,16 @@ Issue list context menu **Move to top** persists per-team ordering. In board vie
 
 Archive hides issues from the default active list without deleting their history. Restore reverses the matching archive batch only; children archived separately are not restored incidentally. The Archived tab remains available. Bulk actions run through the authorized API; callers should surface partial/batch failures rather than assuming every target changed.
 
+## Team features: estimates and cycles
+
+Each team has three settings under **Team settings → Features** (team managers only; stored on `teams`, migration `0031_team_cycles_estimates_settings.sql`, additive):
+
+- **Estimate scale** — `fibonacci` (default: 0, 1, 2, 3, 5, 8, 13, 21), `exponential` (0, 1, 2, 4, 8, 16, 32), `linear` (0–5) or `free` (any whole number 0–100, the previous behaviour). The issue estimate field becomes a dropdown of valid points; the API rejects other values on create, update and bulk update with `400`. A value already stored outside the scale is kept, stays selectable (labelled "outside scale") and is only re-validated when someone changes it. Scales live in `@reka/types` (`ESTIMATE_SCALES`).
+- **Estimates on/off** — when off, estimate fields, the cycle capacity/estimate panel, the burndown "Estimate" toggle and the cycle-list capacity ring are hidden (the list shows issue-count progress instead). New estimates are rejected with `400`, clearing is allowed, and stored values are never deleted, so re-enabling brings them back.
+- **Cycles on/off** — when off, the team's Cycles sidebar entry, cycle pickers, the Cycles page rows, dashboard active-cycle rows and the team-overview planning card are hidden. Assigning an issue to a cycle, creating a cycle, saving the schedule and **Auto-add started issues** are rejected/inactive, and the worker stops auto-creating cycles for the team. Existing cycles, snapshots and history are kept, and re-enabling resumes the saved schedule.
+
+Existing teams default to cycles on, estimates on and `fibonacci`. Covered by `apps/api/test/team-features.integration.test.cjs` (`pnpm test:cycles`).
+
 ## Recurring issues and worker configuration
 
 Open an issue detail and expand **Recurrence**. Set a positive interval, cadence (`day`, `week`, `month`), IANA timezone, next local occurrence, and optional due-date offset. Saving captures a template snapshot of the source issue and current properties; later source edits do not mutate that snapshot. Each generated occurrence receives normal issue history and links to the recurrence record. Stopping disables future generation; it does not delete previous occurrences.
