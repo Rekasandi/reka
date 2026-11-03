@@ -24,6 +24,10 @@ Settings are shared in Postgres and can only be changed by a team manager. A wor
 
 Automatic schedule configuration is only effective while the existing worker is running with its normal Redis and database configuration. A schedule is not a substitute for a running worker. Existing cycles receive no invented schedule configuration.
 
+## Auto-add started issues
+
+Each team can enable **Auto-add started issues** in **Cycles → Schedule settings** (off by default). When on, an issue that enters a status in the `started` category (by creating it in that status, editing it, or a bulk status change) joins the team's **current** open cycle, but only if it has no cycle yet. Issues with an existing or explicitly chosen cycle are never moved, and non-started statuses, completed cycles and upcoming cycles are ignored. If no cycle is currently running (for example during a cooldown), nothing is added. The category, not the status label, decides, and the rule only fires on a status change, so existing Backlog issues are not swept in. Stored as `team_cycle_settings.auto_add_started` (migration `0030_cycle_auto_add_started.sql`, additive). Covered by `apps/api/test/cycle-auto-add.integration.test.cjs` (`pnpm test:cycles`).
+
 ## Estimates and capacity
 
 A cycle may have no capacity or an explicit 0–10,000 estimate-point capacity. Cycle detail shows planned estimate, completed estimate, remaining estimate, capacity remaining/overage, and the number of included issues missing an estimate. Planned/capacity metrics include visible, non-archived issues in `unstarted`, `started` or `completed` workflow categories; missing estimates contribute zero points but remain explicitly counted. `triage`, `backlog` and `canceled` issues do not inflate delivery progress/capacity. Status category—not the display label—drives these rules.

@@ -1,0 +1,1 @@
+ALTER TABLE "team_cycle_settings" ADD COLUMN "auto_add_started" boolean DEFAULT false NOT NULL;

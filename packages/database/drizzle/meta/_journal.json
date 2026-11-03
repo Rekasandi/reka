@@ -211,6 +211,13 @@
       "when": 1793715193449,
       "tag": "0029_youthful_sugar_man",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1793715295236,
+      "tag": "0030_cycle_auto_add_started",
+      "breakpoints": true
     }
   ]
 }

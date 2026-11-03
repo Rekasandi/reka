@@ -2,8 +2,8 @@ import { Injectable, NotFoundException, BadRequestException, Logger, Optional } 
 import { randomUUID } from 'node:crypto';
 import { DatabaseService } from '../common/database/database.service';
 import { NotificationsService } from '../notifications/notifications.service';
-import { issues, issueLabels, issueRelations, labels, activities, githubRepositories, projectRepositories, teams, teamWorkflowStates, issueRecurrences, issueRecurrenceRuns, milestones } from '@reka/database';
-import { and, desc, eq, inArray, isNull, isNotNull, or, sql } from 'drizzle-orm';
+import { issues, issueLabels, issueRelations, labels, activities, githubRepositories, projectRepositories, teams, teamWorkflowStates, issueRecurrences, issueRecurrenceRuns, milestones, cycles, teamCycleSettings } from '@reka/database';
+import { and, desc, eq, gt, inArray, isNull, isNotNull, lte, or, sql } from 'drizzle-orm';
 import { requireWorkspace, requireTeam, requireTeamWrite, requireIssue, requireIssueWrite, requireProject, requireCycle, requireEligibleUser, requireResourceId, issueScope, labelScope, repositoryScope, type WorkspaceActor } from '../common/access/workspace-access';
 import { CreateIssueDto } from './dto/create-issue.dto';
 import { UpdateIssueDto } from './dto/update-issue.dto';
@@ -11,6 +11,7 @@ import { UpdateIssuesBulkDto } from './dto/update-issues-bulk.dto';
 import { CreateIssueRelationDto } from './dto/create-issue-relation.dto';
 import { GITHUB_USER_TOKENS } from '../auth/auth.service';
 import { getIssueNotificationRecipients } from './issue-notification-recipients';
+import { getIssueStatusCategory, loadIssueStatusCategories } from './issue-status';
 import { IssueSubscriptionsService } from '../issue-subscriptions/issue-subscriptions.service';
 import { DEFAULT_TEAM_WORKFLOW_STATES } from '../teams/workflow-state-defaults';
 import { ConfigureIssueRecurrenceDto } from './dto/issue-recurrence.dto';
@@ -67,6 +68,19 @@ export class IssuesService {
       throw new BadRequestException('Status is not active in this team workflow');
     }
     if (!DEFAULT_TEAM_WORKFLOW_STATES.some((state) => state.key === status)) throw new BadRequestException('Status is not active in this team workflow');
+  }
+
+  /** Current open cycle for a team when its "auto-add started issues" setting is on and `status` is in the Started category. */
+  private async autoAddCycleId(teamId: string, status: string): Promise<string | null> {
+    const [settings] = await this.database.db.select({ enabled: teamCycleSettings.autoAddStarted })
+      .from(teamCycleSettings).where(eq(teamCycleSettings.teamId, teamId));
+    if (!settings?.enabled) return null;
+    const categories = await loadIssueStatusCategories(this.database.db, [teamId]);
+    if (getIssueStatusCategory({ teamId, status }, categories) !== 'started') return null;
+    const now = new Date();
+    const [cycle] = await this.database.db.select({ id: cycles.id }).from(cycles)
+      .where(and(eq(cycles.teamId, teamId), eq(cycles.isCompleted, false), lte(cycles.startDate, now), gt(cycles.endDate, now))).limit(1);
+    return cycle?.id ?? null;
   }
 
   private async validateLabelIds(actor: WorkspaceActor, labelIds: string[] | undefined, teamId: string, projectId?: string | null) {
@@ -146,6 +160,7 @@ export class IssuesService {
     await this.validateLabelIds(actor, dto.labelIds, teamId, dto.projectId);
 
     const reporterId = actorId;
+    const cycleId = dto.cycleId || await this.autoAddCycleId(teamId, dto.status ?? 'todo');
 
     // The team counter allocates a unique identifier atomically across concurrent creators.
     const [counter] = await this.database.db.update(teams)
@@ -170,7 +185,7 @@ export class IssuesService {
         teamId,
         projectId: dto.projectId || null,
         parentId: dto.parentId || null,
-        cycleId: dto.cycleId || null,
+        cycleId: cycleId || null,
         milestoneId: dto.milestoneId || null,
         assigneeId: dto.assigneeId === null ? null : dto.assigneeId || reporterId,
         estimate: dto.estimate ?? null,
@@ -328,6 +343,8 @@ ${issue.description || 'No description provided.'}
       if (child) throw new BadRequestException('Move sub-issues to the target team together with their parent');
     }
 
+    const joinsCycle = dto.status !== undefined && dto.status !== existing.status && dto.cycleId === undefined && !existing.cycleId
+      ? await this.autoAddCycleId(targetTeamId, dto.status) : null;
     const { labelIds, dueDate, title, ...issueChanges } = dto;
     if (title !== undefined && !title.trim()) throw new BadRequestException('Issue title cannot be blank');
     const [updated] = await this.database.db
@@ -336,6 +353,7 @@ ${issue.description || 'No description provided.'}
         ...issueChanges,
         title: title === undefined ? undefined : title.trim(),
         dueDate: dueDate === undefined ? undefined : dueDate === null ? null : new Date(dueDate),
+        ...(joinsCycle ? { cycleId: joinsCycle } : {}),
         updatedAt: new Date(),
       })
       .where(and(eq(issues.id, id), issueScope(this.database.db, actor)))
@@ -418,12 +436,24 @@ ${issue.description || 'No description provided.'}
       await requireTeamWrite(this.database.db, actor, teamId);
       if (dto.status) await this.validateStatus(teamId, dto.status);
     }
+    const autoCycleByTeam = new Map<string, string>();
+    if (dto.status) {
+      for (const teamId of new Set(current.filter((issue) => !issue.cycleId && issue.status !== dto.status).map((issue) => issue.teamId))) {
+        const cycleId = await this.autoAddCycleId(teamId, dto.status);
+        if (cycleId) autoCycleByTeam.set(teamId, cycleId);
+      }
+    }
     const updated = await this.database.db.update(issues).set({
       ...(changes as any),
       dueDate: dto.dueDate === undefined ? undefined : dto.dueDate === null ? null : new Date(dto.dueDate),
       updatedAt: new Date(),
     }).where(and(inArray(issues.id, ids), issueScope(this.database.db, actor), isNull(issues.archivedAt))).returning();
     if (updated.length !== ids.length) throw new NotFoundException('One or more issues are no longer available');
+    for (const [teamId, cycleId] of autoCycleByTeam) {
+      const joinIds = current.filter((issue) => issue.teamId === teamId && !issue.cycleId && issue.status !== dto.status).map((issue) => issue.id);
+      const joined = await this.database.db.update(issues).set({ cycleId }).where(inArray(issues.id, joinIds)).returning({ id: issues.id });
+      for (const row of joined) { const issue = updated.find((item) => item.id === row.id); if (issue) issue.cycleId = cycleId; }
+    }
     const statusChanges = updated.flatMap((issue) => {
       const before = current.find((item) => item.id === issue.id)!;
       return dto.status && dto.status !== before.status ? [{ issue, before }] : [];

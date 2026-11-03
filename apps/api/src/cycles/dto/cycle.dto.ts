@@ -28,4 +28,5 @@ export class TeamCycleSettingsDto {
   @IsInt() @Min(0) @Max(90) cooldownDays!: number;
   @IsDateString({ strict: true }) nextStartDate!: string;
   @IsBoolean() autoCreate!: boolean;
+  @IsOptional() @IsBoolean() autoAddStarted?: boolean;
 }
