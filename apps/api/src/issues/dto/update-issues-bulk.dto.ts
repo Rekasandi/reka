@@ -25,4 +25,8 @@ export class UpdateIssuesBulkDto {
   @IsDateString({ strict: true })
   @IsOptional()
   dueDate?: string | null;
+
+  @IsUUID()
+  @IsOptional()
+  cycleId?: string | null;
 }

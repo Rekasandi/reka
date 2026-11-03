@@ -24,9 +24,8 @@
     "test:workspace-access": "turbo run build --filter=@reka/api && node --test apps/api/test/workspace-identity-http.integration.test.cjs apps/api/test/team-membership-http.integration.test.cjs apps/api/test/workspace-access-http.integration.test.cjs apps/api/test/github-webhook-signature.integration.test.cjs apps/api/test/github-workspace-scope.integration.test.cjs apps/api/test/github-installation-verification.integration.test.cjs apps/api/test/github-pull-request-access.integration.test.cjs apps/api/test/auth-guard.test.cjs apps/api/test/issues-list-labels.test.cjs apps/api/test/member-invites.test.cjs apps/api/test/issue-comment-notifications.test.cjs apps/api/test/notification-event-integration.test.cjs",
     "test:issues": "turbo run build --filter=@reka/api --filter=@reka/worker && node --test apps/api/test/issues-workflows.integration.test.cjs apps/api/test/issue-detail.integration.test.cjs apps/api/test/labels-management.integration.test.cjs apps/api/test/workflow-foundation-http.integration.test.cjs apps/worker/test/issue-recurrence-postgres.integration.test.cjs",
     "test:triage": "turbo run build --filter=@reka/api && node --test apps/api/test/triage-intake.integration.test.cjs",
-    "test:views": "turbo run build --filter=@reka/api && node --test apps/api/test/views-search.integration.test.cjs",
+    "test:favorites": "turbo run build --filter=@reka/api && node --test apps/api/test/favorites-search.integration.test.cjs",
     "test:projects-docs": "turbo run build --filter=@reka/api && node --test apps/api/test/projects-documents.integration.test.cjs",
-    "test:initiatives": "turbo run build --filter=@reka/api && node --test apps/api/test/initiatives-roadmap.integration.test.cjs",
     "test:cycles": "turbo run build --filter=@reka/api --filter=@reka/worker && node --test apps/api/test/cycles-workflows.integration.test.cjs apps/api/test/cycles-migration.integration.test.cjs apps/worker/test/cycle-planning-postgres.integration.test.cjs",
     "test:web:cycles-real-api": "node apps/web/test/cycles-real-api.mjs",
     "test:collaboration": "turbo run build --filter=@reka/api && node --test apps/api/test/collaboration.integration.test.cjs apps/api/test/collaboration-migration.integration.test.cjs",
@@ -37,6 +36,7 @@
   },
   "devDependencies": {
     "@electric-sql/pglite": "0.5.8",
+    "playwright": "^1.64.1",
     "prettier": "^3.5.3",
     "turbo": "^2.4.4",
     "typescript": "^5.8.2"

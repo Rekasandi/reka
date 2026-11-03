@@ -1,13 +1,12 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { and, asc, desc, eq, gte, inArray, isNull, lt, max, or } from 'drizzle-orm';
+import { BadRequestException, Injectable } from '@nestjs/common';
+import { and, asc, desc, eq, gte, inArray, lt, max, or } from 'drizzle-orm';
 import {
-  cycleSnapshots, cycles, issueHistory, issueLabels, issues, labels, projects, savedViews, users,
-  type SavedIssueViewConfig,
+  cycleSnapshots, cycles, issueHistory, issues,
 } from '@reka/database';
 import { DatabaseService } from '../common/database/database.service';
 import {
-  cycleScope, issueScope, labelScope, projectScope, requireCycle, requireProject, requireResourceId, requireTeam, requireWorkspace,
-  userScope, visibleTeamIds,
+  cycleScope, issueScope, requireCycle, requireProject, requireTeam, requireWorkspace,
+  visibleTeamIds,
 } from '../common/access/workspace-access';
 import type { WorkspaceActor } from '../common/access/workspace-access';
 import type { InsightsCycleQueryDto, InsightsReportQueryDto } from './dto/insights.dto';
@@ -17,7 +16,6 @@ const DEFAULT_PAGE_SIZE = 20;
 const MAX_PAGE_SIZE = 50;
 
 type HistoryRow = typeof issueHistory.$inferSelect;
-type MetricView = { teamId: string | null; config: SavedIssueViewConfig };
 
 function dateOnly(value?: string) {
   if (!value) return undefined;
@@ -93,36 +91,6 @@ export class InsightsService {
   constructor(private readonly database: DatabaseService) {}
   private get db() { return this.database.db; }
 
-  private async resolveView(actor: WorkspaceActor, id?: string): Promise<MetricView | null> {
-    if (!id) return null;
-    requireResourceId(id);
-    const [view] = await this.db.select().from(savedViews).where(and(
-      eq(savedViews.id, id), eq(savedViews.organizationId, actor.organizationId),
-      or(eq(savedViews.visibility, 'shared'), eq(savedViews.ownerId, actor.userId)),
-      or(isNull(savedViews.teamId), inArray(savedViews.teamId, visibleTeamIds(this.db, actor))),
-    )).limit(1);
-    if (!view) throw new NotFoundException('Saved view not found');
-    if (view.teamId) await requireTeam(this.db, actor, view.teamId);
-    return { teamId: view.teamId, config: view.config };
-  }
-
-  private async visibleViewFilters(actor: WorkspaceActor, view: MetricView | null) {
-    if (!view) return null;
-    const { assigneeIds, labelIds, projectIds } = view.config.filters;
-    const [people, visibleLabels, visibleProjects] = await Promise.all([
-      assigneeIds.length ? this.db.select({ id: users.id }).from(users)
-        .where(and(inArray(users.id, assigneeIds), userScope(this.db, actor))) : [],
-      labelIds.length ? this.db.select({ id: labels.id }).from(labels).where(and(inArray(labels.id, labelIds), labelScope(this.db, actor))) : [],
-      projectIds.length ? this.db.select({ id: projects.id }).from(projects).where(and(inArray(projects.id, projectIds), projectScope(this.db, actor))) : [],
-    ]);
-    return {
-      config: view.config,
-      assigneeIds: new Set(people.map(row => row.id)),
-      labelIds: new Set(visibleLabels.map(row => row.id)),
-      projectIds: new Set(visibleProjects.map(row => row.id)),
-    };
-  }
-
   async overview(actorId: string, query: InsightsReportQueryDto) {
     const actor = await requireWorkspace(this.db, actorId);
     const range = resolveRange(query);
@@ -131,10 +99,7 @@ export class InsightsService {
       const project = await requireProject(this.db, actor, query.projectId);
       if (query.teamId && project.teamId !== query.teamId) throw new BadRequestException('Project must belong to the selected team');
     }
-    const view = await this.resolveView(actor, query.viewId);
-    if (view?.teamId && query.teamId && view.teamId !== query.teamId) throw new BadRequestException('Saved view belongs to another team');
-    const teamId = query.teamId ?? view?.teamId ?? undefined;
-    const filters = await this.visibleViewFilters(actor, view);
+    const teamId = query.teamId;
     const page = query.page ?? 1; const pageSize = query.pageSize ?? DEFAULT_PAGE_SIZE;
     if (page < 1 || pageSize < 1 || pageSize > MAX_PAGE_SIZE) throw new BadRequestException(`Page size must be between 1 and ${MAX_PAGE_SIZE}`);
 
@@ -143,22 +108,11 @@ export class InsightsService {
     const history = await this.db.select().from(issueHistory).where(and(...historyConditions))
       .orderBy(asc(issueHistory.recordedAt), asc(issueHistory.id)).limit(MAX_HISTORY_ROWS + 1);
     if (history.length > MAX_HISTORY_ROWS) throw new BadRequestException('This report exceeds the safe historical-event limit for one response. Ask an administrator to review this workspace history volume');
-    if (!history.length) return this.emptyOverview(range, page, pageSize, { teamId: teamId ?? null, projectId: query.projectId ?? null, viewId: query.viewId ?? null });
+    if (!history.length) return this.emptyOverview(range, page, pageSize, { teamId: teamId ?? null, projectId: query.projectId ?? null });
 
     const allIssueIds = [...new Set(history.map(row => row.issueId))];
     const currentIssues = await this.db.select().from(issues).where(and(inArray(issues.id, allIssueIds), issueScope(this.db, actor)));
     const issueById = new Map(currentIssues.map(issue => [issue.id, issue]));
-    let labelsByIssue = new Map<string, Set<string>>();
-    if (filters?.config.filters.labelIds.length) {
-      const assignments = await this.db.select({ issueId: issueLabels.issueId, labelId: issueLabels.labelId }).from(issueLabels)
-        .innerJoin(labels, eq(labels.id, issueLabels.labelId)).where(and(
-          inArray(issueLabels.issueId, allIssueIds), labelScope(this.db, actor),
-        ));
-      for (const assignment of assignments) {
-        const current = labelsByIssue.get(assignment.issueId) ?? new Set<string>(); current.add(assignment.labelId); labelsByIssue.set(assignment.issueId, current);
-      }
-    }
-
     const eventsByIssue = new Map<string, HistoryRow[]>();
     const deletedIssueIds = new Set(history.filter(row => row.event === 'deleted').map(row => row.issueId));
     const firstCompletion = new Map<string, HistoryRow>();
@@ -174,17 +128,6 @@ export class InsightsService {
       if (teamId && row.teamId !== teamId) return false;
       const state = row.afterState as Record<string, unknown> | null;
       if (query.projectId && stateString(state, 'project_id') !== query.projectId) return false;
-      if (filters) {
-        if (view?.teamId && row.teamId !== view.teamId) return false;
-        const assigneeId = stateString(state, 'assignee_id'); const projectId = stateString(state, 'project_id');
-        if (filters.config.filters.priorities.length && !filters.config.filters.priorities.includes(String(state?.priority ?? 'no_priority'))) return false;
-        if (filters.config.filters.assigneeIds.length && (!assigneeId || !filters.assigneeIds.has(assigneeId))) return false;
-        if (filters.config.filters.projectIds.length && (!projectId || !filters.projectIds.has(projectId))) return false;
-        if (filters.config.filters.labelIds.length) {
-          const assigned = labelsByIssue.get(row.issueId);
-          if (!assigned || !filters.config.filters.labelIds.some(id => assigned.has(id) && filters.labelIds.has(id))) return false;
-        }
-      }
       // Deleted work is reportable from its visible deletion history; unreadable current issues are not.
       return issueById.has(row.issueId) || deletedIssueIds.has(row.issueId);
     };
@@ -243,7 +186,7 @@ export class InsightsService {
     const createdIssues = new Set(history.filter(row => row.event === 'created').map(row => row.issueId));
     return {
       range: { from: range.from, to: range.to, timezone: range.timezone },
-      filters: { teamId: teamId ?? null, projectId: query.projectId ?? null, viewId: query.viewId ?? null },
+      filters: { teamId: teamId ?? null, projectId: query.projectId ?? null },
       history: { hasHistory: instrumentedEvents.length > 0, measuredEventCount: instrumentedEvents.length,
         baselineIssueCount: baselineIssues.size, issuesWithCreationHistory: createdIssues.size,
         historyStartsAt: instrumentedEvents[0]?.recordedAt ?? null },
@@ -263,7 +206,7 @@ export class InsightsService {
   async cycleReport(actorId: string, query: InsightsCycleQueryDto) {
     const actor = await requireWorkspace(this.db, actorId);
     const range = resolveRange(query);
-    if (query.projectId || query.viewId) throw new BadRequestException('Cycle snapshot metrics are cycle-wide; project and saved-view filters apply to issue trends only');
+    if (query.projectId) throw new BadRequestException('Cycle snapshot metrics are cycle-wide; project filters apply to issue trends only');
     let selectedCycle: typeof cycles.$inferSelect | undefined;
     if (query.cycleId) {
       selectedCycle = await requireCycle(this.db, actor, query.cycleId);
@@ -326,7 +269,7 @@ export class InsightsService {
     };
   }
 
-  private emptyOverview(range: ReturnType<typeof resolveRange>, page: number, pageSize: number, filters: { teamId: string | null; projectId: string | null; viewId: string | null }) {
+  private emptyOverview(range: ReturnType<typeof resolveRange>, page: number, pageSize: number, filters: { teamId: string | null; projectId: string | null }) {
     const throughput = []; const cursor = new Date(`${range.from}T00:00:00.000Z`); const last = new Date(`${range.to}T00:00:00.000Z`);
     while (cursor <= last) { throughput.push({ date: cursor.toISOString().slice(0, 10), count: 0 }); cursor.setUTCDate(cursor.getUTCDate() + 1); }
     return {

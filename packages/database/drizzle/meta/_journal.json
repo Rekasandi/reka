@@ -197,6 +197,20 @@
       "when": 1791966225903,
       "tag": "0027_insight_status_category_history",
       "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1793703923779,
+      "tag": "0028_remove_saved_views",
+      "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1793715193449,
+      "tag": "0029_youthful_sugar_man",
+      "breakpoints": true
     }
   ]
 }

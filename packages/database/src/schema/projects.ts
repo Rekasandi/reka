@@ -31,35 +31,6 @@ export const projects = pgTable('projects', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
-export const initiatives = pgTable('initiatives', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  organizationId: uuid('organization_id').notNull().references(() => organizations.id, { onDelete: 'cascade' }),
-  name: varchar('name', { length: 180 }).notNull(),
-  description: text('description').notNull().default(''),
-  status: varchar('status', { length: 24 }).notNull().default('planned'),
-  health: varchar('health', { length: 24 }).notNull().default('on_track'),
-  ownerId: uuid('owner_id').notNull().references(() => users.id, { onDelete: 'restrict' }),
-  startDate: timestamp('start_date', { withTimezone: true }),
-  targetDate: timestamp('target_date', { withTimezone: true }),
-  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
-}, (t) => [
-  index('initiatives_org_updated_idx').on(t.organizationId, t.updatedAt),
-  check('initiatives_status_check', sql`${t.status} IN ('planned', 'in_progress', 'completed', 'canceled')`),
-  check('initiatives_health_check', sql`${t.health} IN ('on_track', 'at_risk', 'off_track')`),
-  check('initiatives_date_range_check', sql`${t.startDate} IS NULL OR ${t.targetDate} IS NULL OR ${t.startDate} <= ${t.targetDate}`),
-]);
-
-export const initiativeProjects = pgTable('initiative_projects', {
-  initiativeId: uuid('initiative_id').notNull().references(() => initiatives.id, { onDelete: 'cascade' }),
-  projectId: uuid('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
-  createdBy: uuid('created_by').notNull().references(() => users.id, { onDelete: 'restrict' }),
-  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-}, (t) => [
-  primaryKey({ columns: [t.initiativeId, t.projectId] }),
-  index('initiative_projects_project_idx').on(t.projectId, t.initiativeId),
-]);
-
 export const milestones = pgTable('milestones', {
   id: uuid('id').primaryKey().defaultRandom(),
   projectId: uuid('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),

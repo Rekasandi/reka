@@ -36,12 +36,9 @@ REKA bukan portal publik client, aplikasi billing, atau pengganti GitHub. Pengel
 | **Sub-issue** | Pecahan pekerjaan yang terhubung ke issue induk. | Implementasi validasi dan pengujian |
 | **Milestone** | Tahap pencapaian dalam project, dapat berisi beberapa issue. | MVP siap diuji |
 | **Cycle** | Periode kerja tim dengan tanggal, scope issue, dan kapasitas estimasi. | Cycle dua minggu |
-| **Initiative** | Tujuan lintas project, dengan status, kesehatan, dan target. | Tingkatkan pengalaman pelanggan |
-| **Roadmap** | Tampilan jadwal project, milestone, initiative, dan dependency. | Rencana kuartal |
 | **Triage** | Antrean tim untuk meninjau pekerjaan yang masuk. | Bug baru yang perlu diputuskan |
 | **Inbox** | Notifikasi pribadi pengguna. | Anda disebut dalam komentar |
 | **Document** | Dokumen teks tersimpan pada workspace, tim, atau project. | Spesifikasi fitur |
-| **Saved view** | Konfigurasi tampilan issue yang disimpan. | Bug prioritas tinggi |
 
 Hubungannya secara sederhana:
 
@@ -54,8 +51,7 @@ Workspace perusahaan
 │   └── Cycles → issue yang direncanakan per periode
 ├── Clients → project terkait
 ├── Projects → issues, milestones, updates, documents, repositories
-├── Initiatives → mengelompokkan projects
-└── Roadmap dan Insights → membaca data yang dapat diakses pengguna
+└── Insights → membaca data yang dapat diakses pengguna
 ```
 
 **Project dan cycle berbeda:** project menjawab “hasil apa yang ingin dicapai?”, sedangkan cycle menjawab “pekerjaan apa yang direncanakan pada periode ini?”. Issue dapat memiliki project sekaligus cycle.
@@ -154,9 +150,9 @@ Memiliki akun GitHub saja tidak cukup: pengguna baru tetap memerlukan undangan w
 
 ### 4.3 Menu utama
 
-Sidebar mengikuti susunan Linear: **Inbox / My issues**, **Workspace** (Initiatives, Projects, Views, More), **Favorites**, dan **Your teams**. **More** membuka Dashboard, All Issues, Triage, Roadmap, Documents, Cycles, Insights, Favorites, Teams, Users, dan Clients. Settings tetap di bawah sidebar.
+Sidebar mengikuti susunan Linear: **Inbox / My issues**, **Workspace** (Projects, More), **Favorites**, dan **Your teams**. **More** membuka Dashboard, All Issues, Triage, Documents, Cycles, Insights, Favorites, Teams, Users, dan Clients. Settings tetap di bawah sidebar.
 
-Buka nama tim untuk mengakses Home, Triage, Issues, Cycles (Current/Upcoming), Initiatives, Projects, dan Views. Submenu memfilter tim tersebut; initiatives menampilkan tujuan yang terhubung ke project tim. Favorites memakai referensi pribadi yang benar-benar tersimpan. Agent/Loops tidak ditampilkan karena belum tersedia di REKA.
+Buka nama tim untuk mengakses Home, Triage, Issues, Cycles (Current/Upcoming), dan Projects. Submenu memfilter tim tersebut. Favorites memakai referensi pribadi yang benar-benar tersimpan. Agent/Loops tidak ditampilkan karena belum tersedia di REKA.
 
 | Menu | Gunakan untuk |
 |---|---|
@@ -167,11 +163,9 @@ Buka nama tim untuk mengakses Home, Triage, Issues, Cycles (Current/Upcoming), I
 | **Inbox** | Membaca dan mengelola notifikasi pribadi. |
 | **Projects** | Mengelola hasil pekerjaan, milestone, progress, dan updates. |
 | **Cycles** | Merencanakan scope kerja per periode tim. |
-| **Initiatives / Roadmap** | Mengelompokkan tujuan lintas project dan melihat jadwal/dependency. |
 | **Documents** | Menulis dan membaca dokumen yang sesuai scope akses. |
 | **Insights** | Melihat metrik penyelesaian berdasarkan histori tercatat. |
 | **Favorites** | Membuka referensi pribadi yang ditandai bintang. |
-| **Views** | Mencari saved views dan membuka issue dengan filter/layout tersimpan. |
 | **Teams / Users / Clients / Settings** | Struktur tim, anggota, catatan pelanggan, dan konfigurasi sesuai izin. |
 
 ### 4.4 Settings dengan sidebar khusus
@@ -359,15 +353,7 @@ Cycle tidak boleh memiliki rentang tanggal kosong atau overlap dengan cycle terb
 
 Kapasitas tidak wajib. Nilai kosong berarti belum ditetapkan; nilai `0` adalah kapasitas yang secara eksplisit nol. Riwayat grafik hanya memakai snapshot yang benar-benar tercatat. Timeline juga menampilkan observasi saat ini untuk cycle aktif; **Started** merupakan nilai saat ini, bukan riwayat buatan. Garis putus-putus hanya panduan jadwal, bukan prediksi. Nilai yang belum tersedia tetap dijelaskan.
 
-### 6.4 Initiatives dan Roadmap
-
-- Buat initiative untuk tujuan lintas project, lalu isi owner, status, health, dan tanggal.
-- Hubungkan project yang relevan dengan izin pengelolaan project.
-- Gunakan **Roadmap** untuk melihat rentang tanggal, milestone, dan dependency.
-
-Project/initiative membutuhkan start dan target date agar memiliki rentang timeline. Data tanpa tanggal yang cukup tampil sebagai **Unscheduled**, bukan diberi jadwal buatan. Progress dan dependency hanya menggunakan project yang dapat dibaca pengguna; hasil antar pengguna dapat berbeda karena akses private.
-
-### 6.5 Documents
+### 6.4 Documents
 
 Buka **Documents**, pilih scope workspace, tim, atau project, lalu buat judul dan isi teks. Gunakan untuk spesifikasi, keputusan, catatan rapat, atau panduan internal.
 
@@ -399,9 +385,7 @@ Buka **Inbox** untuk membaca mention, assignment, komentar/update, undangan tim,
 
 Menghapus notifikasi tidak menghapus issue atau komentar sumber. Mematikan kategori tidak menghapus histori Inbox yang sudah ada. Jika akses private dicabut, notifikasi terkait tidak lagi ditampilkan. Notifikasi adalah in-app, bukan email atau push eksternal.
 
-### 6.8 Saved views, Favorites, Search, dan shortcut
-
-Setelah memilih filter/sort/group/layout issue, pilih **Save view**. Default-nya private/Only me. Publikasi shared view workspace atau tim memerlukan izin pengelola yang sesuai. Shared view tidak memberikan akses ke issue private dan tidak otomatis dapat diedit semua pengguna.
+### 6.8 Favorites, Search, dan shortcut
 
 Gunakan bintang untuk menyimpan referensi pribadi pada **Favorites**. Hasil pencarian dan favorites selalu diperiksa terhadap izin terbaru.
 
@@ -437,7 +421,7 @@ Pilih rentang tanggal, timezone, dan filter yang tersedia pada **Insights**.
 
 Tidak adanya histori bukan berarti nilai nol. Issue lama mungkin tidak memiliki creation/start history yang cukup untuk metrik durasi. Laporan menunjukkan jumlah sample dan histori yang hilang; tidak merekonstruksi masa lalu dari status saat ini.
 
-Filter project/saved view berlaku pada laporan issue. Snapshot cycle bersifat cycle-wide sehingga tidak dapat dipotong secara jujur menggunakan filter project/saved view. Filter label menggunakan assignment label saat ini karena histori assignment label belum direkam.
+Filter project berlaku pada laporan issue. Snapshot cycle bersifat cycle-wide sehingga tidak dapat dipotong secara jujur menggunakan filter project. Filter label menggunakan assignment label saat ini karena histori assignment label belum direkam.
 
 ### 6.10 Users dan Clients
 
@@ -530,7 +514,7 @@ Jika menerima error penyimpanan, baca pesan validasi dan coba ulang setelah peny
 
 - [Issues dan triage](ISSUES_WORKFLOWS.md)
 - [Workspace dan permissions](WORKSPACE_ACCESS.md)
-- [Saved views, favorites, dan search](VIEWS_SEARCH.md)
+- [Favorites dan search](FAVORITES_SEARCH.md)
 - [Projects dan documents](PROJECTS_DOCUMENTS.md)
 - [Initiatives dan roadmap](INITIATIVES_ROADMAP.md)
 - [Cycles](CYCLES.md)

@@ -28,7 +28,7 @@ Commands exercised for these flows:
 
 ```sh
 pnpm test:projects-docs
-pnpm test:views
+pnpm test:favorites
 pnpm test:web:real-api
 pnpm --filter @reka/api type-check
 pnpm --filter @reka/web type-check

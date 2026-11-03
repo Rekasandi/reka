@@ -34,7 +34,7 @@ Panduan umum workflow dan permission: [PANDUAN_REKA.md](PANDUAN_REKA.md).
 | Documents | 11: 6 spesifikasi project, 3 panduan tim, 1 panduan workspace, 1 dokumen arsip |
 | Collaboration | 12 komentar, 6 relasi issue, 6 subscriptions, 2 attachment teks/Markdown, 6 project updates, 2 project dependencies |
 | Intake templates | 3 dengan field reproduksi dan dampak yang wajib diisi |
-| Saved views / favorites | 3 views, 4 favorites pada akun owner peminta |
+| Favorites | 3 favorites pada akun owner peminta |
 | Users | 5 profil **pending/inactive**, dengan role admin/member/guest/client; bukan akun GitHub terverifikasi |
 | Invitations | 2 email fiktif: satu pending, satu revoked; token tidak ditulis ke dokumentasi/manifest |
 | Inbox | 5 notifikasi simulasi, hanya untuk owner peminta |

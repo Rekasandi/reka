@@ -10,7 +10,8 @@ const { organizations, organizationMembers, users, teams, teamMembers, sessions,
 const { ProjectsModule } = require('../dist/projects/projects.module');
 const { DocumentsModule } = require('../dist/documents/documents.module');
 const { SearchModule } = require('../dist/search/search.module');
-const { ViewsModule } = require('../dist/views/views.module');
+const { FavoritesModule } = require('../dist/favorites/favorites.module');
+const { insertLegacyTeam } = require('./support/legacy-team.cjs');
 const { createPersistentPostgres } = require('./support/persistent-postgres.cjs');
 const { createIsolatedApi } = require('./support/isolated-api.cjs');
 
@@ -59,7 +60,7 @@ test('projects, milestones, dependencies, updates and documents persist with wor
       tokens[user.id] = randomUUID();
       await postgres.db.insert(sessions).values({ id: tokens[user.id], userId: user.id, expiresAt: new Date(Date.now() + 60_000) });
     }
-    api = await createIsolatedApi(postgres, [ProjectsModule, DocumentsModule, SearchModule, ViewsModule]);
+    api = await createIsolatedApi(postgres, [ProjectsModule, DocumentsModule, SearchModule, FavoritesModule]);
     const request = (user, url, method = 'GET', body) => fetch(`${api.url}/api${url}`, {
       method, headers: { Authorization: `Bearer ${tokens[user.id]}`, 'Content-Type': 'application/json' },
       ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
@@ -167,7 +168,7 @@ test('projects, milestones, dependencies, updates and documents persist with wor
     // Real restart verifies new records persist through the migration/schema contract.
     await api.close(); api = null;
     await postgres.reopen();
-    api = await createIsolatedApi(postgres, [ProjectsModule, DocumentsModule, SearchModule, ViewsModule]);
+    api = await createIsolatedApi(postgres, [ProjectsModule, DocumentsModule, SearchModule, FavoritesModule]);
     equal((await (await request(owner, `/projects/${project.id}/milestones`)).json()).length, 2);
     equal((await (await request(member, `/documents?projectId=${project.id}`)).json()).length, 1);
     equal((await postgres.db.select().from(projectUpdates).where(eq(projectUpdates.projectId, project.id))).length, 2);
@@ -192,7 +193,7 @@ test('project workflow migration adds scoped records and order without replacing
     const suffix = randomUUID().replaceAll('-', '').slice(0, 8).toLowerCase();
     const [org] = await postgres.db.insert(organizations).values({ name: 'Legacy projects', slug: `legacy-projects-${suffix}` }).returning();
     const [owner] = await postgres.db.insert(users).values({ name: 'Legacy lead', email: `legacy-lead-${suffix}@example.test`, role: 'owner' }).returning();
-    const [team] = await postgres.db.insert(teams).values({ organizationId: org.id, name: 'Legacy team', key: `L${suffix.slice(0, 4).toUpperCase()}` }).returning();
+    const team = await insertLegacyTeam(postgres.db, { organizationId: org.id, name: 'Legacy team', key: `L${suffix.slice(0, 4).toUpperCase()}` });
     const [project] = await postgres.db.insert(projects).values({ organizationId: org.id, teamId: team.id, name: 'Existing project', slug: `old-${suffix}`, ownerId: owner.id }).returning();
     await postgres.db.insert(projectMembers).values({ projectId: project.id, userId: owner.id, role: 'owner' });
     const milestoneId = randomUUID();

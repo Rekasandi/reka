@@ -120,6 +120,11 @@ test('issue properties, labels, relations, ordering, bulk updates and archive/re
     equal(updatedProperties.assigneeId, member.id);
     const withoutUsedState = customWorkflow.filter((state) => state.key !== 'todo');
     equal((await request(owner, `/teams/${team.id}/workflow-states`, 'PATCH', { states: withoutUsedState })).status, 400, 'used workflow states cannot be removed');
+    const withSpare = [...customWorkflow, { key: 'spare_state', name: 'Spare', category: 'backlog', color: '#778899', position: 11, isActive: true }];
+    equal((await request(owner, `/teams/${team.id}/workflow-states`, 'PATCH', { states: withSpare })).status, 200);
+    const afterDelete = await request(owner, `/teams/${team.id}/workflow-states`, 'PATCH', { states: customWorkflow });
+    equal(afterDelete.status, 200, await afterDelete.clone().text());
+    ok(!(await afterDelete.json()).some((state) => state.key === 'spare_state'), 'unused workflow states are deleted, not just disabled');
     const invalidEstimate = await request(owner, `/issues/${issue.id}`, 'PATCH', { estimate: -1 });
     equal(invalidEstimate.status, 400);
     equal((await request(owner, `/issues/${issue.id}`, 'PATCH', { dueDate: 'not-a-date' })).status, 400);

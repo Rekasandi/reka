@@ -7,7 +7,7 @@ export * from './projects';
 export * from './issues';
 export * from './issue-recurrences';
 export * from './issue-templates';
-export * from './saved-views';
+export * from './favorites';
 export * from './issue-history';
 export * from './labels';
 export * from './comments';

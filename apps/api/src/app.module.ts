@@ -19,12 +19,11 @@ import { CyclesModule } from './cycles/cycles.module';
 import { ActivitiesModule } from './activities/activities.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { SearchModule } from './search/search.module';
-import { ViewsModule } from './views/views.module';
+import { FavoritesModule } from './favorites/favorites.module';
 import { GithubModule } from './github/github.module';
 import { AutomationsModule } from './automations/automations.module';
 import { TriageModule } from './triage/triage.module';
 import { DocumentsModule } from './documents/documents.module';
-import { InitiativesModule } from './initiatives/initiatives.module';
 import { IssueSubscriptionsModule } from './issue-subscriptions/issue-subscriptions.module';
 import { AttachmentsModule } from './attachments/attachments.module';
 import { InsightsModule } from './insights/insights.module';
@@ -52,12 +51,11 @@ import { InsightsModule } from './insights/insights.module';
     ActivitiesModule,
     NotificationsModule,
     SearchModule,
-    ViewsModule,
+    FavoritesModule,
     GithubModule,
     AutomationsModule,
     TriageModule,
     DocumentsModule,
-    InitiativesModule,
     IssueSubscriptionsModule,
     AttachmentsModule,
     InsightsModule,

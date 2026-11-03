@@ -9,7 +9,6 @@ Insights is a scoped, historical report surface at `/insights`. It reads persist
 - **Throughput** counts each issue's first *recorded* transition into a `completed` workflow category. A later re-completion after an observed completion is shown separately and does not add throughput. For issues with baseline history, an earlier completion before instrumentation may be unknown; the response and UI expose this uncertainty rather than claiming lifetime first completion.
 - **Lead time** is recorded creation to first observed completion; **cycle time** is first observed entry into a `started` category to first observed completion. Samples require both timestamps in the history. Missing creation/start history is counted; there is no zero fill or estimate from `issues.created_at`/current status.
 - Daily buckets follow the selected timezone. Completion rows are paginated independently of aggregate metrics.
-- Saved views apply their persisted priority, assignee, project, label and team filters. Access to a private view/project/team and every referenced filter resource is rechecked server-side. Labels are evaluated from current issue-label assignments because label-assignment history is not currently recorded; other issue properties use the status-history event snapshot.
 
 ## Cycle delivery
 

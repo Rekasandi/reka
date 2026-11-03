@@ -2,7 +2,7 @@ const { equal, deepEqual } = require('node:assert/strict');
 const { test } = require('node:test');
 const { randomUUID } = require('node:crypto');
 const { eq, desc } = require('drizzle-orm');
-const { cycles, cycleSnapshots, issueHistory, issues, organizationMembers, organizations, projects, savedViews, sessions, teamMembers, teamWorkflowStates, teams, users } = require('@reka/database');
+const { cycles, cycleSnapshots, issueHistory, issues, organizationMembers, organizations, projects, sessions, teamMembers, teamWorkflowStates, teams, users } = require('@reka/database');
 const { createPersistentPostgres } = require('./support/persistent-postgres.cjs');
 const { createIsolatedApi } = require('./support/isolated-api.cjs');
 const { InsightsModule } = require('../dist/insights/insights.module');
@@ -94,12 +94,6 @@ test('Insights API reports measured throughput/durations with scoped filters, pa
     const foreignIssue = await makeIssue({ teamId: foreignTeam.id, issueProjectId: foreignProject.id, reporterId: foreignOwner.id, assigneeId: foreignOwner.id, number: 1, title: 'Foreign completion' });
     await makeMeasured({ issue: foreignIssue, created: '2026-03-08T10:00:00Z', started: '2026-03-08T10:15:00Z', completed: '2026-03-09T13:30:00Z' });
 
-    const viewConfig = { filterTab: 'all', viewMode: 'list', groupBy: 'none', sortBy: 'updated', showSubtasks: false,
-      filters: { assigneeIds: [member.id], labelIds: [], priorities: ['urgent'], projectIds: [project.id] } };
-    const [view, privateView] = await db.insert(savedViews).values([
-      { organizationId: org.id, ownerId: owner.id, teamId: team.id, name: 'Urgent measured work', visibility: 'shared', config: viewConfig },
-      { organizationId: org.id, ownerId: owner.id, teamId: team.id, name: 'Owner only view', visibility: 'private', config: viewConfig },
-    ]).returning();
     const startDate = new Date('2026-03-07T00:00:00Z'); const endDate = new Date('2026-03-09T00:00:00Z');
     const [cycle, noHistoryCycle, privateCycle] = await db.insert(cycles).values([
       { teamId: team.id, number: 1, name: 'Measured cycle', startDate, endDate, isCompleted: true },
@@ -143,12 +137,8 @@ test('Insights API reports measured throughput/durations with scoped filters, pa
     equal(projectReport.throughput.total, 2); equal(projectReport.completions.total, 2); equal(projectReport.completions.rows.length, 1);
     equal(projectReport.completions.totalPages, 2, 'completion rows are paginated');
 
-    const viewResponse = await call(member, `/insights/overview?${new URLSearchParams({ ...params, viewId: view.id })}`);
-    const viewReport = await viewResponse.json();
-    equal(viewReport.throughput.total, 2, 'saved view project/priority/assignee filters are applied server-side');
     equal((await call(member, `/insights/overview?${new URLSearchParams({ ...params, projectId: privateProject.id })}`)).status, 404);
     equal((await call(member, `/insights/overview?${new URLSearchParams({ ...params, teamId: privateTeam.id })}`)).status, 404);
-    equal((await call(outsider, `/insights/overview?${new URLSearchParams({ ...params, viewId: privateView.id })}`)).status, 404, 'private saved view is hidden from non-owner');
     const memberCycleResponse = await call(member, `/insights/cycles?${new URLSearchParams({ ...params, teamId: team.id, cycleId: cycle.id, unit: 'estimate' })}`);
     const memberCycle = await memberCycleResponse.json();
     equal(memberCycle.velocity.sampleSize, 1, 'only a completed cycle with a recorded final snapshot contributes velocity');

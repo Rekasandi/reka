@@ -147,11 +147,6 @@ export async function seedDemo({ apiUrl, token, sql, owner, manifestFile }) {
     await api(`/triage/${intake.id}/${action}`, 'POST', action === 'accept' ? { status: 'todo', assigneeId: owner.id, projectId: projects.store.id, cycleId: cycles['eng-active'].id } : action === 'decline' ? { reason: prefix + 'Di luar scope contoh, keputusan tersimpan.' } : { relatedIssueId: issues.store[0].id, reason: prefix + 'Laporan mengulang issue validasi checkout.' });
   });
 
-  const initiatives = {};
-  for (const [key, name, status, health, keys] of [['experience', 'Pengalaman Pelanggan', 'in_progress', 'on_track', ['store', 'onboard', 'system']], ['reliable', 'Keandalan Delivery', 'in_progress', 'at_risk', ['monitor', 'runbook']], ['audit', 'Kualitas Pembayaran', 'completed', 'on_track', ['payment']]]) {
-    initiatives[key] = await ensure('initiatives', key, '/initiatives', { name: prefix + name, description: prefix + 'Tujuan fiktif lintas project; progress berasal dari issue yang terhubung dan terlihat.', status, health, startDate: iso(-7), targetDate: iso(30) });
-    for (const projectKey of keys) await once(`initiative-${key}-${projectKey}`, () => api(`/initiatives/${initiatives[key].id}/projects`, 'POST', { projectId: projects[projectKey].id }));
-  }
   await once('project-dependencies', async () => {
     await api(`/projects/${projects.store.id}/dependencies`, 'POST', { dependsOnProjectId: projects.system.id });
     await api(`/projects/${projects.runbook.id}/dependencies`, 'POST', { dependsOnProjectId: projects.monitor.id });
@@ -161,10 +156,7 @@ export async function seedDemo({ apiUrl, token, sql, owner, manifestFile }) {
   const archivedDoc = await ensure('documents', 'archived-example', '/documents', { title: prefix + 'Dokumen versi lama (arsip)', teamId: teams.eng.id, content: prefix + 'Contoh dokumen diarsipkan; restore sebelum mengedit.' }, 'title');
   await once('archive-document', () => api(`/documents/${archivedDoc.id}/archive`, 'POST'));
 
-  for (const [key, name, mode, sort, filters] of [['priority', 'Prioritas tinggi', 'list', 'priority', { priorities: ['urgent', 'high'] }], ['mine', 'Pekerjaan saya', 'grouped', 'dueDate', { assigneeIds: [owner.id] }], ['board', 'Board Engineering', 'board', 'manual', { projectIds: [projects.store.id] }]]) {
-    await ensure('views', key, '/views', { name: prefix + name, teamId: key === 'board' ? teams.eng.id : undefined, visibility: key === 'mine' ? 'private' : 'shared', config: { filterTab: 'all', viewMode: mode, groupBy: mode === 'list' ? 'none' : 'status', sortBy: sort, showSubtasks: true, filters: { assigneeIds: [], labelIds: [], priorities: [], projectIds: [], ...filters } } });
-  }
-  for (const [type, row] of [['issue', issues.store[0]], ['project', projects.store], ['view', manifest.records.views.priority], ['document', guide]]) await once(`favorite-${type}`, () => api('/favorites', 'POST', { resourceType: type, resourceId: row.id }));
+  for (const [type, row] of [['issue', issues.store[0]], ['project', projects.store], ['document', guide]]) await once(`favorite-${type}`, () => api('/favorites', 'POST', { resourceType: type, resourceId: row.id }));
 
   await once('attachments', async () => {
     for (const [name, content, issue] of [['demo-acceptance.txt', 'Data [DEMO]: checkout memvalidasi input wajib; gunakan file ini untuk mencoba download attachment.', issues.store[0]], ['demo-review.md', '# [DEMO] Checklist review\n\n- Periksa validasi\n- Periksa aksesibilitas\n- Verifikasi acceptance criteria\n\nTidak ada PR GitHub nyata.', issues.onboard[2]]]) {
