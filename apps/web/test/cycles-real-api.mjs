@@ -49,7 +49,7 @@ try {
   await captureCurrentCycleSnapshots(postgres.db, now);
   const token = randomUUID();
   await postgres.db.insert(sessions).values({ id: token, userId: owner.id, expiresAt: new Date(Date.now() + 86400000) });
-  api = await createIsolatedApi(postgres, modules, [[RedisService, { getClient: () => { throw new Error('Redis intentionally unavailable in this isolated browser test'); } }]]);
+  api = await createIsolatedApi(postgres, modules, [[RedisService, { getSafe: async () => null, setSafe: async () => {}, delSafe: async () => {}, getClient: () => { throw new Error('Redis intentionally unavailable in this isolated browser test'); } }]]);
   browser = await chromium.launch({ ...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE } : {}) });
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
   const errors = [];

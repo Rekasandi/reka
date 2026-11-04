@@ -8,7 +8,7 @@ const { createPersistentPostgres } = require('./persistent-postgres.cjs');
 const { createIsolatedApi } = require('./isolated-api.cjs');
 const { organizations, organizationMembers, users, teams, teamMembers, teamWorkflowStates, sessions, issues, comments, notifications, issueSubscriptions, notificationPreferences, attachments, githubInstallations, githubRepositories, githubBranches, githubPullRequests, webhookEvents } = require('@reka/database');
 const { eq } = require('drizzle-orm');
-const modules = ['activities', 'attachments', 'comments', 'cycles', 'github', 'issues', 'issue-subscriptions', 'labels', 'notifications', 'projects', 'teams', 'users', 'favorites', 'workspace'].map(name => Object.values(require(`../../dist/${name}/${name}.module`))[0]);
+const modules = ['activities', 'attachments', 'comments', 'cycles', 'github', 'issues', 'issue-subscriptions', 'labels', 'notifications', 'projects', 'teams', 'users', 'favorites', 'reactions', 'workspace'].map(name => Object.values(require(`../../dist/${name}/${name}.module`))[0]);
 modules.push(Object.values(require('../../dist/common/redis/redis.module'))[0]);
 const { RedisService } = require('../../dist/common/redis/redis.service');
 const ui = fileURLToPath(new URL('../../../packages/ui/src/index.ts', import.meta.url));
@@ -56,7 +56,7 @@ try {
     const token = randomUUID(); tokens.set(user.id, token);
     await postgres.db.insert(sessions).values({ id: token, userId: user.id, expiresAt: new Date(Date.now() + 86400000) });
   }
-  api = await createIsolatedApi(postgres, modules, [[RedisService, { getClient: () => { throw new Error('Redis intentionally unavailable in the isolated collaboration browser test'); } }]]);
+  api = await createIsolatedApi(postgres, modules, [[RedisService, { getSafe: async () => null, setSafe: async () => {}, delSafe: async () => {}, getClient: () => { throw new Error('Redis intentionally unavailable in the isolated collaboration browser test'); } }]]);
   browser = await chromium.launch({ ...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE } : {}) });
   const errors = []; const apiFailures = []; const seenApi = [];
   const createPage = async user => {

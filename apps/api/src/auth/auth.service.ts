@@ -1,5 +1,6 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, Optional } from '@nestjs/common';
 import { DatabaseService } from '../common/database/database.service';
+import { RedisService } from '../common/redis/redis.service';
 import { users, sessions, oauthLoginAttempts } from '@reka/database';
 import { and, eq, gt, isNull, lt, or } from 'drizzle-orm';
 import { randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
@@ -30,7 +31,11 @@ export function verifiedGithubIdentity(profile: unknown, emails: unknown): Verif
 
 @Injectable()
 export class AuthService {
-  constructor(private readonly database: DatabaseService, private readonly workspace: WorkspaceService) {}
+  constructor(
+    private readonly database: DatabaseService,
+    private readonly workspace: WorkspaceService,
+    @Optional() private readonly redis?: RedisService,
+  ) {}
 
   async getGithubAuthUrl(inviteToken?: string) {
     const clientId = process.env.GITHUB_CLIENT_ID;
@@ -129,6 +134,7 @@ export class AuthService {
     }
     GITHUB_USER_TOKENS.delete(token);
     GITHUB_USERNAMES.delete(token);
+    await this.redis?.delSafe(`session:${token}`);
     await this.database.db.delete(sessions).where(eq(sessions.id, token));
     return { success: true };
   }

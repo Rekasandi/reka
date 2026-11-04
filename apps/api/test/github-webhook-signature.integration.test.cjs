@@ -47,7 +47,7 @@ test('Nest captures and verifies the exact webhook request body before persisten
   let api;
   try {
     process.env.GITHUB_WEBHOOK_SECRET = 'raw-http-secret';
-    api = await createIsolatedApi(postgres, [GithubModule, RedisModule], [[RedisService, { getClient() { throw new Error('Redis intentionally unavailable'); } }]]);
+    api = await createIsolatedApi(postgres, [GithubModule, RedisModule], [[RedisService, { getSafe: async () => null, setSafe: async () => {}, delSafe: async () => {}, getClient() { throw new Error('Redis intentionally unavailable'); } }]]);
     const raw = Buffer.from('{\n  "action": "opened", "body": " whitespace must stay exact "\n}');
     const payload = { action: 'opened', body: ' whitespace must stay exact ' };
     const send = (signature) => fetch(`${api.url}/api/integrations/github/webhook`, {

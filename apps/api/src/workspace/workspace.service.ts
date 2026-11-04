@@ -3,6 +3,7 @@ import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { and, desc, eq, gt, inArray, isNull, sql } from 'drizzle-orm';
 import { organizations, organizationMembers, users, workspaceInvitations } from '@reka/database';
 import { DatabaseService } from '../common/database/database.service';
+import { RedisService } from '../common/redis/redis.service';
 import { membershipScope, requireAdmin, requireResourceId, requireWorkspace } from '../common/access/workspace-access';
 import { CreateWorkspaceInvitationDto, UpdateWorkspaceDto, UpdateWorkspaceMemberDto } from './dto/workspace.dto';
 import type { UpdateUserDto } from '../users/dto/user.dto';
@@ -20,7 +21,11 @@ export interface VerifiedGithubIdentity {
 
 @Injectable()
 export class WorkspaceService {
-  constructor(private readonly database: DatabaseService, @Optional() private readonly mail?: MailService) {}
+  constructor(
+    private readonly database: DatabaseService,
+    @Optional() private readonly mail?: MailService,
+    @Optional() private readonly redis?: RedisService,
+  ) {}
 
   async findCurrent(actorId: string) {
     const actor = await requireWorkspace(this.database.db, actorId);
@@ -86,6 +91,7 @@ export class WorkspaceService {
           githubUsername: users.githubUsername, githubId: users.githubId, role: users.role,
           createdAt: users.createdAt, updatedAt: users.updatedAt, isActive: sql<boolean>`(SELECT is_active FROM changed_member)` });
       if (!updated) throw new ForbiddenException('Workspace permission changed');
+      await this.redis?.delSafe(`workspace_actor:${id}`);
       return updated;
     } catch (error) {
       const failure = error as { constraint?: string; cause?: { constraint?: string } };

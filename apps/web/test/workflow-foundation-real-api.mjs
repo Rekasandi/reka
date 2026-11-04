@@ -11,7 +11,7 @@ const { createIsolatedApi } = require('./isolated-api.cjs');
 
 const { organizations, organizationMembers, users, teams, teamMembers, sessions, issues, issueHistory, issueRecurrences, issueTemplates, issueRelations, activities, projects, cycles, userFavorites, milestones, projectDependencies, projectUpdates, projectUpdateSubscriptions, documents } = require('@reka/database');
 const { and, eq, asc } = require('drizzle-orm');
-const modules = ['issues', 'users', 'teams', 'projects', 'cycles', 'labels', 'activities', 'comments', 'attachments', 'github', 'triage', 'search', 'favorites', 'documents'].map(name => {
+const modules = ['issues', 'users', 'teams', 'projects', 'cycles', 'labels', 'activities', 'comments', 'attachments', 'github', 'triage', 'search', 'favorites', 'documents', 'reactions'].map(name => {
   const exports = require(`../../dist/${name}/${name}.module`);
   return Object.values(exports)[0];
 });
@@ -47,7 +47,7 @@ try {
   const [cycle] = await postgres.db.insert(cycles).values({ teamId: team.id, number: 1, name: 'Browser cycle', startDate: new Date('2026-10-01T00:00:00Z'), endDate: new Date('2026-10-14T00:00:00Z') }).returning();
   const token = randomUUID();
   await postgres.db.insert(sessions).values({ id: token, userId: owner.id, expiresAt: new Date(Date.now() + 86400000) });
-  api = await createIsolatedApi(postgres, modules, [[RedisService, { getClient: () => { throw new Error('Redis intentionally unavailable in isolated browser test'); } }]]);
+  api = await createIsolatedApi(postgres, modules, [[RedisService, { getSafe: async () => null, setSafe: async () => {}, delSafe: async () => {}, getClient: () => { throw new Error('Redis intentionally unavailable in isolated browser test'); } }]]);
   browser = await chromium.launch({ ...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE } : {}) });
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
   const errors = [];
@@ -140,10 +140,15 @@ try {
   assert.equal(await features.getByRole('switch', { name: 'Enable estimates', exact: true }).getAttribute('data-state'), 'checked');
   assert.match((await features.getByRole('combobox', { name: 'Estimate scale', exact: true }).textContent()) ?? '', /Fibonacci/);
   await selectOption(page, features.getByRole('combobox', { name: 'Estimate scale', exact: true }), /^Linear/);
+  await features.getByRole('switch', { name: 'Auto-close parent issues', exact: true }).click();
+  await selectOption(page, features.getByRole('combobox', { name: 'Auto-archive closed issues', exact: true }), 'After 3 months');
   const featuresSave = page.waitForResponse(response => response.request().method() === 'PATCH' && new URL(response.url()).pathname === `/api/teams/${team.id}`);
   await features.getByRole('button', { name: 'Save changes' }).click();
   assert.equal((await featuresSave).status(), 200);
-  assert.equal((await postgres.db.select().from(teams).where(eq(teams.id, team.id)))[0].estimateScale, 'linear');
+  const savedTeam = (await postgres.db.select().from(teams).where(eq(teams.id, team.id)))[0];
+  assert.equal(savedTeam.estimateScale, 'linear');
+  assert.equal(savedTeam.autoCloseParent, true);
+  assert.equal(savedTeam.autoArchiveMonths, 3);
   await page.keyboard.press('Escape');
   await page.getByRole('button', { name: 'New Issue', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'New Issue', exact: true });
@@ -286,6 +291,13 @@ try {
   const estimateUpdate = page.waitForResponse(response => response.request().method() === 'PATCH' && new URL(response.url()).pathname === `/api/issues/${persisted.id}`);
   await selectOption(page, detail.getByRole('combobox', { name: 'Issue estimate', exact: true }), '3 points');
   assert.equal((await estimateUpdate).status(), 200);
+  const reactionToggle = page.waitForResponse(response => response.request().method() === 'PUT' && new URL(response.url()).pathname === '/api/reactions/toggle');
+  await detail.getByRole('button', { name: 'Add reaction to this issue', exact: true }).click();
+  await page.getByRole('button', { name: 'React with 🚀', exact: true }).click();
+  assert.equal((await reactionToggle).status(), 200);
+  const reactionRows = await postgres.db.select().from(require('@reka/database').reactions).where(eq(require('@reka/database').reactions.issueId, persisted.id));
+  assert.deepEqual(reactionRows.map(row => row.emoji), ['🚀']);
+  await detail.getByRole('button', { name: /^🚀 1 reaction, including yours$/ }).waitFor();
   const dueDateUpdate = page.waitForResponse(response => response.request().method() === 'PATCH' && new URL(response.url()).pathname === `/api/issues/${persisted.id}`);
   await detail.getByLabel('Issue due date').fill('2026-12-01');
   await detail.getByLabel('Issue due date').blur();
