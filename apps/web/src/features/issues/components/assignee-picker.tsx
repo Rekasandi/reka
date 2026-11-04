@@ -42,16 +42,20 @@ export function AssigneePicker({
     return users.find((u) => u.id === assigneeId) || null;
   }, [users, assigneeId]);
 
+  // The session user lacks avatar/email details; the workspace member record has them.
+  const me = currentUser ? { ...currentUser, ...users.find((u) => u.id === currentUser.id) } : null;
   const filteredUsers = React.useMemo(() => {
     const q = searchQuery.toLowerCase().trim();
-    if (!q) return users;
-    return users.filter(
+    // "Assign to me" already lists the current user, so leave them out of the members below.
+    const others = users.filter((u) => u.id !== currentUser?.id);
+    if (!q) return others;
+    return others.filter(
       (u) =>
         u.name.toLowerCase().includes(q) ||
         u.email.toLowerCase().includes(q) ||
         u.role.toLowerCase().includes(q),
     );
-  }, [users, searchQuery]);
+  }, [users, searchQuery, currentUser?.id]);
 
   const handleSelect = (userId: string | null) => {
     onAssigneeChange(userId);
@@ -167,27 +171,28 @@ export function AssigneePicker({
 
         <DropdownMenuGroup className="max-h-52 overflow-y-auto">
           {/* Quick Assign to Current User */}
-          {currentUser && (
+          {me && (
             <DropdownMenuItem
-              onClick={() => handleSelect(currentUser.id)}
+              onClick={() => handleSelect(me.id)}
               className="flex items-center justify-between px-2 py-1.5 text-xs rounded-[4px] cursor-pointer"
             >
               <div className="flex items-center gap-2 min-w-0">
-                <Avatar className="size-5 rounded-full border border-border">
+                <Avatar className="size-5 rounded-full border border-border shrink-0">
+                  {me.avatarUrl && <AvatarImage src={me.avatarUrl} alt={me.name} />}
                   <AvatarFallback className="text-xs font-semibold bg-blue-500/15 text-blue-600 dark:text-blue-400">
-                    {(currentUser.name[0] || 'Y').toUpperCase()}
+                    {(me.name[0] || 'Y').toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
                 <div className="flex flex-col min-w-0">
                   <span className="font-medium text-foreground truncate text-xs">
                     Assign to me
                   </span>
-                  <span className="text-xs text-muted-foreground truncate font-mono">
-                    {currentUser.name}
+                  <span className="text-xs text-muted-foreground truncate">
+                    {me.email || me.name}
                   </span>
                 </div>
               </div>
-              {assigneeId === currentUser.id && <Check className="size-3 text-primary" />}
+              {assigneeId === me.id && <Check className="size-3 text-primary" />}
             </DropdownMenuItem>
           )}
 
