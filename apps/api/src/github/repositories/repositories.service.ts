@@ -2,7 +2,7 @@ import { Injectable, NotFoundException, ConflictException, BadRequestException, 
 import { DatabaseService } from '../../common/database/database.service';
 import { githubRepositories, githubInstallations } from '@reka/database';
 import { and, desc, eq, sql } from 'drizzle-orm';
-import { GITHUB_USER_TOKENS } from '../../auth/auth.service';
+import { githubTokenFor } from '../../auth/github-token';
 import { repositoryScope, requireResourceId, type WorkspaceActor } from '../../common/access/workspace-access';
 
 export interface CreateRepositoryDto {
@@ -20,9 +20,8 @@ export class GithubRepositoriesService {
       .where(repositoryScope(this.database.db, actor)).orderBy(desc(githubRepositories.createdAt));
   }
 
-  async getAvailableRepos(sessionToken: string | undefined, actor: WorkspaceActor) {
-    const userGithubToken = sessionToken ? GITHUB_USER_TOKENS.get(sessionToken) : undefined;
-    const token = userGithubToken || process.env.GITHUB_TOKEN;
+  async getAvailableRepos(actor: WorkspaceActor) {
+    const token = await githubTokenFor(this.database.db, actor.userId);
     if (token) {
       try {
         const res = await fetch('https://api.github.com/user/repos?per_page=100&sort=updated&affiliation=owner,collaborator,organization_member', {
@@ -52,15 +51,15 @@ export class GithubRepositoriesService {
     }));
   }
 
-  async create(dto: CreateRepositoryDto, actor: WorkspaceActor, sessionToken?: string) {
+  async create(dto: CreateRepositoryDto, actor: WorkspaceActor) {
     const fullName = typeof dto.fullName === 'string' ? dto.fullName.trim() : '';
     const match = /^([A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?)\/([A-Za-z0-9._-]{1,100})$/.exec(fullName);
     if (!match || fullName.length > 512) throw new BadRequestException('Repository full name must be in "owner/repo" format');
     if (dto.defaultBranch !== undefined && (typeof dto.defaultBranch !== 'string' || !dto.defaultBranch.trim() || dto.defaultBranch.length > 100)) {
       throw new BadRequestException('Invalid default branch');
     }
-    const token = (sessionToken && GITHUB_USER_TOKENS.get(sessionToken)) || process.env.GITHUB_TOKEN;
-    if (!token) throw new ServiceUnavailableException('A verified GitHub token is required to connect repositories');
+    const token = await githubTokenFor(this.database.db, actor.userId);
+    if (!token) throw new ServiceUnavailableException('Sign in with GitHub (or set GITHUB_TOKEN) to connect repositories');
 
     const response = await fetch(`https://api.github.com/repos/${encodeURIComponent(match[1])}/${encodeURIComponent(match[2])}`, {
       headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28', 'User-Agent': 'REKA-Platform-App' },

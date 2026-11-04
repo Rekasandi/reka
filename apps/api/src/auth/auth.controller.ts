@@ -1,54 +1,39 @@
-import { Controller, Get, Post, Query, Res, Req, HttpException, ForbiddenException, NotImplementedException } from '@nestjs/common';
-import { AuthService } from './auth.service';
-import { authCookieOptions, oauthCookieName, sessionCookieName, sessionToken } from './session-cookie';
-import type { Response, Request } from 'express';
+import { All, Controller, Get, Inject, Req, Res, UnauthorizedException } from '@nestjs/common';
+import type { Request, Response } from 'express';
+import { fromNodeHeaders } from 'better-auth/node';
+import { eq } from 'drizzle-orm';
+import { organizations, users } from '@reka/database';
+import { DatabaseService } from '../common/database/database.service';
+import { AUTH, type Auth } from './better-auth';
+import type { AuthedRequest } from './session.middleware';
 
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(@Inject(AUTH) private readonly auth: Auth, private readonly database: DatabaseService) {}
 
-  @Get('github')
-  async githubLogin(@Query('invite') invite: string | undefined, @Res() res: Response) {
-    const { url, state } = await this.authService.getGithubAuthUrl(invite);
-    res.cookie(oauthCookieName(), state, authCookieOptions(10 * 60000));
-    return res.redirect(url);
-  }
-
-  @Get('github/callback')
-  async githubCallback(@Query('code') code: string, @Query('state') state: string, @Req() req: Request, @Res() res: Response) {
-    const webUrl = process.env.WEB_URL || 'http://localhost:5173';
-    const browserState = req.cookies?.[oauthCookieName()];
-    res.clearCookie(oauthCookieName(), authCookieOptions());
-    try {
-      const { user, token } = await this.authService.handleGithubCallback(code, state, browserState);
-      res.cookie(sessionCookieName(), token, authCookieOptions(7 * 86400000));
-      return res.redirect(`${webUrl}/dashboard?auth=success&userId=${user.id}`);
-    } catch (error) {
-      // Do not put provider payloads/SQL parameters/codes/secrets in redirect URLs.
-      const message = error instanceof HttpException ? error.message : 'GitHub sign-in failed; start again';
-      return res.redirect(`${webUrl}/login?error=${encodeURIComponent(message)}`);
-    }
-  }
-
-  // Keep legacy routes explicit, without preserving passwordless impersonation
-  // or returning the former fabricated WebAuthn challenges.
-  @Post('demo-login')
-  demoLogin() { throw new ForbiddenException('Demo sign-in is disabled. Use verified GitHub sign-in and workspace invitations.'); }
-
-  @Post('passkey/register-options')
-  getRegistrationOptions() { throw new NotImplementedException('Passkey registration is not supported. Use GitHub sign-in.'); }
-
-  @Get('passkey/login-options')
-  getLoginOptions() { throw new NotImplementedException('Passkey sign-in is not supported. Use GitHub sign-in.'); }
-
+  /** The signed-in user plus the active workspace (null until one is created or joined). */
   @Get('me')
-  getMe(@Req() req: Request) { return this.authService.getCurrentUser(sessionToken(req)); }
+  async me(@Req() req: AuthedRequest) {
+    if (!req.userId) throw new UnauthorizedException('Sign in required');
+    const [user] = await this.database.db.select().from(users).where(eq(users.id, req.userId));
+    if (!user) throw new UnauthorizedException('Sign in required');
+    const workspace = req.workspace
+      ? (await this.database.db.select({ id: organizations.id, name: organizations.name, slug: organizations.slug, logoUrl: organizations.logoUrl }).from(organizations).where(eq(organizations.id, req.workspace.organizationId)))[0] ?? null
+      : null;
+    return { ...user, role: req.workspace?.role ?? 'member', workspace: workspace ? { ...workspace, role: req.workspace!.role } : null };
+  }
 
-  @Post('logout')
-  async logout(@Req() req: Request, @Res() res: Response) {
-    const token = sessionToken(req);
-    if (token) await this.authService.logout(token);
-    res.clearCookie(sessionCookieName(), authCookieOptions());
-    return res.json({ success: true });
+  /** Everything else under /api/auth is Better Auth (sign-in, sign-up, magic link, GitHub, organizations). */
+  @All('*splat')
+  async handle(@Req() req: Request & { rawBody?: Buffer }, @Res() res: Response) {
+    const url = new URL(req.originalUrl, process.env.API_URL || 'http://localhost:3000');
+    const hasBody = !['GET', 'HEAD'].includes(req.method);
+    const body = hasBody ? (req.rawBody && req.rawBody.length ? req.rawBody : req.body && Object.keys(req.body).length ? JSON.stringify(req.body) : undefined) : undefined;
+    const response = await this.auth.handler(new Request(url, { method: req.method, headers: fromNodeHeaders(req.headers), body: body as string | Buffer | undefined }));
+    res.status(response.status);
+    response.headers.forEach((value: string, key: string) => { if (key.toLowerCase() !== 'set-cookie') res.setHeader(key, value); });
+    const cookies = response.headers.getSetCookie();
+    if (cookies.length) res.setHeader('set-cookie', cookies);
+    res.send(Buffer.from(await response.arrayBuffer()));
   }
 }

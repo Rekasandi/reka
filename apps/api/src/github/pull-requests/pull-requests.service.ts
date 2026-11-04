@@ -3,7 +3,7 @@ import { and, eq } from 'drizzle-orm';
 import { activities, githubBranches, githubPullRequests, githubRepositories, issueSubscriptions, issues, projectRepositories, teamWorkflowStates } from '@reka/database';
 import { DatabaseService } from '../../common/database/database.service';
 import { NotificationsService } from '../../notifications/notifications.service';
-import { GITHUB_USER_TOKENS } from '../../auth/auth.service';
+import { githubTokenFor } from '../../auth/github-token';
 import { repositoryScope, requireIssue, requireIssueWrite, type WorkspaceActor } from '../../common/access/workspace-access';
 import type { CreateOrLinkPRDto } from './dto/pull-request.dto';
 
@@ -67,14 +67,14 @@ export class GithubPullRequestsService {
     }
   }
 
-  async linkPullRequest(dto: CreateOrLinkPRDto, actor: WorkspaceActor, sessionToken?: string) {
+  async linkPullRequest(dto: CreateOrLinkPRDto, actor: WorkspaceActor) {
     const issue = await requireIssueWrite(this.database.db, actor, dto.issueId);
     const allowedRepositories = await this.repositoriesForIssue(dto.issueId, actor);
     const repo = allowedRepositories.find(candidate => candidate.id === dto.repositoryId);
     if (!repo) throw new NotFoundException('Repository is not linked to this issue or is not accessible');
 
-    const token = (sessionToken && GITHUB_USER_TOKENS.get(sessionToken)) || process.env.GITHUB_TOKEN;
-    if (!token) throw new ServiceUnavailableException('A verified GitHub token is required to verify pull requests');
+    const token = await githubTokenFor(this.database.db, actor.userId);
+    if (!token) throw new ServiceUnavailableException('Sign in with GitHub (or set GITHUB_TOKEN) to verify pull requests');
     let response: Response;
     try {
       response = await fetch(`https://api.github.com/repos/${encodeURIComponent(repo.owner)}/${encodeURIComponent(repo.name)}/pulls/${dto.prNumber}`, {

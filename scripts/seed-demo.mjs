@@ -172,10 +172,9 @@ export async function seedDemo({ apiUrl, token, sql, owner, manifestFile }) {
     await api(`/issues/${issues.monitor[4].id}/recurrence`, 'DELETE');
   });
   for (const key of ['pending', 'revoked']) await once(`invitation-${key}`, async () => {
-    const invitation = await api('/workspace/invitations', 'POST', { email: `reka.demo.invite.${key}@example.test`, role: 'member', expiresInDays: 7 });
-    // Never save or print the secret invitation URL.
+    const invitation = await api('/auth/organization/invite-member', 'POST', { email: `reka.demo.invite.${key}@example.test`, role: 'member' });
     record('invitations', key, { id: invitation.id, email: invitation.email, role: invitation.role });
-    if (key === 'revoked') await api(`/workspace/invitations/${invitation.id}/revoke`, 'POST');
+    if (key === 'revoked') await api('/auth/organization/cancel-invitation', 'POST', { invitationId: invitation.id });
   });
   await once('inbox-simulation', async () => {
     for (const [i, type, title, row, kind] of [[0, 'assignment', 'Issue contoh ditugaskan kepada Anda', issues.store[0], 'issue'], [1, 'mention', 'Contoh mention di diskusi', issues.onboard[0], 'issue'], [2, 'comment', 'Contoh notifikasi komentar', issues.store[3], 'issue'], [3, 'status_change', 'Contoh perubahan status', issues.payment[0], 'issue'], [4, 'project_update', 'Contoh update kesehatan project', projects.monitor, 'project']]) {
@@ -203,8 +202,8 @@ async function main() {
   const owners = await sql`SELECT u.id,om.organization_id AS "organizationId" FROM users u JOIN organization_members om ON om.user_id=u.id WHERE lower(u.email)=${email.toLowerCase()} AND om.role='owner' AND om.is_active=true AND om.admission<>'pending'`;
   assert.equal(owners.length, 1, 'Exactly one active admitted owner workspace required');
   const owner = owners[0], token = randomUUID();
-  await sql`INSERT INTO sessions(id,user_id,expires_at) VALUES (${token},${owner.id}::uuid,now()+interval '30 minutes')`;
+  await sql`INSERT INTO sessions(token,user_id,expires_at) VALUES (${token},${owner.id}::uuid,now()+interval '30 minutes')`;
   try { await seedDemo({ apiUrl: process.env.REKA_DEMO_API_URL || 'http://127.0.0.1:3000', token, sql, owner, manifestFile: process.env.REKA_DEMO_MANIFEST || '.pi/demo-data-v1.json' }); }
-  finally { await sql`DELETE FROM sessions WHERE id=${token}`; }
+  finally { await sql`DELETE FROM sessions WHERE token=${token}`; }
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) main().catch(error => { console.error('Demo seed stopped:', error instanceof assert.AssertionError ? error.message : error.code || error.name); process.exitCode = 1; });

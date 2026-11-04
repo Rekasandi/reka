@@ -1,4 +1,4 @@
-const { insertLegacyTeam } = require('./support/legacy-team.cjs');
+const { insertLegacyTeam, insertLegacyOrganization, insertLegacyUsers } = require('./support/legacy-team.cjs');
 const { equal } = require('node:assert/strict');
 const { test } = require('node:test');
 const { mkdtempSync, mkdirSync, readdirSync, copyFileSync, readFileSync, writeFileSync, rmSync } = require('node:fs');
@@ -23,8 +23,8 @@ test('cycle planning migration preserves legacy cycle rows and adds empty planni
     pg = new PGlite(); await pg.waitReady;
     let db = drizzle(pg, { schema: require('@reka/database') });
     await migrate(db, { migrationsFolder: staged });
-    const [org] = await db.insert(organizations).values({ name: 'Legacy cycle company', slug: `legacy-cycle-${randomUUID()}` }).returning();
-    const [owner] = await db.insert(users).values({ name: 'Legacy cycle owner', email: `legacy-cycle-${randomUUID()}@example.test` }).returning();
+    const org = await insertLegacyOrganization(db, { name: 'Legacy cycle company', slug: `legacy-cycle-${randomUUID()}` });
+    const [owner] = await insertLegacyUsers(db, [{ name: 'Legacy cycle owner', email: `legacy-cycle-${randomUUID()}@example.test` }]);
     const team = await insertLegacyTeam(db, { organizationId: org.id, name: 'Legacy cycles', key: `LC${randomUUID().replaceAll('-', '').slice(0, 6)}` });
     const cycleId = randomUUID();
     const start = new Date('2025-01-01T00:00:00.000Z'); const end = new Date('2025-01-14T00:00:00.000Z');

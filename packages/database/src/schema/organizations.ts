@@ -7,6 +7,8 @@ export const organizations = pgTable('organizations', {
   name: varchar('name', { length: 255 }).notNull(),
   slug: varchar('slug', { length: 100 }).notNull().unique(),
   logoUrl: text('logo_url'),
+  /** Better Auth organization metadata (JSON string); unused by REKA itself. */
+  metadata: text('metadata'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
@@ -14,6 +16,8 @@ export const organizations = pgTable('organizations', {
 export const organizationMembers = pgTable(
   'organization_members',
   {
+    /** Row id for Better Auth's member model; (organizationId, userId) stays the primary key. */
+    id: uuid('id').notNull().defaultRandom().unique(),
     organizationId: uuid('organization_id')
       .notNull()
       .references(() => organizations.id, { onDelete: 'cascade' }),
@@ -39,7 +43,10 @@ export const workspaceInvitations = pgTable('workspace_invitations', {
   organizationId: uuid('organization_id').notNull().references(() => organizations.id, { onDelete: 'cascade' }),
   email: varchar('email', { length: 255 }).notNull(),
   role: varchar('role', { length: 32 }).notNull().default('member'),
-  tokenHash: varchar('token_hash', { length: 64 }).notNull().unique(),
+  /** pending | accepted | rejected | canceled (Better Auth organization invitations). */
+  status: varchar('status', { length: 16 }).notNull().default('pending'),
+  /** Legacy single-use link hash; Better Auth invitations are addressed by id instead. */
+  tokenHash: varchar('token_hash', { length: 64 }).unique(),
   invitedById: uuid('invited_by_id').notNull().references(() => users.id, { onDelete: 'restrict' }),
   expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
   acceptedAt: timestamp('accepted_at', { withTimezone: true }),
@@ -48,6 +55,7 @@ export const workspaceInvitations = pgTable('workspace_invitations', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [
   index('workspace_invitations_organization_email_idx').on(t.organizationId, t.email),
-  check('workspace_invitations_role_check', sql`${t.role} IN ('admin', 'member')`),
+  check('workspace_invitations_role_check', sql`${t.role} IN ('admin', 'member', 'guest', 'client')`),
+  check('workspace_invitations_status_check', sql`${t.status} IN ('pending', 'accepted', 'rejected', 'canceled')`),
   check('workspace_invitations_email_check', sql`${t.email} = lower(trim(${t.email}))`),
 ]);

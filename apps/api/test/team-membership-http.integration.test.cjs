@@ -16,7 +16,7 @@ test('real private creation/settings, role handoff, public join and last-lead me
     const tokens = {};
     for (const [key, person] of Object.entries(people)) {
       tokens[key] = randomUUID();
-      await f.db.insert(sessions).values({ id: tokens[key], userId: person.id, expiresAt: new Date(Date.now() + 86400000) });
+      await f.db.insert(sessions).values({ token: tokens[key], userId: person.id, expiresAt: new Date(Date.now() + 86400000) });
     }
     async function request(who, path, method = 'GET', data) {
       const response = await fetch(`${api.url}/api${path}`, { method, headers: { Authorization: `Bearer ${tokens[who]}`, 'Content-Type': 'application/json' }, ...(data ? { body: JSON.stringify(data) } : {}) });

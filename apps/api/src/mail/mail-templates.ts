@@ -24,7 +24,7 @@ export function invitationEmail(input: { inviterName: string; workspaceName: str
   const expires = input.expiresAt.toUTCString();
   const lines = [
     `${inviter} invited you to join ${workspace} on REKA as a ${input.role}.`,
-    'Sign in with the GitHub account that uses this email address to accept. The link works once.',
+    'Open the link, sign in or create an account with this email address, and accept the invitation.',
   ];
   const footer = `This invitation expires on ${expires}. If you were not expecting it, you can ignore this email.`;
   return {
@@ -41,4 +41,25 @@ export function notificationEmail(input: { title: string; body: string; url?: st
     text: `${input.body}${input.url ? `\n\nOpen in REKA: ${input.url}` : ''}\n\n${footer}`,
     html: layout({ heading: oneLine(input.title), paragraphs: [input.body], action: input.url ? { label: 'Open in REKA', url: input.url } : undefined, footer: 'You receive this because email notifications are turned on in your REKA notification preferences.' }),
   };
+}
+
+export function verificationEmail(input: { url: string }): EmailContent {
+  const lines = ['Confirm this email address to finish creating your REKA account.', 'The link works once and expires in an hour.'];
+  const footer = 'If you did not create a REKA account, you can ignore this email.';
+  return { subject: 'Verify your email for REKA', text: `${lines.join('\n\n')}\n\nVerify email: ${input.url}\n\n${footer}`,
+    html: layout({ heading: 'Verify your email', paragraphs: lines, action: { label: 'Verify email', url: input.url }, footer }) };
+}
+
+export function resetPasswordEmail(input: { url: string }): EmailContent {
+  const lines = ['Someone asked to reset the password for your REKA account.', 'The link works once and expires in an hour.'];
+  const footer = 'If you did not ask for a reset, your password stays the same and you can ignore this email.';
+  return { subject: 'Reset your REKA password', text: `${lines.join('\n\n')}\n\nReset password: ${input.url}\n\n${footer}`,
+    html: layout({ heading: 'Reset your password', paragraphs: lines, action: { label: 'Reset password', url: input.url }, footer }) };
+}
+
+export function magicLinkEmail(input: { url: string }): EmailContent {
+  const lines = ['Use this link to sign in to REKA. No password needed.', 'The link works once and expires in 15 minutes.'];
+  const footer = 'If you did not request this, you can ignore this email.';
+  return { subject: 'Your REKA sign-in link', text: `${lines.join('\n\n')}\n\nSign in: ${input.url}\n\n${footer}`,
+    html: layout({ heading: 'Sign in to REKA', paragraphs: lines, action: { label: 'Sign in', url: input.url }, footer }) };
 }

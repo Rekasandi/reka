@@ -3,7 +3,6 @@ import type { Request } from 'express';
 import { GithubPullRequestsService } from './pull-requests.service';
 import { CreateOrLinkPRDto } from './dto/pull-request.dto';
 import type { WorkspaceActor } from '../../common/access/workspace-access';
-import { sessionToken } from '../../auth/session-cookie';
 
 @Controller('integrations/github/pull-requests')
 export class GithubPullRequestsController {
@@ -26,6 +25,6 @@ export class GithubPullRequestsController {
 
   @Post('link')
   linkPullRequest(@Body() dto: CreateOrLinkPRDto, @Req() req: Request & { workspace: WorkspaceActor }) {
-    return this.service.linkPullRequest(dto, req.workspace, sessionToken(req));
+    return this.service.linkPullRequest(dto, req.workspace);
   }
 }

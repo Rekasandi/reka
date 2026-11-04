@@ -61,7 +61,7 @@ test('collaboration HTTP enforces scoped comments, mentions, subscriptions, pref
     const tokens = new Map();
     for (const user of [owner, member, intraworkspace, legacyClient, foreignUser]) {
       const token = randomUUID(); tokens.set(user.id, token);
-      await postgres.db.insert(sessions).values({ id: token, userId: user.id, expiresAt: new Date(Date.now() + 86400000) });
+      await postgres.db.insert(sessions).values({ token: token, userId: user.id, expiresAt: new Date(Date.now() + 86400000) });
     }
     api = await createIsolatedApi(postgres, [CommentsModule, AttachmentsModule, IssuesModule, NotificationsModule, ActivitiesModule, IssueSubscriptionsModule, UsersModule]);
     const request = (user, path, method = 'GET', body, headers = {}) => fetch(`${api.url}/api${path}`, {

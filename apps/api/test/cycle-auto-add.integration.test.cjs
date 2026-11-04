@@ -25,7 +25,7 @@ test('started issues join the current cycle only when the team enables auto-add'
       { teamId: team.id, number: 2, startDate: new Date(Date.now() + 6 * DAY), endDate: new Date(Date.now() + 12 * DAY) },
     ]).returning();
     const token = randomUUID();
-    await postgres.db.insert(sessions).values({ id: token, userId: owner.id, expiresAt: new Date(Date.now() + 60_000) });
+    await postgres.db.insert(sessions).values({ token: token, userId: owner.id, expiresAt: new Date(Date.now() + 60_000) });
     api = await createIsolatedApi(postgres, [IssuesModule, CyclesModule]);
     const request = (path, method = 'GET', body) => fetch(`${api.url}/api${path}`, {
       method, headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },

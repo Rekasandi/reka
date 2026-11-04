@@ -11,4 +11,22 @@ async function insertLegacyIssue(db, { identifier, number, title, status, teamId
   const result = await db.execute(sql`INSERT INTO issues (identifier, number, title, status, team_id, reporter_id) VALUES (${identifier}, ${number}, ${title}, ${status}, ${teamId}::uuid, ${reporterId}::uuid) RETURNING id`);
   return result.rows[0];
 }
-module.exports = { insertLegacyTeam, insertLegacyIssue };
+/** Organizations/users/members for a legacy schema (before the Better Auth columns existed). */
+async function insertLegacyOrganization(db, { name, slug }) {
+  const result = await db.execute(sql`INSERT INTO organizations (name, slug) VALUES (${name}, ${slug}) RETURNING id, name, slug`);
+  return result.rows[0];
+}
+async function insertLegacyUsers(db, list) {
+  const rows = [];
+  for (const { name, email, role = 'member', githubUsername = null } of list) {
+    const result = await db.execute(sql`INSERT INTO users (name, email, role, github_username) VALUES (${name}, ${email}, ${role}, ${githubUsername}) RETURNING id, name, email, role`);
+    rows.push(result.rows[0]);
+  }
+  return rows;
+}
+async function insertLegacyMembers(db, list) {
+  for (const { organizationId, userId, role = 'member' } of list) {
+    await db.execute(sql`INSERT INTO organization_members (organization_id, user_id, role) VALUES (${organizationId}::uuid, ${userId}::uuid, ${role})`);
+  }
+}
+module.exports = { insertLegacyTeam, insertLegacyIssue, insertLegacyOrganization, insertLegacyUsers, insertLegacyMembers };

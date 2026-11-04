@@ -6,7 +6,7 @@ const { randomUUID } = require('node:crypto');
 const { sql } = require('drizzle-orm');
 const { organizations, users } = require('@reka/database');
 const { createPersistentPostgres } = require('./support/persistent-postgres.cjs');
-const { insertLegacyTeam, insertLegacyIssue } = require('./support/legacy-team.cjs');
+const { insertLegacyTeam, insertLegacyIssue, insertLegacyOrganization, insertLegacyUsers, insertLegacyMembers } = require('./support/legacy-team.cjs');
 
 test('0034 adds Duplicate to existing workflows and drops only unused Blocked states', { timeout: 90000 }, async () => {
   const source = path.resolve(__dirname, '../../../packages/database/drizzle');
@@ -22,8 +22,8 @@ test('0034 adds Duplicate to existing workflows and drops only unused Blocked st
   const postgres = await createPersistentPostgres({ migrationsFolder: folder });
   try {
     const db = postgres.db; const marker = randomUUID().replaceAll('-', '').slice(0, 6).toUpperCase();
-    const [org] = await db.insert(organizations).values({ name: 'Legacy', slug: `legacy-${marker.toLowerCase()}` }).returning();
-    const [owner] = await db.insert(users).values({ name: 'Owner', email: `o-${marker}@example.test`, role: 'owner' }).returning();
+    const org = await insertLegacyOrganization(db, { name: 'Legacy', slug: `legacy-${marker.toLowerCase()}` });
+    const [owner] = await insertLegacyUsers(db, [{ name: 'Owner', email: `o-${marker}@example.test`, role: 'owner' }]);
     const unused = await insertLegacyTeam(db, { organizationId: org.id, name: 'Unused', key: `U${marker}` });
     const used = await insertLegacyTeam(db, { organizationId: org.id, name: 'Used', key: `S${marker}` });
     for (const team of [unused, used]) await db.execute(sql`INSERT INTO team_workflow_states (team_id, key, name, category, position) VALUES

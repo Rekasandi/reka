@@ -48,7 +48,7 @@ test('issue properties, labels, relations, ordering, bulk updates and archive/re
     const tokens = {};
     for (const user of [owner, member, outsider]) {
       tokens[user.id] = randomUUID();
-      await postgres.db.insert(sessions).values({ id: tokens[user.id], userId: user.id, expiresAt: new Date(Date.now() + 86400000) });
+      await postgres.db.insert(sessions).values({ token: tokens[user.id], userId: user.id, expiresAt: new Date(Date.now() + 86400000) });
     }
     api = await createIsolatedApi(postgres, [IssuesModule, LabelsModule, TeamsModule, ProjectsModule, CyclesModule]);
     const request = (user, path, method = 'GET', body) => fetch(`${api.url}/api${path}`, {

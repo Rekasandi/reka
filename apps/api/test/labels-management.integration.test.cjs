@@ -33,7 +33,7 @@ test('label rename/delete APIs enforce team-manager access and preserve issue re
     const tokens = new Map();
     for (const user of [owner, member, admin]) {
       const token = randomUUID(); tokens.set(user.id, token);
-      await postgres.db.insert(sessions).values({ id: token, userId: user.id, expiresAt: new Date(Date.now() + 86_400_000) });
+      await postgres.db.insert(sessions).values({ token: token, userId: user.id, expiresAt: new Date(Date.now() + 86_400_000) });
     }
     api = await createIsolatedApi(postgres, [LabelsModule]);
     const request = (user, path, method = 'GET', body) => fetch(`${api.url}/api${path}`, {

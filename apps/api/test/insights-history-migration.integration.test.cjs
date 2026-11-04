@@ -1,4 +1,4 @@
-const { insertLegacyTeam, insertLegacyIssue } = require('./support/legacy-team.cjs');
+const { insertLegacyTeam, insertLegacyIssue, insertLegacyOrganization, insertLegacyUsers, insertLegacyMembers } = require('./support/legacy-team.cjs');
 const { equal } = require('node:assert/strict');
 const { test } = require('node:test');
 const { mkdtempSync, mkdirSync, copyFileSync, readFileSync, writeFileSync, rmSync } = require('node:fs');
@@ -25,8 +25,8 @@ test('insight history migration preserves preexisting rows as unknown and captur
     const db = drizzle(pg, { schema: require('@reka/database') });
     await migrate(db, { migrationsFolder: staged });
     const marker = randomUUID().replaceAll('-', '').slice(0, 8).toUpperCase();
-    const [org] = await db.insert(organizations).values({ name: 'Insight history', slug: `insight-history-${marker.toLowerCase()}` }).returning();
-    const [owner] = await db.insert(users).values({ name: 'History owner', email: `history-${marker}@example.test` }).returning();
+    const org = await insertLegacyOrganization(db, { name: 'Insight history', slug: `insight-history-${marker.toLowerCase()}` });
+    const [owner] = await insertLegacyUsers(db, [{ name: 'History owner', email: `history-${marker}@example.test` }]);
     const team = await insertLegacyTeam(db, { organizationId: org.id, name: 'History team', key: `H${marker.slice(0, 5)}` });
     await db.insert(teamWorkflowStates).values([
       { teamId: team.id, key: 'queued', name: 'Queued', category: 'unstarted', color: '#888888', position: 0 },

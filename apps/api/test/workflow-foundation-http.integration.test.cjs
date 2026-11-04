@@ -18,7 +18,7 @@ test('real issue HTTP requests validate input and persist state/history across d
     const [team] = await postgres.db.insert(teams).values({ name: 'Engineering', key: 'ENG', organizationId: org.id }).returning();
     await postgres.db.insert(teamMembers).values({ teamId: team.id, userId: owner.id, role: 'lead' });
     const token = randomUUID();
-    await postgres.db.insert(sessions).values({ id: token, userId: owner.id, expiresAt: new Date(Date.now() + 86400000) });
+    await postgres.db.insert(sessions).values({ token: token, userId: owner.id, expiresAt: new Date(Date.now() + 86400000) });
     api = await createIsolatedApi(postgres, [IssuesModule]);
     const request = (path, method = 'GET', body) => fetch(`${api.url}/api${path}`, {
       method, headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },

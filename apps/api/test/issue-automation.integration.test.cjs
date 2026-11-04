@@ -30,7 +30,7 @@ async function fixture() {
   const [team] = await postgres.db.insert(teams).values({ organizationId: org.id, name: 'Auto team', key: `AU${suffix}` }).returning();
   await postgres.db.insert(teamMembers).values([{ teamId: team.id, userId: owner.id, role: 'lead' }, { teamId: team.id, userId: member.id, role: 'member' }]);
   const tokens = {};
-  for (const user of [owner, member, outsider]) { tokens[user.id] = randomUUID(); await postgres.db.insert(sessions).values({ id: tokens[user.id], userId: user.id, expiresAt: new Date(Date.now() + 120_000) }); }
+  for (const user of [owner, member, outsider]) { tokens[user.id] = randomUUID(); await postgres.db.insert(sessions).values({ token: tokens[user.id], userId: user.id, expiresAt: new Date(Date.now() + 120_000) }); }
   const api = await createIsolatedApi(postgres, [IssuesModule, TeamsModule, CyclesModule, LabelsModule, CommentsModule, ReactionsModule]);
   const request = (user, path, method = 'GET', body, signal) => fetch(`${api.url}/api${path}`, {
     method, signal, headers: { Authorization: `Bearer ${tokens[user.id]}`, 'Content-Type': 'application/json' }, ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
