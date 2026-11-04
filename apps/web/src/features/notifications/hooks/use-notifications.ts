@@ -39,9 +39,12 @@ export function useNotifications(params?: GetNotificationsParams) {
 /** One shared Server-Sent Events connection per tab, opened by the first component that shows the unread count
  * and closed when the last one unmounts (so the server-side listener is freed). Replaces polling. */
 let stream: { source: EventSource; users: number } | undefined;
-const LIVE_ISSUE_KEYS = new Set(['issues', 'triage', 'subtasks', 'comments', 'reactions', 'activities', 'issue-relations', 'cycles', 'projects']);
+// Query keys refreshed on a live 'issues' event (API writes by teammates, or worker changes such as GitHub events).
+const LIVE_ISSUE_KEYS = new Set(['issues', 'triage', 'subtasks', 'comments', 'reactions', 'activities', 'workspace-activities', 'issue-relations', 'issue-attachments',
+  'cycles', 'projects', 'github-prs', 'github-branches', 'github-issue-repositories', 'github-webhook-deliveries']);
 
-export function useUnreadCount() {
+/** Opens (or joins) the tab's shared live stream: unread count plus 'issues' refresh events. Safe to call from many components. */
+export function useLiveStream() {
   const queryClient = useQueryClient();
   useEffect(() => {
     if (!stream) {
@@ -61,6 +64,10 @@ export function useUnreadCount() {
     current.users += 1;
     return () => { current.users -= 1; if (!current.users) { current.source.close(); if (stream === current) stream = undefined; } };
   }, [queryClient]);
+}
+
+export function useUnreadCount() {
+  useLiveStream();
   return useQuery({
     queryKey: UNREAD_COUNT_QUERY_KEY,
     queryFn: () => getUnreadCount(),

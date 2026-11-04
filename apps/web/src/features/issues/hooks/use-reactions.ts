@@ -3,7 +3,7 @@ import { toast } from '@reka/ui';
 import { getIssueReactions, toggleReaction } from '../api/reactions.api';
 
 export function useIssueReactions(issueId?: string) {
-  return useQuery({ queryKey: ['reactions', issueId], queryFn: () => getIssueReactions(issueId!), enabled: !!issueId, refetchInterval: 10_000, refetchIntervalInBackground: false });
+  return useQuery({ queryKey: ['reactions', issueId], queryFn: () => getIssueReactions(issueId!), enabled: !!issueId });
 }
 
 export function useToggleReaction(issueId?: string) {

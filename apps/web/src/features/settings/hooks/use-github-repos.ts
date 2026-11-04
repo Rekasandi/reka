@@ -25,7 +25,7 @@ export function useGithubWebhookDeliveries(enabled = true) {
       const response = await fetch('/api/integrations/github/installations/webhook-deliveries');
       if (!response.ok) throw new Error('Failed to load GitHub webhook delivery status');
       return response.json();
-    }, refetchInterval: 15000, refetchIntervalInBackground: false,
+    },
   });
 }
 

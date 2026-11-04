@@ -36,6 +36,7 @@ import { useIssueBranches, useIssuePullRequests } from '../hooks/use-github-inte
 import { StatusPicker } from './status-picker';
 import { PriorityIcon, PriorityPicker } from './priority-picker';
 import { SlaBadge } from './sla-badge';
+import { useLiveStream } from '../../notifications/hooks/use-notifications';
 import { IssueTypePicker } from './issue-type-picker';
 import { AssigneePicker } from './assignee-picker';
 import { ProjectPicker } from './project-picker';
@@ -188,6 +189,7 @@ type IssueDetailContentProps = Omit<IssueDetailSheetProps, 'issue' | 'open' | 'o
 };
 
 export function IssueDetailContent({ issue, presentation = 'sheet', headerActions, onClose, isFavorite = false, canFavorite = true, onToggleFavorite }: IssueDetailContentProps) {
+  useLiveStream(); // comments, reactions, PRs and status from teammates/GitHub arrive live instead of by polling
   const location = useLocation();
   const [title, setTitle] = React.useState(issue.title);
   const [description, setDescription] = React.useState(issue.description || '');

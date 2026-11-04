@@ -35,9 +35,11 @@ export class GithubWebhookProcessor implements OnModuleInit, OnModuleDestroy {
     this.logger.log(`Processing event: ${event} (Event ID: ${eventId})`);
     const db = createDbClient(process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/reka');
     try {
-      const notified = await processGithubWebhookDelivery(db, { eventId: String(eventId || ''), event: String(event || ''), payload });
-      // The API listens on this channel to push live unread counts (see NOTIFICATIONS_CHANNEL in apps/api).
-      if (notified.length) await this.redis.publish('reka:notifications', JSON.stringify(notified)).catch(error => this.logger.warn(`Unread count signal failed: ${error.message}`));
+      const { notifiedUserIds, organizationId } = await processGithubWebhookDelivery(db, { eventId: String(eventId || ''), event: String(event || ''), payload });
+      // The API listens on these channels to push live updates (see NOTIFICATIONS_CHANNEL / ISSUES_CHANNEL in apps/api).
+      const warn = (error: Error) => this.logger.warn(`Live update signal failed: ${error.message}`);
+      if (notifiedUserIds.length) await this.redis.publish('reka:notifications', JSON.stringify(notifiedUserIds)).catch(warn);
+      if (organizationId) await this.redis.publish('reka:issues', JSON.stringify({ organizationId })).catch(warn);
     } catch (error) {
       this.logger.error(`Error processing webhook job: ${(error as Error).message}`);
       throw error;

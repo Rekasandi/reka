@@ -26,6 +26,8 @@ export class CyclePlanningProcessor implements OnModuleInit, OnModuleDestroy {
       const staleClosed = await processAutoCloseStale(db);
       const archived = await processAutoArchive(db);
       if (staleClosed.length) this.logger.log(`Auto-closed ${staleClosed.length} stale issue(s)`);
+      // shortcut: one workspace-wide refresh signal, fine for a single-workspace install; scope it by org if that changes.
+      if (staleClosed.length || archived.length || closed.length) await redis.publish('reka:issues', JSON.stringify({ organizationId: null })).catch(() => undefined);
       if (closed.length) this.logger.log(`Closed ${closed.length} ended cycle(s)`);
       if (archived.length) this.logger.log(`Auto-archived ${archived.length} issue(s)`);
       if (created.length) this.logger.log(`Created ${created.length} scheduled cycle(s)`);

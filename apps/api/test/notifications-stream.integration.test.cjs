@@ -5,7 +5,7 @@ const { randomUUID } = require('node:crypto');
 const { EventEmitter } = require('node:events');
 const { notifications, organizations, organizationMembers, users } = require('@reka/database');
 const { createPersistentPostgres } = require('./support/persistent-postgres.cjs');
-const { NotificationsService, NOTIFICATIONS_CHANNEL } = require('../dist/notifications/notifications.service');
+const { NotificationsService, NOTIFICATIONS_CHANNEL, ISSUES_CHANNEL } = require('../dist/notifications/notifications.service');
 
 const waitFor = async (check, ms = 5000) => { const end = Date.now() + ms; while (!check()) { if (Date.now() > end) throw new Error('timed out'); await new Promise((r) => setTimeout(r, 25)); } };
 
@@ -84,6 +84,20 @@ test('live issue events reach other viewers of the team only, coalesced, never t
     inbox.issuesChanged(org.id, secret.id, actor.id);
     await new Promise((r) => setTimeout(r, 500));
     deepEqual(events.viewer, [open.id], 'private team changes stay with its members');
+
+    // Worker changes (GitHub events, auto-close/archive) arrive over Redis.
+    const redisSub = Object.assign(new (require('node:events').EventEmitter)(), { subscribe: async () => {}, disconnect: () => {} });
+    const relay = new NotificationsService({ db }, undefined, { getClient: () => ({ duplicate: () => redisSub }) });
+    relay.onModuleInit();
+    const relayed = { viewer: [], outsider: [] };
+    const relaySubs = [['viewer', viewer], ['outsider', outsider]].map(([name, user]) => relay.unreadCountStream(user.id).subscribe((event) => { if (event.type === 'issues') relayed[name].push(1); }));
+    await new Promise((r) => setTimeout(r, 300));
+    redisSub.emit('message', ISSUES_CHANNEL, JSON.stringify({ organizationId: org.id }));
+    await waitFor(() => relayed.viewer.length === 1); await new Promise((r) => setTimeout(r, 400));
+    deepEqual([relayed.viewer.length, relayed.outsider.length], [1, 0], 'worker signal reaches only its workspace');
+    redisSub.emit('message', ISSUES_CHANNEL, JSON.stringify({ organizationId: null }));
+    await waitFor(() => relayed.outsider.length === 1);
+    relaySubs.forEach((sub) => sub.unsubscribe()); relay.onModuleDestroy();
 
     subs.forEach((sub) => sub.unsubscribe());
     equal(inbox.unreadChanged.listenerCount('issues'), 0, 'closing streams removes issue listeners');

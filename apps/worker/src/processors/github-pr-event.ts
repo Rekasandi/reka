@@ -245,12 +245,14 @@ export async function processGithubWebhookEvent(db: any, input: { eventId: strin
   });
 }
 
-/** Returns the users who got a new notification, so the caller can tell the API to refresh their unread count. */
-export async function processGithubWebhookDelivery(db: any, input: { eventId: string; event: string; payload: any }): Promise<string[]> {
+/** Returns who got a new notification and which workspace the delivery belongs to, so the caller can tell the API
+ * to refresh unread counts and open issue/GitHub views (live updates instead of polling). */
+export async function processGithubWebhookDelivery(db: any, input: { eventId: string; event: string; payload: any }): Promise<{ notifiedUserIds: string[]; organizationId: string | null }> {
   try {
     const result = await processGithubWebhookEvent(db, input) as { notifiedUserIds?: string[] } | undefined;
     if (input.eventId) await db.update(webhookEvents).set({ processed: true, error: null }).where(eq(webhookEvents.id, input.eventId));
-    return result?.notifiedUserIds ?? [];
+    const scope = await githubScope(db, Number(input.payload?.installation?.id), Number(input.payload?.repository?.id));
+    return { notifiedUserIds: result?.notifiedUserIds ?? [], organizationId: scope?.organizationId ?? null };
   } catch (error) {
     if (input.eventId) {
       await db.update(webhookEvents).set({ error: (error as Error).message.slice(0, 2000) }).where(eq(webhookEvents.id, input.eventId));

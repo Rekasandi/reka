@@ -20,7 +20,7 @@ export function useIssueComments(issueId?: string) {
       const res = await fetch(`/api/comments/by-issue/${issueId}`);
       if (!res.ok) throw new Error('Failed to fetch comments');
       return (await res.json()) as CommentItem[];
-    }, enabled: !!issueId, refetchInterval: 5000, refetchIntervalInBackground: false,
+    }, enabled: !!issueId,
   });
 }
 
@@ -74,7 +74,7 @@ export function useIssueSubscription(issueId?: string) {
 }
 
 export function useIssueAttachments(issueId?: string) {
-  return useQuery({ queryKey: ['issue-attachments', issueId], queryFn: () => getIssueAttachments(issueId!), enabled: !!issueId, refetchInterval: 5000, refetchIntervalInBackground: false });
+  return useQuery({ queryKey: ['issue-attachments', issueId], queryFn: () => getIssueAttachments(issueId!), enabled: !!issueId });
 }
 export function useIssueAttachmentMutations(issueId: string) {
   const queryClient = useQueryClient();
@@ -109,7 +109,6 @@ export function useWorkspaceActivities(limit = 15) {
   return useQuery({
     queryKey: ['workspace-activities', limit],
     queryFn: async () => { const res = await fetch(`/api/activities`); if (!res.ok) throw new Error('Failed to fetch activities'); return (await res.json()) as ActivityItem[]; },
-    refetchInterval: 15000, refetchIntervalInBackground: false,
   });
 }
 
@@ -117,6 +116,6 @@ export function useIssueActivities(issueId?: string) {
   return useQuery({
     queryKey: ['activities', issueId],
     queryFn: async () => { if (!issueId) return []; const res = await fetch(`/api/activities/by-issue/${issueId}`); if (!res.ok) throw new Error('Failed to fetch activities'); return (await res.json()) as ActivityItem[]; },
-    enabled: !!issueId, refetchInterval: 5000, refetchIntervalInBackground: false,
+    enabled: !!issueId,
   });
 }

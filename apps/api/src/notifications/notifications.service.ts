@@ -17,6 +17,8 @@ const notSnoozed = (now = new Date()): SQL => or(isNull(notifications.snoozedUnt
 
 /** The worker publishes user ids here (JSON array) after it creates notifications. Keep in sync with apps/worker. */
 export const NOTIFICATIONS_CHANNEL = 'reka:notifications';
+/** The worker publishes { organizationId } here after it changes issues (GitHub events, auto-close/archive). Null = all. */
+export const ISSUES_CHANNEL = 'reka:issues';
 const HEARTBEAT_MS = 25_000; // below common proxy idle timeouts (nginx: 60s)
 
 @Injectable()
@@ -34,11 +36,14 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
     catch (error) { this.logger.warn(`Live unread counts from the worker are unavailable: ${(error as Error).message}`); }
     if (!this.subscriber) return;
     this.subscriber.on('error', (error) => { if (!warned) this.logger.warn(`Live unread counts from the worker are unavailable: ${error.message}`); warned = true; });
-    this.subscriber.on('message', (_channel, message) => {
-      try { for (const userId of JSON.parse(message)) if (typeof userId === 'string') this.unreadChanged.emit('changed', userId); }
-      catch { /* ignore malformed messages */ }
+    this.subscriber.on('message', (channel, message) => {
+      try {
+        const parsed = JSON.parse(message);
+        if (channel === ISSUES_CHANNEL) this.unreadChanged.emit('issues', { organizationId: typeof parsed?.organizationId === 'string' ? parsed.organizationId : null, teamId: null, actorId: '' });
+        else for (const userId of parsed) if (typeof userId === 'string') this.unreadChanged.emit('changed', userId);
+      } catch { /* ignore malformed messages */ }
     });
-    this.subscriber.subscribe(NOTIFICATIONS_CHANNEL).catch(() => undefined);
+    this.subscriber.subscribe(NOTIFICATIONS_CHANNEL, ISSUES_CHANNEL).catch(() => undefined);
   }
 
   onModuleDestroy() { this.subscriber?.disconnect(); }
@@ -46,7 +51,7 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
   private changed(userId: string) { this.unreadChanged.emit('changed', userId); }
 
   /** Issue data changed in this workspace (team when known). Streams skip the actor and teams the viewer cannot see. */
-  issuesChanged(organizationId: string, teamId: string | null, actorId: string) { this.unreadChanged.emit('issues', { organizationId, teamId, actorId }); }
+  issuesChanged(organizationId: string | null, teamId: string | null, actorId: string) { this.unreadChanged.emit('issues', { organizationId, teamId, actorId }); }
 
   /** SSE stream of `{ count }`: sent on connect, after every change for this user, and when a snoozed notification returns. */
   unreadCountStream(userId: string): Observable<MessageEvent> {
@@ -69,10 +74,10 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
       // Coalesce bursts (bulk edits) into one 'issues' event; clients refetch and the API re-checks access.
       const viewer = requireWorkspace(this.database.db, userId).catch(() => null);
       let issuesTimer: NodeJS.Timeout | undefined;
-      const onIssues = async ({ organizationId, teamId, actorId }: { organizationId: string; teamId: string | null; actorId: string }) => {
+      const onIssues = async ({ organizationId, teamId, actorId }: { organizationId: string | null; teamId: string | null; actorId: string }) => {
         if (actorId === userId || issuesTimer) return;
         const actor = await viewer;
-        if (!actor || actor.organizationId !== organizationId || closed) return;
+        if (!actor || (organizationId && actor.organizationId !== organizationId) || closed) return;
         if (teamId) { try { await requireTeam(this.database.db, actor, teamId); } catch { return; } }
         issuesTimer ??= setTimeout(() => { issuesTimer = undefined; if (!closed) subscriber.next({ type: 'issues', data: { teamId } }); }, 250);
       };

@@ -1,8 +1,10 @@
 import { Controller, Delete, Get, Param, Post, Req, Res, UploadedFile, UseInterceptors } from '@nestjs/common';
+import { LiveIssuesInterceptor } from '../notifications/live-issues.interceptor';
 import { FileInterceptor } from '@nestjs/platform-express';
 import type { Request, Response } from 'express';
 import { AttachmentsService, MAX_ATTACHMENT_BYTES, type UploadFile } from './attachments.service';
 
+@UseInterceptors(LiveIssuesInterceptor)
 @Controller('attachments')
 export class AttachmentsController {
   constructor(private readonly attachments: AttachmentsService) {}

@@ -50,7 +50,7 @@ export function useIssueBranches(issueId?: string) {
       const response = await fetch(`/api/integrations/github/pull-requests/branches/by-issue/${issueId}`);
       if (!response.ok) throw new Error('Could not load linked GitHub branches');
       return response.json();
-    }, enabled: !!issueId, refetchInterval: 5000, refetchIntervalInBackground: false,
+    }, enabled: !!issueId,
   });
 }
 
