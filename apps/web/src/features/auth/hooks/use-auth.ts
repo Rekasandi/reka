@@ -23,7 +23,7 @@ export function useLogout() {
     mutationFn: async () => { try { await logoutRequest(); } catch { /* the session is cleared client-side regardless */ } },
     onSettled: () => {
       client.setQueryData(AUTH_QUERY_KEY, null);
-      window.location.href = '/login';
+      window.location.assign('/login');
     },
   });
 }

@@ -23,10 +23,8 @@ try {
     const original = await (await route.fetch()).text();
     const version = original.match(/react\.js(\?v=[\w]+)/)?.[1] ?? '';
     await route.fulfill({ contentType: 'application/javascript', body: `
-      import React from '/node_modules/.vite/deps/react.js${version}';
-      import ReactDOM from '/node_modules/.vite/deps/react-dom_client.js${version}';
-      import { QueryClient, QueryClientProvider } from '/node_modules/.vite/deps/@tanstack_react-query.js${version}';
-      import { MemoryRouter, Routes, Route } from '/node_modules/.vite/deps/react-router-dom.js${version}';
+      import { React, ReactDOM, QueryClient, QueryClientProvider, MemoryRouter, Routes, Route } from '/src/test-support/vendor.ts';
+      
       import { TeamsPage } from '/src/features/teams/components/teams-page.tsx';
       import '/src/styles/globals.css';
       ReactDOM.createRoot(document.getElementById('root')).render(

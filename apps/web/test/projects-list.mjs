@@ -49,10 +49,8 @@ try {
     const original = await (await route.fetch()).text();
     const version = original.match(/react\.js(\?v=[\w]+)/)?.[1] ?? '';
     await route.fulfill({ contentType: 'application/javascript', body: `
-      import React from '/node_modules/.vite/deps/react.js${version}';
-      import ReactDOM from '/node_modules/.vite/deps/react-dom_client.js${version}';
-      import { QueryClient, QueryClientProvider } from '/node_modules/.vite/deps/@tanstack_react-query.js${version}';
-      import { MemoryRouter, Routes, Route, useLocation } from '/node_modules/.vite/deps/react-router-dom.js${version}';
+      import { React, ReactDOM, QueryClient, QueryClientProvider, MemoryRouter, Routes, Route, useLocation } from '/src/test-support/vendor.ts';
+      
       import { ProjectsPage } from '/src/features/projects/components/projects-page.tsx';
             import '/src/styles/globals.css';
       const params = new URLSearchParams(window.location.search);

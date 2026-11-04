@@ -23,7 +23,7 @@ try {
     else if (path === '/api/notifications/unread-count') body = { count: 0 };
     else if (path === '/api/notifications/unread-count/stream') return route.fulfill({ contentType: 'text/event-stream', body: 'data: {"count":0}\n\n' });
     else if (path === '/api/workspace') body = { id: 'w1', name: 'Test Workspace', role: 'owner' };
-    else if (!['/api/projects', '/api/users', '/api/cycles', '/api/labels', '/api/favorites', '/api/triage', '/api/teams/t1/workflow-states'].includes(path)) throw new Error(`Unexpected API request ${path}`);
+    else if (!['/api/projects', '/api/users', '/api/cycles', '/api/labels', '/api/favorites', '/api/triage', '/api/teams/t1/workflow-states', '/api/auth/organization/list', '/api/auth/organization/list-user-invitations'].includes(path)) throw new Error(`Unexpected API request ${path}`);
     await route.fulfill({ json: body });
   });
   const issues = Array.from({ length: 50 }, (_, index) => ({
@@ -35,10 +35,8 @@ try {
     const original = await (await route.fetch()).text();
     const version = original.match(/react\.js(\?v=[\w]+)/)?.[1] ?? '';
     await route.fulfill({ contentType: 'application/javascript', body: `
-      import React from '/node_modules/.vite/deps/react.js${version}';
-      import ReactDOM from '/node_modules/.vite/deps/react-dom_client.js${version}';
-      import { QueryClient, QueryClientProvider } from '/node_modules/.vite/deps/@tanstack_react-query.js${version}';
-      import { MemoryRouter, Routes, Route } from '/node_modules/.vite/deps/react-router-dom.js${version}';
+      import { React, ReactDOM, QueryClient, QueryClientProvider, MemoryRouter, Routes, Route } from '/src/test-support/vendor.ts';
+      
       import { AppLayout } from '/src/components/layout/app-layout.tsx';
       import { IssueGroupedListView } from '/src/features/issues/components/issue-grouped-list-view.tsx';
       import { ProjectsPage } from '/src/features/projects/components/projects-page.tsx';

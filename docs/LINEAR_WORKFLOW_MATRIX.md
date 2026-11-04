@@ -8,7 +8,7 @@ Single internal-company workspace, multiple employees, GitHub login retained. Ow
 
 Use React/Vite, NestJS, Drizzle, the existing worker, shadcn `@reka/ui`, Tailwind and `DESIGN.md`. Preserve existing routes/data and unrelated working-tree changes. Keep the agreed Projects table without outer card/frame, description or identity icons; compact metadata on the right. Team identity uses its key. Keep inline editing, selection/nesting behavior, category filters, sans UI and monospace code.
 
-Excluded: billing/payment/pricing, SaaS subscriptions, new multi-workspace product, external guests/client access, public sharing/intake, AI agents, enterprise SAML/SCIM, integrations other than GitHub, native clients and collaborative multi-cursor editing.
+Excluded: billing/payment/pricing, SaaS subscriptions, external guests/client access, public sharing/intake, AI agents, enterprise SAML/SCIM, integrations other than GitHub, native clients and collaborative multi-cursor editing.
 
 ## Source baseline
 

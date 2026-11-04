@@ -46,7 +46,7 @@ try {
   ]).returning();
   const [cycle] = await postgres.db.insert(cycles).values({ teamId: team.id, number: 1, name: 'Browser cycle', startDate: new Date('2026-10-01T00:00:00Z'), endDate: new Date('2026-10-14T00:00:00Z') }).returning();
   const token = randomUUID();
-  await postgres.db.insert(sessions).values({ id: token, userId: owner.id, expiresAt: new Date(Date.now() + 86400000) });
+  await postgres.db.insert(sessions).values({ token: token, userId: owner.id, expiresAt: new Date(Date.now() + 86400000) });
   api = await createIsolatedApi(postgres, modules, [[RedisService, { getSafe: async () => null, setSafe: async () => {}, delSafe: async () => {}, getClient: () => { throw new Error('Redis intentionally unavailable in isolated browser test'); } }]]);
   browser = await chromium.launch({ ...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE } : {}) });
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
@@ -71,10 +71,8 @@ try {
     const original = await (await route.fetch()).text();
     const version = original.match(/react\.js(\?v=[\w]+)/)?.[1] ?? '';
     await route.fulfill({ contentType: 'application/javascript', body: `
-      import React from '/node_modules/.vite/deps/react.js${version}';
-      import ReactDOM from '/node_modules/.vite/deps/react-dom_client.js${version}';
-      import { QueryClient, QueryClientProvider } from '/node_modules/.vite/deps/@tanstack_react-query.js${version}';
-      import { MemoryRouter, Routes, Route, useLocation } from '/node_modules/.vite/deps/react-router-dom.js${version}';
+      import { React, ReactDOM, QueryClient, QueryClientProvider, MemoryRouter, Routes, Route, useLocation } from '/src/test-support/vendor.ts';
+      
       import { TooltipProvider } from '/@fs${ui}';
       import { ThemeProvider } from '/src/components/theme/theme-provider.tsx';
       import { IssuesPage } from '/src/features/issues/components/issues-page.tsx';

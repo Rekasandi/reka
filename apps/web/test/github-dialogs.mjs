@@ -33,9 +33,7 @@ try {
     const original = await (await route.fetch()).text();
     const version = original.match(/react\.js(\?v=[\w]+)/)?.[1] ?? '';
     await route.fulfill({ contentType: 'application/javascript', body: `
-      import React from '/node_modules/.vite/deps/react.js${version}';
-      import ReactDOM from '/node_modules/.vite/deps/react-dom_client.js${version}';
-      import { QueryClient, QueryClientProvider } from '/node_modules/.vite/deps/@tanstack_react-query.js${version}';
+      import { React, ReactDOM, QueryClient, QueryClientProvider } from '/src/test-support/vendor.ts';
       import { TooltipProvider } from '/@fs${ui}';
       import { LinkPullRequestDialog } from '/src/features/issues/components/link-pr-dialog.tsx';
       import { AddRepositoryDialog } from '/src/features/settings/components/add-repository-dialog.tsx';
