@@ -70,7 +70,7 @@ export function UsersPage() {
   };
 
   return (
-    <div className="flex flex-col gap-5 max-w-none mx-auto selection:bg-foreground selection:text-background pb-10">
+    <div className="flex flex-col gap-5 w-full selection:bg-foreground selection:text-background pb-10">
       {/* Page Header */}
       <div className="flex items-center justify-between gap-4">
         <div className="flex flex-col gap-1">
