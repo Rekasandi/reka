@@ -406,7 +406,7 @@ try {
   await sidebar.getByRole('button', { name: 'More workspace pages', exact: true }).focus();
   await page.keyboard.press('Enter');
   const moreMenu = page.getByRole('menu');
-  assert.equal(await moreMenu.getByRole('menuitem').count(), 9, 'Dashboard moved out of More into the main nav');
+  assert.equal(await moreMenu.getByRole('menuitem').count(), 7, 'Dashboard, Teams and Users live in the main nav, not in More');
   await page.keyboard.press('Escape');
   assert.equal(await page.getByRole('menu').count(), 0);
   await page.evaluate(() => window.__auditSetIdentity({ role: 'guest' }));

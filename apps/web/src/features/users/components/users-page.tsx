@@ -29,13 +29,13 @@ function getAvatarBg(name: string) {
 }
 
 function formatDateLabel(val?: string | null): string {
-  if (!val) return '—';
+  if (!val) return 'No date';
   try {
     const d = new Date(val);
-    if (Number.isNaN(d.getTime())) return '—';
+    if (Number.isNaN(d.getTime())) return 'No date';
     return format(d, 'MMM dd');
   } catch {
-    return '—';
+    return 'No date';
   }
 }
 
@@ -255,7 +255,7 @@ export function UsersPage() {
                           ))}
                         </div>
                       ) : (
-                        <span className="text-muted-foreground text-xs">—</span>
+                        <span className="text-muted-foreground text-xs">No teams</span>
                       )}
                     </TableCell>
 

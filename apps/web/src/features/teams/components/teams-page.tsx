@@ -82,7 +82,7 @@ export function TeamsPage() {
                     {/* Description column */}
                     <TableCell className="py-2.5 text-muted-foreground">
                       <span className="block truncate max-w-sm text-xs" title={team.description || undefined}>
-                        {team.description || '—'}
+                        {team.description || 'No description'}
                       </span>
                     </TableCell>
 
@@ -97,7 +97,7 @@ export function TeamsPage() {
                           <span>Joined</span>
                         </Badge>
                       ) : (
-                        <span className="text-muted-foreground text-xs">—</span>
+                        <span className="text-muted-foreground text-xs">Not a member</span>
                       )}
                     </TableCell>
 
