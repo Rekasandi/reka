@@ -6,6 +6,7 @@
     "build": "turbo run build",
     "dev": "docker compose up -d --wait redis || echo \"Redis did not start (is Docker running?). The worker needs it.\"; turbo run build --filter=\"./packages/*\" --output-logs=errors-only --ui=stream && turbo run dev --filter=@reka/web --filter=@reka/api --filter=@reka/worker",
     "dev:all": "turbo run dev",
+    "tunnel": "sh scripts/tunnel.sh",
     "dev:web": "turbo run dev --filter=@reka/web",
     "dev:api": "turbo run dev --filter=@reka/api",
     "dev:worker": "turbo run dev --filter=@reka/worker",

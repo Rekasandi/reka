@@ -1,4 +1,5 @@
 # Local development:  docker compose up -d            -> Redis only (run web/api/worker with pnpm dev:all)
+# GitHub webhooks in dev: pnpm tunnel -> public URL for the local API (see the tunnel service)
 # Server deployment:  docker compose --profile app up -d --build
 #                     -> Redis + API + worker + Caddy (automatic HTTPS for API_DOMAIN). The web app runs on Vercel.
 # The server needs a .env next to this file (see DEPLOYMENT.md). Database migrations are never run automatically.
@@ -54,6 +55,18 @@ services:
       - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
     depends_on: [api]
+    restart: unless-stopped
+
+  # Public HTTPS URL for the local API so GitHub can deliver webhooks in development:
+  #   pnpm tunnel   (prints https://<random>.trycloudflare.com/api/integrations/github/webhook)
+  # The URL changes every time the tunnel restarts; update the GitHub App webhook URL when it does.
+  tunnel:
+    profiles: [tunnel]
+    image: cloudflare/cloudflared:latest
+    container_name: reka-tunnel
+    command: ["tunnel", "--no-autoupdate", "--url", "http://host.docker.internal:3000"]
+    extra_hosts:
+      - "host.docker.internal:host-gateway" # Linux; Docker Desktop provides it already
     restart: unless-stopped
 
 volumes:
