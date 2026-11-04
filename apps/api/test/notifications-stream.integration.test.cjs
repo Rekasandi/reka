@@ -50,3 +50,42 @@ test('unread count stream pushes on changes, worker signals and snooze expiry, a
     await postgres.close();
   }
 });
+
+test('live issue events reach other viewers of the team only, coalesced, never the actor', { timeout: 90_000 }, async () => {
+  const { teams, teamMembers } = require('@reka/database');
+  const postgres = await createPersistentPostgres();
+  const marker = randomUUID().replaceAll('-', '').slice(0, 8);
+  try {
+    const db = postgres.db;
+    const [org, otherOrg] = await db.insert(organizations).values([{ name: `Live ${marker}`, slug: `live-${marker}` }, { name: `Other ${marker}`, slug: `other-${marker}` }]).returning();
+    const [actor, viewer, outsider] = await db.insert(users).values([
+      { email: `a-${marker}@example.test`, name: 'Actor' }, { email: `v-${marker}@example.test`, name: 'Viewer' }, { email: `x-${marker}@example.test`, name: 'Outsider' },
+    ]).returning();
+    await db.insert(organizationMembers).values([
+      { organizationId: org.id, userId: actor.id, role: 'member' }, { organizationId: org.id, userId: viewer.id, role: 'member' }, { organizationId: otherOrg.id, userId: outsider.id, role: 'member' },
+    ]);
+    const [open, secret] = await db.insert(teams).values([
+      { organizationId: org.id, name: 'Open', key: `O${marker.slice(0, 4).toUpperCase()}` },
+      { organizationId: org.id, name: 'Secret', key: `S${marker.slice(0, 4).toUpperCase()}`, isPrivate: true },
+    ]).returning();
+    await db.insert(teamMembers).values([{ teamId: open.id, userId: actor.id, role: 'lead' }, { teamId: secret.id, userId: actor.id, role: 'lead' }]);
+    const inbox = new NotificationsService({ db });
+    const events = { actor: [], viewer: [], outsider: [] };
+    const subs = Object.entries({ actor, viewer, outsider }).map(([name, user]) => inbox.unreadCountStream(user.id).subscribe((event) => { if (event.type === 'issues') events[name].push(event.data.teamId); }));
+    await new Promise((r) => setTimeout(r, 300));
+
+    for (let i = 0; i < 5; i += 1) inbox.issuesChanged(org.id, open.id, actor.id); // a bulk edit
+    await waitFor(() => events.viewer.length === 1);
+    await new Promise((r) => setTimeout(r, 400));
+    deepEqual(events.viewer, [open.id], 'one coalesced event for the burst');
+    deepEqual(events.actor, [], 'the actor already has fresh data');
+    deepEqual(events.outsider, [], 'other workspaces hear nothing');
+
+    inbox.issuesChanged(org.id, secret.id, actor.id);
+    await new Promise((r) => setTimeout(r, 500));
+    deepEqual(events.viewer, [open.id], 'private team changes stay with its members');
+
+    subs.forEach((sub) => sub.unsubscribe());
+    equal(inbox.unreadChanged.listenerCount('issues'), 0, 'closing streams removes issue listeners');
+  } finally { await postgres.close(); }
+});

@@ -1,8 +1,10 @@
-import { Controller, Get, Post, Patch, Delete, Param, Body, Req } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Param, Body, Req, UseInterceptors } from '@nestjs/common';
+import { LiveIssuesInterceptor } from '../notifications/live-issues.interceptor';
 import type { Request } from 'express';
 import { CommentsService } from './comments.service';
 import { CreateCommentDto, UpdateCommentDto } from './dto/comment.dto';
 
+@UseInterceptors(LiveIssuesInterceptor)
 @Controller('comments')
 export class CommentsController {
   constructor(private readonly commentsService: CommentsService) {}

@@ -32,8 +32,8 @@ async function fixture() {
   const tokens = {};
   for (const user of [owner, member, outsider]) { tokens[user.id] = randomUUID(); await postgres.db.insert(sessions).values({ id: tokens[user.id], userId: user.id, expiresAt: new Date(Date.now() + 120_000) }); }
   const api = await createIsolatedApi(postgres, [IssuesModule, TeamsModule, CyclesModule, LabelsModule, CommentsModule, ReactionsModule]);
-  const request = (user, path, method = 'GET', body) => fetch(`${api.url}/api${path}`, {
-    method, headers: { Authorization: `Bearer ${tokens[user.id]}`, 'Content-Type': 'application/json' }, ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+  const request = (user, path, method = 'GET', body, signal) => fetch(`${api.url}/api${path}`, {
+    method, signal, headers: { Authorization: `Bearer ${tokens[user.id]}`, 'Content-Type': 'application/json' }, ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
   });
   const create = async (extra = {}) => { const r = await request(owner, '/issues', 'POST', { title: 'Issue', teamId: team.id, assigneeId: null, ...extra }); equal(r.status, 201, await r.clone().text()); return r.json(); };
   const row = async (id) => (await postgres.db.select().from(issues).where(eq(issues.id, id)))[0];
@@ -221,6 +221,8 @@ test('default status, duplicate status and their workflow guards', { timeout: 60
     equal((await f.request(f.owner, `/teams/${team.id}`, 'PATCH', { defaultStatus: 'backlog' })).status, 200);
     equal((await create()).status, 'backlog');
     const states = await (await f.request(f.owner, `/teams/${team.id}/workflow-states`)).json();
+    equal(states.find((state) => state.key === 'backlog').issueCount, 1, 'workflow states report how many issues use them');
+    equal(states.find((state) => state.key === 'done').issueCount, 0);
     const withoutBacklog = states.map(({ key, name, category, color, position, isActive }) => ({ key, name, category, color, position, isActive: key === 'backlog' ? false : isActive }));
     equal((await f.request(f.owner, `/teams/${team.id}/workflow-states`, 'PATCH', { states: withoutBacklog })).status, 400, 'referenced default cannot be disabled');
 
@@ -296,4 +298,19 @@ test('auto-close sub-issues and stale issues', { timeout: 60000 }, async () => {
     deepEqual([(await f.row(stale.id)).status, (await f.row(started.id)).status, (await f.row(fresh.id)).status], ['canceled', 'in_progress', 'todo']);
     equal((await processAutoCloseStale(f.postgres.db)).length, 0, 'idempotent');
   } finally { await f.close(); }
+});
+
+test('issue writes push a live "issues" event to teammates over the SSE stream', { timeout: 60000 }, async () => {
+  const f = await fixture();
+  const controller = new AbortController();
+  try {
+    const response = await f.request(f.member, '/notifications/unread-count/stream', 'GET', undefined, controller.signal);
+    equal(response.headers.get('content-type')?.startsWith('text/event-stream'), true);
+    const reader = response.body.getReader(); const decoder = new TextDecoder(); let text = '';
+    const until = async (pattern) => { const end = Date.now() + 10000; while (!pattern.test(text)) { if (Date.now() > end) throw new Error(`no ${pattern} in ${text}`); const { value } = await reader.read(); text += decoder.decode(value); } };
+    await until(/"count"/);
+    await f.create();
+    await until(/event: issues/);
+    ok(text.includes(f.team.id), 'event names the changed team');
+  } finally { controller.abort(); await f.close(); }
 });

@@ -34,6 +34,8 @@ const STATUS_ORDER: Array<{ key: string; label: string }> = [
   { key: 'canceled', label: 'Canceled' },
 ];
 
+const LIST_CATEGORY_ORDER = ['started', 'unstarted', 'backlog', 'triage', 'completed', 'canceled'];
+
 function formatDate(dateInput: Date | string | null | undefined): string {
   if (!dateInput) return '';
   const date = new Date(dateInput);
@@ -85,31 +87,12 @@ export function IssueGroupedListView({
   // Group root issues by status
   const groupedIssues = React.useMemo(() => {
     const groups = new Map<string, Issue[]>();
-
-    // Initialize all recognized statuses
-    for (const item of STATUS_ORDER) {
-      groups.set(item.key, []);
-    }
-
-    for (const issue of rootIssues) {
-      const list = groups.get(issue.status);
-      if (list) {
-        list.push(issue);
-      } else {
-        // Unknown or custom status
-        if (!groups.has(issue.status)) groups.set(issue.status, []);
-        groups.get(issue.status)!.push(issue);
-      }
-    }
-
-    // Preserve system ordering and surface team-configured states after built-ins.
-    const known = STATUS_ORDER.map((item) => ({ key: item.key, label: item.label, issues: groups.get(item.key) || [] }));
-    const custom = [...groups.keys()].filter((key) => !STATUS_ORDER.some((item) => item.key === key))
-      .map((key) => {
-        const items = groups.get(key) || [];
-        return { key, label: items[0]?.statusLabel || key.replaceAll('_', ' '), issues: items };
-      }).sort((a, b) => (a.issues[0]?.statusPosition ?? 99) - (b.issues[0]?.statusPosition ?? 99));
-    return [...known, ...custom].filter((group) => group.issues.length > 0);
+    for (const issue of rootIssues) groups.set(issue.status, [...(groups.get(issue.status) ?? []), issue]);
+    // Linear list order: most active category first, later workflow states first within a category.
+    const rank = (issue: Issue) => LIST_CATEGORY_ORDER.indexOf(getIssueStatusCategory(issue)) * 1000
+      - (issue.statusPosition ?? STATUS_ORDER.length - STATUS_ORDER.findIndex((item) => item.key === issue.status));
+    return [...groups].map(([key, items]) => ({ key, label: items[0].statusLabel || STATUS_ORDER.find((item) => item.key === key)?.label || key.replaceAll('_', ' '), issues: items }))
+      .sort((a, b) => rank(a.issues[0]) - rank(b.issues[0]));
   }, [rootIssues]);
 
   const toggleGroupCollapse = (key: string) => {

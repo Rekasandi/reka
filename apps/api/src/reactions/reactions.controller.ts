@@ -1,8 +1,10 @@
-import { Body, Controller, Get, Param, Put, Req } from '@nestjs/common';
+import { Body, Controller, Get, Param, Put, Req, UseInterceptors } from '@nestjs/common';
+import { LiveIssuesInterceptor } from '../notifications/live-issues.interceptor';
 import type { Request } from 'express';
 import { ReactionsService } from './reactions.service';
 import { ToggleReactionDto } from './dto/reaction.dto';
 
+@UseInterceptors(LiveIssuesInterceptor)
 @Controller('reactions')
 export class ReactionsController {
   constructor(private readonly reactions: ReactionsService) {}

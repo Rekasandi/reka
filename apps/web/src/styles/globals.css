@@ -249,13 +249,17 @@ pre code {
 .team-detail-tabs > [data-slot="tabs-list"] > [data-slot="tabs-trigger"] { height: 100%; }
 /* Narrow: colour + name on the first line, category / active / actions underneath. */
 .team-workflow-head { display: none; }
-.team-workflow-row { display: grid; grid-template-columns: 36px minmax(0, 1fr) auto auto; align-items: center; gap: 4px 8px; }
-.team-workflow-name { grid-column: 2 / -1; }
-.team-workflow-category { grid-column: 1 / 3; }
+.team-workflow-row { display: grid; grid-template-columns: 16px 36px minmax(0, 1fr) auto auto; align-items: center; gap: 4px 8px; }
+.team-workflow-name { grid-column: 3 / -1; }
+.team-workflow-category { grid-column: 2 / 4; }
+/* Drag-and-drop feedback: a line where the state will land, and a faded source row. */
+.team-workflow-row[data-drop="before"] { box-shadow: inset 0 2px 0 var(--primary); }
+.team-workflow-row[data-drop="after"] { box-shadow: inset 0 -2px 0 var(--primary); }
+.team-workflow-row[data-dragging] { opacity: 0.5; }
 @container team-settings (min-width: 36rem) {
   .team-setting-field { display: grid; grid-template-columns: 12rem minmax(0, 1fr); align-items: start; gap: 24px; }
   .team-settings-actions { grid-column: 2; }
-  .team-workflow-row, .team-workflow-head { display: grid; grid-template-columns: 36px minmax(0, 1fr) 144px 44px 104px; align-items: center; gap: 8px; }
+  .team-workflow-row, .team-workflow-head { display: grid; grid-template-columns: 16px 36px minmax(0, 1fr) 144px 44px 104px; align-items: center; gap: 8px; }
   .team-workflow-name, .team-workflow-category { grid-column: auto; }
 }
 

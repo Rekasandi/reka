@@ -97,6 +97,8 @@ export interface TeamWorkflowState {
   color: string;
   position: number;
   isActive: boolean;
+  /** Issues (including archived) currently in this state; such states cannot be removed or turned off. */
+  issueCount?: number;
 }
 
 export async function getTeams(): Promise<Team[]> {

@@ -1,4 +1,5 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Req } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Req, UseInterceptors } from '@nestjs/common';
+import { LiveIssuesInterceptor } from '../notifications/live-issues.interceptor';
 import type { Request } from 'express';
 import { TriageService } from './triage.service';
 import { CreateIssueTemplateDto } from './dto/issue-template.dto';
@@ -6,6 +7,7 @@ import { UpdateIssueTemplateDto } from './dto/update-issue-template.dto';
 import { SubmitIssueTemplateDto } from './dto/submit-issue-template.dto';
 import { AcceptTriageIssueDto, DeclineTriageIssueDto, DuplicateTriageIssueDto } from './dto/triage-action.dto';
 
+@UseInterceptors(LiveIssuesInterceptor)
 @Controller()
 export class TriageController {
   constructor(private readonly triageService: TriageService) {}

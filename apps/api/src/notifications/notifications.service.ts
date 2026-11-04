@@ -45,6 +45,9 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
 
   private changed(userId: string) { this.unreadChanged.emit('changed', userId); }
 
+  /** Issue data changed in this workspace (team when known). Streams skip the actor and teams the viewer cannot see. */
+  issuesChanged(organizationId: string, teamId: string | null, actorId: string) { this.unreadChanged.emit('issues', { organizationId, teamId, actorId }); }
+
   /** SSE stream of `{ count }`: sent on connect, after every change for this user, and when a snoozed notification returns. */
   unreadCountStream(userId: string): Observable<MessageEvent> {
     return new Observable<MessageEvent>((subscriber) => {
@@ -63,10 +66,21 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
         } catch (error) { if (!closed) subscriber.error(error); }
       };
       const onChanged = (changedUserId: string) => { if (changedUserId === userId) void push(); };
+      // Coalesce bursts (bulk edits) into one 'issues' event; clients refetch and the API re-checks access.
+      const viewer = requireWorkspace(this.database.db, userId).catch(() => null);
+      let issuesTimer: NodeJS.Timeout | undefined;
+      const onIssues = async ({ organizationId, teamId, actorId }: { organizationId: string; teamId: string | null; actorId: string }) => {
+        if (actorId === userId || issuesTimer) return;
+        const actor = await viewer;
+        if (!actor || actor.organizationId !== organizationId || closed) return;
+        if (teamId) { try { await requireTeam(this.database.db, actor, teamId); } catch { return; } }
+        issuesTimer ??= setTimeout(() => { issuesTimer = undefined; if (!closed) subscriber.next({ type: 'issues', data: { teamId } }); }, 250);
+      };
       const heartbeat = setInterval(() => subscriber.next({ type: 'ping', data: '' }), HEARTBEAT_MS);
       this.unreadChanged.on('changed', onChanged);
+      this.unreadChanged.on('issues', onIssues);
       void push();
-      return () => { closed = true; clearTimeout(wake); clearInterval(heartbeat); this.unreadChanged.off('changed', onChanged); };
+      return () => { closed = true; clearTimeout(wake); clearInterval(heartbeat); this.unreadChanged.off('changed', onChanged); this.unreadChanged.off('issues', onIssues); clearTimeout(issuesTimer); };
     });
   }
 

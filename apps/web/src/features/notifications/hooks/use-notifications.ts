@@ -39,6 +39,7 @@ export function useNotifications(params?: GetNotificationsParams) {
 /** One shared Server-Sent Events connection per tab, opened by the first component that shows the unread count
  * and closed when the last one unmounts (so the server-side listener is freed). Replaces polling. */
 let stream: { source: EventSource; users: number } | undefined;
+const LIVE_ISSUE_KEYS = new Set(['issues', 'triage', 'subtasks', 'comments', 'reactions', 'activities', 'issue-relations', 'cycles', 'projects']);
 
 export function useUnreadCount() {
   const queryClient = useQueryClient();
@@ -52,6 +53,8 @@ export function useUnreadCount() {
         if (!first) void queryClient.invalidateQueries({ queryKey: NOTIFICATIONS_QUERY_KEY, predicate: query => query.queryKey[1] !== 'unread-count' });
         first = false;
       };
+      // A teammate changed issue data: refresh whatever issue views are on screen (inactive queries refetch when shown).
+      source.addEventListener('issues', () => void queryClient.invalidateQueries({ predicate: query => LIVE_ISSUE_KEYS.has(String(query.queryKey[0])) }));
       stream = { source, users: 0 };
     }
     const current = stream;

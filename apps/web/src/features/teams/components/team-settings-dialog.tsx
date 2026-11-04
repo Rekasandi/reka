@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { useForm, useStore } from '@tanstack/react-form';
 import { Alert, AlertDescription, Button, Card, Checkbox, Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Field, FieldDescription, FieldGroup, FieldLabel, FieldError, Input, InputGroup, InputGroupAddon, InputGroupInput, InputGroupText, Skeleton, Spinner, Switch, Textarea } from '@reka/ui';
-import { ArrowDown, ArrowUp, Plus, Trash2, Undo2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, GripVertical, Plus, Trash2, Undo2 } from 'lucide-react';
 import { StatusIconOnly } from '../../issues/components/status-picker';
 import { useUpdateTeam, useTeamWorkflowStates, useUpdateTeamWorkflowStates } from '../hooks/use-teams';
 import type { Team, TeamWorkflowState, WorkflowStateCategory } from '../api/teams.api';
@@ -65,7 +65,11 @@ export function TeamSettingsForm({ team, onClose, onPendingChange }: { team: Tea
   const kept = states.filter(state => !removed.includes(state.key));
   // Mirrors the API rule: a team keeps at least one active work state and one active completed state.
   const workflowValid = kept.some(state => state.isActive && WORK_CATEGORIES.includes(state.category)) && kept.some(state => state.isActive && state.category === 'completed');
+  // Issues per state (archived included); the API refuses to remove or disable a state that has any.
+  const usage = new Map((workflowQuery.data ?? []).map(state => [state.key, state.issueCount ?? 0]));
+  const inUse = (key: string) => (usage.get(key) ?? 0) > 0;
   const canRemove = (key: string) => {
+    if (inUse(key)) return false;
     const rest = kept.filter(state => state.key !== key && state.isActive);
     return rest.some(state => WORK_CATEGORIES.includes(state.category)) && rest.some(state => state.category === 'completed');
   };
@@ -104,6 +108,18 @@ export function TeamSettingsForm({ team, onClose, onPendingChange }: { team: Tea
   // Moving to another category appends the state to the end of that group.
   const changeCategory = (key: string, category: WorkflowStateCategory) => changeState(key, { category, position: Math.max(-1, ...states.map(state => state.position)) + 1 });
   const groups = CATEGORIES.map(category => ({ ...category, states: states.filter(state => state.category === category.value).sort((a, b) => a.position - b.position) }));
+  // Drag-and-drop reorder within a category: reuse the group's own position values so other groups keep theirs.
+  const [dragKey, setDragKey] = React.useState<string | null>(null);
+  const [dropHint, setDropHint] = React.useState<{ key: string; after: boolean } | null>(null);
+  const dropState = (targetKey: string, after: boolean) => {
+    const group = groups.find(item => item.states.some(state => state.key === targetKey))?.states;
+    if (!dragKey || !group?.some(state => state.key === dragKey) || dragKey === targetKey) return;
+    const order = group.filter(state => state.key !== dragKey);
+    order.splice(order.findIndex(state => state.key === targetKey) + (after ? 1 : 0), 0, group.find(state => state.key === dragKey)!);
+    const slots = group.map(state => state.position).sort((a, b) => a - b);
+    const next = new Map(order.map((state, index) => [state.key, slots[index]]));
+    workflowForm.setFieldValue('states', current => current.map(state => next.has(state.key) ? { ...state, position: next.get(state.key)! } : state));
+  };
   const moveState = (key: string, direction: -1 | 1) => {
     const group = groups.find(item => item.states.some(state => state.key === key))!.states;
     const index = group.findIndex(state => state.key === key);
@@ -206,7 +222,7 @@ export function TeamSettingsForm({ team, onClose, onPendingChange }: { team: Tea
       <header className="flex flex-wrap items-start justify-between gap-3"><div className="min-w-0"><div className="flex items-center gap-2"><h3 id="team-workflow-heading" className="text-sm font-semibold">Issue workflow</h3><span className="text-xs tabular-nums text-muted-foreground">{states.length} of 16 states</span></div><p className="mt-1 max-w-prose text-xs text-muted-foreground">States are grouped by category. The category decides how an issue behaves on boards, in cycles and in insights. States that issues are using can't be turned off or deleted.</p></div><Button type="button" variant="outline" size="sm" onClick={() => addState()} disabled={pending || !workflowQuery.isSuccess || states.length >= 16}><Plus data-icon="inline-start" />Add state</Button></header>
       {workflowQuery.isLoading ? <div className="flex flex-col gap-3"><Spinner aria-label="Loading workflow" className="sr-only" />{[0, 1, 2].map(row => <Skeleton key={row} className="h-16 w-full rounded-[6px]" />)}</div> : workflowQuery.isError ? <Alert variant="destructive"><AlertDescription className="flex items-center justify-between gap-3">Could not load workflow<Button type="button" variant="outline" size="sm" onClick={() => void workflowQuery.refetch()}>Retry</Button></AlertDescription></Alert> : <div className="flex min-w-0 flex-col gap-3">
         {workflowDirty && !workflowValid && <Alert variant="destructive"><AlertDescription>Keep at least one active state in Backlog, Unstarted or In progress, and one active state in Completed.</AlertDescription></Alert>}
-        <div aria-hidden="true" className="team-workflow-head px-2 text-xs text-muted-foreground"><span /><span>Name</span><span>Category</span><span>Active</span><span /></div>
+        <div aria-hidden="true" className="team-workflow-head px-2 text-xs text-muted-foreground"><span /><span /><span>Name</span><span>Category</span><span>Active</span><span /></div>
         {groups.map(group => {
           const headingId = `workflow-group-${group.value}`;
           return <section key={group.value} aria-labelledby={headingId} data-workflow-group={group.value} className="overflow-hidden rounded-lg border border-border">
@@ -222,18 +238,32 @@ export function TeamSettingsForm({ team, onClose, onPendingChange }: { team: Tea
                 {group.states.map((state, index) => {
                   const isRemoved = removed.includes(state.key);
                   const rowPending = pending || isRemoved;
-                  return <li key={state.key} data-workflow-state={state.key} data-removed={isRemoved || undefined} className={`team-workflow-row group/row px-2 py-1.5 transition-colors hover:bg-muted/30 ${isRemoved ? 'bg-destructive/5 hover:bg-destructive/5' : ''}`}>
+                  const count = usage.get(state.key) ?? 0;
+                  const sameGroup = !!dragKey && group.states.some(item => item.key === dragKey);
+                  return <li key={state.key} data-workflow-state={state.key} data-removed={isRemoved || undefined}
+                    data-drop={dropHint?.key === state.key && sameGroup && dragKey !== state.key ? (dropHint.after ? 'after' : 'before') : undefined}
+                    data-dragging={dragKey === state.key || undefined}
+                    onDragOver={event => { if (!sameGroup) return; event.preventDefault(); const box = event.currentTarget.getBoundingClientRect(); setDropHint({ key: state.key, after: event.clientY > box.top + box.height / 2 }); }}
+                    onDrop={event => { event.preventDefault(); if (dropHint) dropState(state.key, dropHint.after); setDragKey(null); setDropHint(null); }}
+                    className={`team-workflow-row group/row px-2 py-1.5 transition-colors hover:bg-muted/30 ${isRemoved ? 'bg-destructive/5 hover:bg-destructive/5' : ''}`}>
+                    <span role="presentation" draggable={!rowPending && group.states.length > 1} title={group.states.length > 1 ? 'Drag to reorder (or use the arrows)' : undefined}
+                      onDragStart={event => { setDragKey(state.key); event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('text/plain', state.key); const row = event.currentTarget.closest('li'); if (row) event.dataTransfer.setDragImage(row, 16, 18); }}
+                      onDragEnd={() => { setDragKey(null); setDropHint(null); }}
+                      className={`flex h-9 items-center justify-center text-muted-foreground ${!rowPending && group.states.length > 1 ? 'cursor-grab active:cursor-grabbing' : 'opacity-30'}`}><GripVertical aria-hidden="true" className="size-4" /></span>
                     <ColorPickerField label={`${state.key} color`} value={state.color} disabled={rowPending} onValueChange={color => changeState(state.key, { color })} />
                     <div className="team-workflow-name min-w-0">
                       <InputGroup className="h-9 rounded-[6px]">
                         <InputGroupInput id={`workflow-${state.key}-name`} aria-label={`${state.key} state name`} required maxLength={64} value={state.name} disabled={rowPending} className={`font-medium ${isRemoved ? 'text-muted-foreground line-through' : state.isActive ? '' : 'text-muted-foreground'}`} onChange={event => changeState(state.key, { name: event.target.value })} />
                         {isRemoved
                           ? <InputGroupAddon align="inline-end"><InputGroupText className="text-xs text-destructive">Deleted on save</InputGroupText></InputGroupAddon>
-                          : state.key !== slug(state.name) && <InputGroupAddon align="inline-end"><InputGroupText className="font-mono text-xs" title={`Key: ${state.key}`}>{state.key}</InputGroupText></InputGroupAddon>}
+                          : <InputGroupAddon align="inline-end">
+                            {state.key !== slug(state.name) && <InputGroupText className="font-mono text-xs" title={`Key: ${state.key}`}>{state.key}</InputGroupText>}
+                            <InputGroupText className="text-xs tabular-nums" title={`${count} issue${count === 1 ? '' : 's'} in this state (archived included)`}>{count} {count === 1 ? 'issue' : 'issues'}</InputGroupText>
+                          </InputGroupAddon>}
                       </InputGroup>
                     </div>
                     <SelectField id={`workflow-${state.key}-category`} aria-label={`${state.key} category`} disabled={rowPending} size="default" className="team-workflow-category w-full min-w-0 rounded-[6px] px-2 text-sm data-[size=default]:h-9" value={state.category} onValueChange={value => changeCategory(state.key, value as WorkflowStateCategory)} options={CATEGORIES} />
-                    <div className="flex h-9 items-center"><Switch id={`workflow-${state.key}-active`} aria-label={`${state.key} active`} title={state.isActive ? 'Active: available in status pickers' : 'Inactive: hidden from status pickers'} checked={state.isActive} disabled={rowPending} onCheckedChange={checked => changeState(state.key, { isActive: checked })} /></div>
+                    <div className="flex h-9 items-center"><Switch id={`workflow-${state.key}-active`} aria-label={`${state.key} active`} title={state.isActive && count ? `Used by ${count} issue${count === 1 ? '' : 's'}. Move them to another state first` : state.isActive ? 'Active: available in status pickers' : 'Inactive: hidden from status pickers'} checked={state.isActive} disabled={rowPending || (state.isActive && count > 0)} onCheckedChange={checked => changeState(state.key, { isActive: checked })} /></div>
                     <div className="flex items-center justify-end gap-0.5">{isRemoved
                       ? <Button type="button" variant="outline" size="sm" className="h-8 gap-1" aria-label={`Undo delete ${state.key} state`} disabled={pending} onClick={() => restoreState(state.key)}><Undo2 />Undo</Button>
                       : <>
@@ -241,7 +271,7 @@ export function TeamSettingsForm({ team, onClose, onPendingChange }: { team: Tea
                           <Button type="button" variant="ghost" size="icon" className="size-8 text-muted-foreground" aria-label={`Move ${state.key} up`} title="Move up" disabled={pending || index === 0} onClick={() => moveState(state.key, -1)}><ArrowUp /></Button>
                           <Button type="button" variant="ghost" size="icon" className="size-8 text-muted-foreground" aria-label={`Move ${state.key} down`} title="Move down" disabled={pending || index === group.states.length - 1} onClick={() => moveState(state.key, 1)}><ArrowDown /></Button>
                         </div>}
-                        <Button type="button" variant="ghost" size="icon" className="size-8 text-muted-foreground hover:text-destructive" aria-label={`Delete ${state.key} state`} title={canRemove(state.key) ? `Delete ${state.name}` : 'Keep at least one active work state and one active completed state'} disabled={pending || !canRemove(state.key)} onClick={() => removeState(state.key)}><Trash2 /></Button>
+                        <Button type="button" variant="ghost" size="icon" className="size-8 text-muted-foreground hover:text-destructive" aria-label={`Delete ${state.key} state`} title={canRemove(state.key) ? `Delete ${state.name}` : count ? `Used by ${count} issue${count === 1 ? '' : 's'}. Move them to another state first` : 'Keep at least one active work state and one active completed state'} disabled={pending || !canRemove(state.key)} onClick={() => removeState(state.key)}><Trash2 /></Button>
                       </>}</div>
                   </li>;
                 })}

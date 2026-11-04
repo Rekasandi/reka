@@ -133,7 +133,9 @@ export class TeamsService {
   async getWorkflowStates(id: string, actorId: string) {
     const db = this.database.db, actor = await requireWorkspace(db, actorId);
     await requireTeam(db, actor, id);
-    return this.getWorkflowStatesUnchecked(id);
+    // Counts include archived issues: those still block removing or disabling a state.
+    const counts = await db.select({ status: issues.status, count: sql<number>`count(*)::int` }).from(issues).where(eq(issues.teamId, id)).groupBy(issues.status);
+    return (await this.getWorkflowStatesUnchecked(id)).map((state) => ({ ...state, issueCount: counts.find((row) => row.status === state.key)?.count ?? 0 }));
   }
 
   async updateWorkflowStates(id: string, dto: UpdateTeamWorkflowStatesDto, actorId: string) {

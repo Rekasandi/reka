@@ -1,5 +1,5 @@
 import * as React from 'react';
-import type { Issue } from '@reka/types';
+import { getIssueStatusCategory, type Issue } from '@reka/types';
 import { Card, Badge, Button } from '@reka/ui';
 import { useUpdateIssue, useDeleteIssue, useMoveIssueToTop } from '../hooks/use-issues';
 import { ArrowUpToLine, Trash2 } from 'lucide-react';
@@ -26,6 +26,8 @@ const COLUMNS: { id: string; label: string; status: string }[] = [
   { id: 'blocked', label: 'Blocked', status: 'blocked' },
 ];
 
+const BOARD_CATEGORY_ORDER = ['triage', 'backlog', 'unstarted', 'started', 'completed', 'canceled'];
+
 export function IssueKanbanBoard({ issues, onSelectIssue }: IssueKanbanBoardProps) {
   const updateMutation = useUpdateIssue();
   const deleteMutation = useDeleteIssue();
@@ -46,9 +48,14 @@ export function IssueKanbanBoard({ issues, onSelectIssue }: IssueKanbanBoardProp
     const extraStatuses = [...new Set(issues.map((issue) => issue.status))].filter((status) => !system.has(status))
       .map((status) => {
         const item = issues.find((issue) => issue.status === status)!;
-        return { id: status, status, label: item.statusLabel || status.replaceAll('_', ' '), position: item.statusPosition ?? 99 };
-      }).sort((a, b) => a.position - b.position);
-    return [...COLUMNS, ...extraStatuses];
+        return { id: status, status, label: item.statusLabel || status.replaceAll('_', ' ') };
+      });
+    // Workflow order left to right: category first, then the team's state position.
+    const rank = (status: string) => {
+      const sample = issues.find((issue) => issue.status === status);
+      return BOARD_CATEGORY_ORDER.indexOf(getIssueStatusCategory(sample ?? { status })) * 1000 + (sample?.statusPosition ?? COLUMNS.findIndex((column) => column.status === status));
+    };
+    return [...COLUMNS, ...extraStatuses].sort((a, b) => rank(a.status) - rank(b.status));
   }, [issues]);
 
   const handleDelete = (id: string, e: React.MouseEvent) => {

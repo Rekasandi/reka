@@ -1,4 +1,5 @@
-import { Controller, Get, Post, Patch, Delete, Param, Body, Query, Req } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Param, Body, Query, Req, UseInterceptors } from '@nestjs/common';
+import { LiveIssuesInterceptor } from '../notifications/live-issues.interceptor';
 import type { Request } from 'express';
 import { IssuesService } from './issues.service';
 import { CreateIssueDto } from './dto/create-issue.dto';
@@ -7,6 +8,7 @@ import { UpdateIssuesBulkDto } from './dto/update-issues-bulk.dto';
 import { CreateIssueRelationDto } from './dto/create-issue-relation.dto';
 import { ConfigureIssueRecurrenceDto } from './dto/issue-recurrence.dto';
 
+@UseInterceptors(LiveIssuesInterceptor)
 @Controller('issues')
 export class IssuesController {
   constructor(private readonly issuesService: IssuesService) {}
