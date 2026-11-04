@@ -328,25 +328,6 @@ importers:
         specifier: ^5.8.2
         version: 5.9.3
 
-  packages/auth:
-    dependencies:
-      '@reka/types':
-        specifier: workspace:*
-        version: link:../types
-    devDependencies:
-      '@reka/tsconfig':
-        specifier: workspace:*
-        version: link:../../tooling/typescript
-      '@types/node':
-        specifier: ^22.13.9
-        version: 22.20.4
-      tsup:
-        specifier: ^8.4.0
-        version: 8.5.1(jiti@2.7.0)(postcss@8.5.28)(tsx@4.23.15)(typescript@5.9.3)
-      typescript:
-        specifier: ^5.8.2
-        version: 5.9.3
-
   packages/config:
     dependencies:
       dotenv:
