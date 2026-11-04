@@ -36,6 +36,7 @@ import { useIssueBranches, useIssuePullRequests } from '../hooks/use-github-inte
 import { StatusPicker } from './status-picker';
 import { PriorityIcon, PriorityPicker } from './priority-picker';
 import { SlaBadge } from './sla-badge';
+import { LazyNotionEditor } from '../../../components/editor/lazy-notion-editor';
 import { useLiveStream } from '../../notifications/hooks/use-notifications';
 import { IssueTypePicker } from './issue-type-picker';
 import { AssigneePicker } from './assignee-picker';
@@ -313,9 +314,10 @@ export function IssueDetailContent({ issue, presentation = 'sheet', headerAction
     updateMutation.mutate({ id: issue.id, data: { title: nextTitle } });
   };
 
-  const handleSaveDescription = () => {
+  const handleSaveDescription = (markdown: string = description) => {
     const current = (issue.description || '').trim();
-    const next = description.trim();
+    const next = markdown.trim();
+    setDescription(markdown);
     if (next === current) return;
     updateMutation.mutate({ id: issue.id, data: { description: next } });
   };
@@ -499,16 +501,19 @@ export function IssueDetailContent({ issue, presentation = 'sheet', headerAction
 
           {/* Description Section */}
           <div className="issue-description flex flex-col gap-1.5">
-            <Label htmlFor="issue-description" className="text-xs text-muted-foreground">Description</Label>
-            <Textarea
+            <span id="issue-description-label" className="text-xs text-muted-foreground">Description</span>
+            {/* Notion-style: "/" for blocks, select text to format; saves when focus leaves. */}
+            <LazyNotionEditor
+              key={issue.id}
               id="issue-description"
+              aria-label="Issue description"
+              defaultValue={issue.description || ''}
+              value={issue.description || ''}
               readOnly={readOnly}
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Add description, acceptance criteria, or context… Type '/' for blocks"
+              onChange={setDescription}
               onBlur={handleSaveDescription}
-              placeholder="Add description, acceptance criteria, or context..."
-              rows={presentation === 'triage' ? 2 : 5}
-              className={presentation === 'triage' ? 'triage-description min-h-0 resize-none rounded-none border-0 p-0 shadow-none focus-visible:ring-1' : 'min-h-32 resize-y leading-relaxed'}
+              className={presentation === 'triage' ? 'triage-description min-h-12' : 'min-h-32'}
             />
           </div>
 

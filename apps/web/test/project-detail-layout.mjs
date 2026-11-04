@@ -101,10 +101,12 @@ try {
   await page.getByRole('dialog', { name: 'Project members' }).waitFor();
   await page.getByRole('button', { name: 'Close', exact: true }).first().click();
 
-  // Keep the description editor mounted when switching views so drafts aren't discarded.
+  // The Notion-style description saves on its own; the text survives switching views.
   await editor.click();
-  await editor.fill('Draft ' + await editor.inputValue());
-  await page.getByText('Unsaved changes', { exact: true }).waitFor();
+  await page.keyboard.press('End');
+  await page.keyboard.type(' Draft note', { delay: 20 });
+  await page.getByText('Saved', { exact: true }).waitFor();
+  assert.match(updates.at(-1).description, /Draft note/, 'autosave sends the new Markdown');
   await page.getByRole('tab', { name: 'Issues', exact: true }).click();
   await page.getByRole('heading', { name: 'Project issues', exact: true }).waitFor();
   assert.equal(await editor.isVisible(), false);
@@ -115,9 +117,7 @@ try {
   await page.getByRole('link', { name: 'reka/authentication', exact: true }).waitFor();
   await page.getByRole('tab', { name: 'Overview', exact: true }).click();
   await editor.waitFor();
-  assert.match(await editor.inputValue(), /Draft /);
-  await page.getByRole('button', { name: 'Cancel', exact: true }).click();
-  assert.equal(await editor.inputValue().then(text => text.includes('Draft ')), false);
+  assert.match(await editor.innerText(), /Draft note/);
   await page.getByRole('button', { name: 'Toggle project properties' }).click();
   assert.equal(await aside.count(), 0);
   await page.getByRole('button', { name: 'Toggle project properties' }).click();

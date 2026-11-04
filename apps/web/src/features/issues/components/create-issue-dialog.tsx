@@ -10,7 +10,6 @@ import {
   DialogFooter,
   Button,
   Input,
-  Textarea,
   Field,
   FieldLabel,
   FieldError,
@@ -19,6 +18,7 @@ import {
 import { useCreateIssue } from '../hooks/use-issues';
 import { ProjectPicker } from './project-picker';
 import { TeamPicker } from './team-picker';
+import { LazyNotionEditor } from '../../../components/editor/lazy-notion-editor';
 import { CyclePicker } from './cycle-picker';
 import { EstimatePicker } from './estimate-picker';
 import { AssigneePicker } from './assignee-picker';
@@ -167,14 +167,16 @@ export function CreateIssueDialog({ open, onOpenChange, defaultProjectId, defaul
               children={(field) => (
                 <Field>
                   <FieldLabel htmlFor={field.name}>Description</FieldLabel>
-                  <Textarea
+                  <LazyNotionEditor
                     id={field.name}
-                    name={field.name}
-                    placeholder="Add more details, acceptance criteria, or context..."
-                    rows={3}
-                    value={field.state.value}
-                    onBlur={field.handleBlur}
-                    onChange={(e) => field.handleChange(e.target.value)}
+                    aria-label="Description"
+                    defaultValue={field.state.value}
+                    changeDelay={0}
+                    compact
+                    placeholder="Add details, acceptance criteria, or context… Type '/' for blocks"
+                    onChange={field.handleChange}
+                    onBlur={() => field.handleBlur()}
+                    className="min-h-20 rounded-md border border-input dark:bg-input/30"
                   />
                 </Field>
               )}

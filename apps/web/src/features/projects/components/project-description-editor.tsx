@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
-import { Button, FieldError, Textarea } from '@reka/ui';
+import { useRef, useState } from 'react';
+import { FieldError } from '@reka/ui';
+import { LazyNotionEditor } from '../../../components/editor/lazy-notion-editor';
 import { useUpdateProject } from '../hooks/use-projects';
 import { parseProjectDescription } from '../lib/project-description';
 
@@ -8,78 +9,43 @@ interface Props {
   description?: string | null;
 }
 
+/** Notion-style description: saves on its own when typing pauses or focus leaves; no Save button. */
 export default function ProjectDescriptionEditor({ projectId, description }: Props) {
   const updateProject = useUpdateProject();
-  const initialValue = parseProjectDescription(description);
-  const [content, setContent] = useState(initialValue);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const baseline = useRef(initialValue);
-  const serverDescription = useRef(description);
+  const text = parseProjectDescription(description);
+  const lastSaved = useRef(text.trim());
+  const [status, setStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
 
-  const dirty = content !== baseline.current;
-
-  // Don't replace a local draft when other project properties are refreshed.
-  useEffect(() => {
-    if (serverDescription.current === description) return;
-    serverDescription.current = description;
-    if (dirty || saving) return;
-    const next = parseProjectDescription(description);
-    setContent(next);
-    baseline.current = next;
-  }, [description, dirty, saving]);
-
-  useEffect(() => {
-    if (!dirty) return;
-    const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ''; };
-    window.addEventListener('beforeunload', warn);
-    return () => window.removeEventListener('beforeunload', warn);
-  }, [dirty]);
-
-  function cancel() {
-    setContent(baseline.current);
-    serverDescription.current = description;
-    setError(null);
-  }
-
-  async function save() {
-    if (!dirty || saving) return;
-    const value = content.trim();
-    setSaving(true);
-    setError(null);
+  async function save(markdown: string) {
+    const value = markdown.trim();
+    if (value === lastSaved.current) return;
+    setStatus('saving');
     try {
       await updateProject.mutateAsync({ id: projectId, data: { description: value } });
-      baseline.current = content;
+      lastSaved.current = value;
+      setStatus('saved');
     } catch {
-      setError('Could not save the description. Your draft is still here. Try again.');
-    } finally {
-      setSaving(false);
+      setStatus('error');
     }
   }
 
   return (
     <section aria-label="Project description editor" className="min-w-0">
-      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+      <div className="mb-2 flex items-center justify-between gap-2">
         <h2 className="text-xs font-medium text-muted-foreground">Description</h2>
-        <div className="flex items-center gap-2">
-          <span aria-live="polite" className="text-xs text-muted-foreground">
-            {saving ? 'Saving…' : dirty ? 'Unsaved changes' : ''}
-          </span>
-          {dirty && <Button variant="ghost" size="sm" disabled={saving} onClick={cancel}>Cancel</Button>}
-          <Button variant="outline" size="sm" disabled={!dirty || saving} onClick={() => void save()}>
-            {saving ? 'Saving…' : 'Save description'}
-          </Button>
-        </div>
+        <span aria-live="polite" className="text-xs text-muted-foreground">{status === 'saving' ? 'Saving…' : status === 'saved' ? 'Saved' : ''}</span>
       </div>
-      <Textarea
+      <LazyNotionEditor
+        key={projectId}
         aria-label="Project description"
-        placeholder="Describe this project in Markdown…"
-        value={content}
-        onChange={(event) => setContent(event.target.value)}
-        rows={6}
-        className="project-description-editor min-h-[140px] resize-y text-sm leading-relaxed"
+        defaultValue={text}
+        value={text}
+        placeholder="Describe this project… Type '/' for blocks"
+        onChange={(markdown) => void save(markdown)}
+        onBlur={(markdown) => void save(markdown)}
+        className="project-description-editor min-h-[140px]"
       />
-      {error && <FieldError role="alert" className="mt-2 text-xs text-destructive">{error}</FieldError>}
+      {status === 'error' && <FieldError role="alert" className="mt-2 text-xs text-destructive">Could not save the description. Your text is still here; keep editing to try again.</FieldError>}
     </section>
   );
 }
