@@ -31,10 +31,10 @@ export class TeamsService {
     const allMembers = await db.select().from(teamMembers).where(and(inArray(teamMembers.teamId, visibleTeamIds(db, actor)),
       inArray(teamMembers.userId, db.select({ id: users.id }).from(users).where(userScope(db, actor)))));
     const allUsers = await db.select().from(users).where(userScope(db, actor));
-    const teamIssues = await db.select({ teamId: issues.teamId }).from(issues).where(issueScope(db, actor));
+    const issueCounts = await db.select({ teamId: issues.teamId, count: sql<number>`count(*)::int` }).from(issues).where(issueScope(db, actor)).groupBy(issues.teamId);
     return teamList.map(team => {
       const members = allMembers.filter(member => member.teamId === team.id).map(member => ({ ...member, user: allUsers.find(user => user.id === member.userId) }));
-      return { ...team, ...this.capabilities(team, actor, members), members, memberCount: members.length, issueCount: teamIssues.filter(issue => issue.teamId === team.id).length };
+      return { ...team, ...this.capabilities(team, actor, members), members, memberCount: members.length, issueCount: issueCounts.find(row => row.teamId === team.id)?.count ?? 0 };
     });
   }
 

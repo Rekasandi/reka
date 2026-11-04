@@ -5,7 +5,7 @@ import type { Redis } from 'ioredis';
 import { RedisService } from '../common/redis/redis.service';
 import { DatabaseService } from '../common/database/database.service';
 import { DEFAULT_NOTIFICATION_PREFERENCES, notificationPreferences, notifications, users, type NotificationPreferenceValues } from '@reka/database';
-import { and, desc, eq, gt, isNull, lte, min, or, type SQL } from 'drizzle-orm';
+import { and, desc, eq, gt, isNull, lte, min, or, sql, type SQL } from 'drizzle-orm';
 import { CreateNotificationDto, UpdateNotificationPreferencesDto } from './dto/notification.dto';
 import { MailService } from '../mail/mail.service';
 import { notificationEmail } from '../mail/mail-templates';
@@ -125,11 +125,11 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
 
   async getUnreadCount(userId: string): Promise<{ count: number }> {
     const actor = await requireWorkspace(this.database.db, userId);
-    const unread = await this.database.db
-      .select({ id: notifications.id })
+    const [row] = await this.database.db
+      .select({ count: sql<number>`count(*)::int` })
       .from(notifications)
       .where(and(notificationScope(this.database.db, actor), eq(notifications.read, false), notSnoozed()));
-    return { count: unread.length };
+    return { count: row?.count ?? 0 };
   }
 
   async markAsRead(id: string, userId: string, read = true) {

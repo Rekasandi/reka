@@ -29,6 +29,7 @@ Needs a Linux server with Docker, ports 80/443 open, and a DNS `A` record such a
 2. Start everything: `docker compose --profile app up -d --build` (Redis, API, worker, Caddy). Check `https://api.example.com/api/health`.
 3. Point the GitHub App webhook at `https://api.example.com/api/integrations/github/webhook` (directly at the API, not through Vercel).
 4. Update later with `git pull && docker compose --profile app up -d --build`. Logs: `docker compose logs -f api worker`.
+5. Health: the API answers `GET /api/health`; the worker answers `GET /health` on port 3100 inside its container (200 while Redis is reachable, 503 otherwise). Both are wired as Docker healthchecks, so `docker compose ps` shows `healthy`/`unhealthy`.
 
 Migrations are never run by the containers; follow the migration gate below.
 

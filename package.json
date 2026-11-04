@@ -13,6 +13,7 @@
     "lint": "turbo run lint",
     "type-check": "turbo run type-check",
     "test": "DATABASE_URL= node --test apps/api/test/*.test.cjs apps/worker/test/*.test.cjs",
+    "test:web": "DATABASE_URL= sh scripts/test-web.sh",
     "clean": "turbo run clean",
     "db:generate": "turbo run db:generate",
     "db:migrate": "turbo run db:migrate",

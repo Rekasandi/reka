@@ -37,3 +37,10 @@ jobs:
       # database or provider skip themselves unless their opt-in env vars are set, so nothing external is touched.
       - name: Integration tests
         run: pnpm test
+
+      # Browser suites against Vite: mocked-API pages plus real Nest API on isolated Postgres (PGlite).
+      - name: Install Playwright Chromium
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Browser tests
+        run: pnpm test:web
