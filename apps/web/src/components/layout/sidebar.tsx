@@ -61,6 +61,9 @@ function SidebarSection({ label, action, children }: {
 export function AppSidebar() {
   const location = useLocation();
   const { data: teams = [], isLoading: teamsLoading, isError: teamsError, refetch: retryTeams } = useTeams();
+  // The workspace-wide Cycles page is only useful while at least one team still has cycles switched on.
+  const showCycles = teams.length === 0 || teams.some(team => team.cyclesEnabled !== false);
+  const visibleMoreNav = moreNav.filter(item => item.to !== '/cycles' || showCycles);
   const { data: unreadData } = useUnreadCount();
   const { data: workspace } = useQuery({ queryKey: WORKSPACE_QUERY_KEY, queryFn: getWorkspace });
   const { data: favorites = [], isLoading: favoritesLoading, isError: favoritesError, refetch: retryFavorites } = useFavorites();
@@ -121,12 +124,12 @@ export function AppSidebar() {
           <SidebarMenuItem>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <SidebarMenuButton isActive={moreNav.some(item => isCurrent(item.to))} tooltip="More" aria-label="More workspace pages">
+                <SidebarMenuButton isActive={visibleMoreNav.some(item => isCurrent(item.to))} tooltip="More" aria-label="More workspace pages">
                   <Ellipsis aria-hidden="true" /><span>More</span>
                 </SidebarMenuButton>
               </DropdownMenuTrigger>
               <DropdownMenuContent side="right" align="start" className="w-48">
-                <DropdownMenuGroup>{moreNav.map(item => <DropdownMenuItem asChild key={item.to}>
+                <DropdownMenuGroup>{visibleMoreNav.map(item => <DropdownMenuItem asChild key={item.to}>
                   <Link to={item.to} aria-current={isCurrent(item.to) ? 'page' : undefined}><item.icon aria-hidden="true" />{item.label}</Link>
                 </DropdownMenuItem>)}</DropdownMenuGroup>
               </DropdownMenuContent>
@@ -154,7 +157,7 @@ export function AppSidebar() {
             const query = `teamId=${encodeURIComponent(team.id)}`;
             const teamNav: NavItem[] = [
               { label: 'Overview', to: `/teams/${team.id}`, icon: Home },
-              { label: 'Triage', to: `/triage?${query}`, icon: CircleArrowRight, count: triage?.filter(issue => issue.teamId === team.id).length },
+              ...(team.triageEnabled !== false ? [{ label: 'Triage', to: `/triage?${query}`, icon: CircleArrowRight, count: triage?.filter(issue => issue.teamId === team.id).length }] : []),
               { label: 'Issues', to: `/teams/${team.id}/issues`, icon: PanelsTopLeft },
               ...(team.cyclesEnabled !== false ? [{ label: 'Cycles', to: `/cycles?${query}`, icon: CircleDot }] : []),
               { label: 'Projects', to: `/projects?${query}`, icon: Box },

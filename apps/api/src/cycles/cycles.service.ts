@@ -169,11 +169,11 @@ export class CyclesService {
     }
     const [settings] = await this.database.db.insert(teamCycleSettings).values({
       teamId, timezone: dto.timezone, durationDays: dto.durationDays, cooldownDays: dto.cooldownDays,
-      nextStartDate: dto.nextStartDate, autoCreate: dto.autoCreate, autoAddStarted: dto.autoAddStarted ?? false, updatedBy: actorId,
+      nextStartDate: dto.nextStartDate, autoCreate: dto.autoCreate, autoAddStarted: dto.autoAddStarted ?? false, autoRollover: dto.autoRollover ?? false, updatedBy: actorId,
     }).onConflictDoUpdate({
       target: teamCycleSettings.teamId,
       set: { timezone: dto.timezone, durationDays: dto.durationDays, cooldownDays: dto.cooldownDays,
-        nextStartDate: dto.nextStartDate, autoCreate: dto.autoCreate, ...(dto.autoAddStarted === undefined ? {} : { autoAddStarted: dto.autoAddStarted }), updatedBy: actorId, updatedAt: new Date() },
+        nextStartDate: dto.nextStartDate, autoCreate: dto.autoCreate, ...(dto.autoAddStarted === undefined ? {} : { autoAddStarted: dto.autoAddStarted }), ...(dto.autoRollover === undefined ? {} : { autoRollover: dto.autoRollover }), updatedBy: actorId, updatedAt: new Date() },
     }).returning();
     return settings;
   }

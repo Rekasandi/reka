@@ -1,3 +1,4 @@
+import { useTeams } from '../../teams/hooks/use-teams';
 import * as React from 'react';
 import { SelectField } from '../../../components/common/select-field';
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts';
@@ -109,7 +110,12 @@ export function IssueMetricsAside({
   projects = [],
   onClose,
 }: IssueMetricsAsideProps) {
-  const [measure, setMeasure] = React.useState<MeasureType>('issue_count');
+  const [chosenMeasure, setMeasure] = React.useState<MeasureType>('issue_count');
+  const { data: allTeams = [] } = useTeams();
+  // Hide the estimate measure when every team behind these issues has estimates switched off.
+  const issueTeamIds = new Set(issues.map(issue => issue.teamId));
+  const estimatesAvailable = allTeams.length === 0 || issueTeamIds.size === 0 || allTeams.some(team => issueTeamIds.has(team.id) && team.estimatesEnabled !== false);
+  const measure: MeasureType = estimatesAvailable ? chosenMeasure : 'issue_count';
   const [slice, setSlice] = React.useState<SliceType>('status');
   const [segment, setSegment] = React.useState<SegmentType>('priority');
 
@@ -352,7 +358,7 @@ export function IssueMetricsAside({
       <div className="grid grid-cols-3 gap-2 p-4 border-b border-border/70 shrink-0">
         <Label className="flex flex-col gap-1 text-[11px] font-medium text-muted-foreground">
           <span>Measure</span>
-          <SelectField aria-label="Measure" value={measure} onValueChange={value => setMeasure(value as MeasureType)} className="w-full" options={[{ value: 'issue_count', label: 'Issue count' }, { value: 'estimate', label: 'Estimate' }]} />
+          <SelectField aria-label="Measure" value={measure} onValueChange={value => setMeasure(value as MeasureType)} className="w-full" options={[{ value: 'issue_count', label: 'Issue count' }, ...(estimatesAvailable ? [{ value: 'estimate', label: 'Estimate' }] : [])]} />
         </Label>
 
         <Label className="flex flex-col gap-1 text-[11px] font-medium text-muted-foreground">

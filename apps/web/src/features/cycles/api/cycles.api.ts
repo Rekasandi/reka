@@ -48,7 +48,7 @@ export interface CompleteCycleInput {
 }
 
 export interface TeamCycleSettings {
-  teamId: string; timezone: string; durationDays: number; cooldownDays: number; nextStartDate: string; autoCreate: boolean; autoAddStarted: boolean;
+  teamId: string; timezone: string; durationDays: number; cooldownDays: number; nextStartDate: string; autoCreate: boolean; autoAddStarted: boolean; autoRollover: boolean;
   updatedBy: string; createdAt: string; updatedAt: string;
 }
 export interface CycleSnapshot {

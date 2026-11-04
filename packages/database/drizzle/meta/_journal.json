@@ -225,6 +225,27 @@
       "when": 1793716113636,
       "tag": "0031_team_cycles_estimates_settings",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1793724431370,
+      "tag": "0032_issue_automation_reactions_label_groups",
+      "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1793726780016,
+      "tag": "0033_team_workflow_automation_sla_snooze",
+      "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1793757614532,
+      "tag": "0034_existing_teams_duplicate_state",
+      "breakpoints": true
     }
   ]
 }

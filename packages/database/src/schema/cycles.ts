@@ -11,6 +11,7 @@ export const teamCycleSettings = pgTable('team_cycle_settings', {
   nextStartDate: date('next_start_date', { mode: 'string' }).notNull(),
   autoCreate: boolean('auto_create').notNull().default(false),
   autoAddStarted: boolean('auto_add_started').notNull().default(false),
+  autoRollover: boolean('auto_rollover').notNull().default(false),
   updatedBy: uuid('updated_by').notNull().references(() => users.id, { onDelete: 'restrict' }),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),

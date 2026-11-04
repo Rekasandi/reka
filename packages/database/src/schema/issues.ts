@@ -28,6 +28,8 @@ export const issues = pgTable('issues', {
   parentId: uuid('parent_id'),
   estimate: integer('estimate'),
   dueDate: timestamp('due_date', { withTimezone: true }),
+  /** Set from priority when the team has SLA on; cleared once the issue is completed or canceled. */
+  slaBreachesAt: timestamp('sla_breaches_at', { withTimezone: true }),
   archivedAt: timestamp('archived_at', { withTimezone: true }),
   archiveBatchId: uuid('archive_batch_id'),
   githubIssueNumber: integer('github_issue_number'),

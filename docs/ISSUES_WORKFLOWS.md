@@ -54,7 +54,34 @@ Each team has three settings under **Team settings → Features** (team managers
 - **Estimates on/off** — when off, estimate fields, the cycle capacity/estimate panel, the burndown "Estimate" toggle and the cycle-list capacity ring are hidden (the list shows issue-count progress instead). New estimates are rejected with `400`, clearing is allowed, and stored values are never deleted, so re-enabling brings them back.
 - **Cycles on/off** — when off, the team's Cycles sidebar entry, cycle pickers, the Cycles page rows, dashboard active-cycle rows and the team-overview planning card are hidden. Assigning an issue to a cycle, creating a cycle, saving the schedule and **Auto-add started issues** are rejected/inactive, and the worker stops auto-creating cycles for the team. Existing cycles, snapshots and history are kept, and re-enabling resumes the saved schedule.
 
-Existing teams default to cycles on, estimates on and `fibonacci`. Covered by `apps/api/test/team-features.integration.test.cjs` (`pnpm test:cycles`).
+Teams created through the app start with **cycles off and estimates off** (turn them on in Features); teams that existed before keep their settings. The estimate scale defaults to `fibonacci`. Covered by `apps/api/test/team-features.integration.test.cjs` (`pnpm test:cycles`).
+
+## Automation, reactions and label groups
+
+Migration `0032_issue_automation_reactions_label_groups.sql` (additive). Covered by `apps/api/test/issue-automation.integration.test.cjs` (`pnpm test:automation`).
+
+- **Auto-close parent issues** (**Team settings → Features**, `teams.auto_close_parent`, off by default): when every non-archived sub-issue is completed or canceled, the parent moves to the team's first active completed status (or canceled when none were completed), recorded as `issue.status_changed` activity with `auto`, and the rule continues up the hierarchy. Works for single and bulk status changes.
+- **Auto-archive closed issues** (`teams.auto_archive_months`, 1–60 or never): the worker archives completed/canceled issues not updated for that long. A parent waits until its sub-issues are archived. Each archive is an `issue.auto_archived` activity with no actor and can be restored from the archive like any other.
+- **Reactions**: any member with write access can add or remove one of 👍 👎 ❤️ 🎉 😄 😕 🚀 👀 on an issue or a comment (`PUT /api/reactions/toggle`, `GET /api/reactions/by-issue/:issueId`); counts show whether you reacted. One reaction per user, target and emoji.
+- **Label groups**: a label can be placed in a group (another top-level label of the same team and project; one level only). An issue can carry at most one label from each group and the picker replaces the previous choice. Deleting a group ungroups its labels. Manage groups in **Manage labels**.
+- **Estimate scale warning**: changing a team's scale shows how many existing issues now fall outside it; they are kept and flagged "outside scale" when edited. The workspace **Cycles** entry, command-palette shortcut and the **Estimate** measure/unit in Insights and the issue metrics panel are hidden when no relevant team has the feature on.
+
+## Linear-style status automation
+
+Migration `0033_team_workflow_automation_sla_snooze.sql` (additive). Covered by `apps/api/test/issue-automation.integration.test.cjs` and `apps/worker/test/github-pr-event-postgres.integration.test.cjs`.
+
+- **Status icons** take their shape from the category (triage, backlog, unstarted, started, completed, canceled) and their colour from the state, so custom states look right everywhere. Issue payloads carry `statusColor`.
+- **Default status** (`teams.default_status`, backlog/unstarted only): used when an issue is created without a status and when triage is accepted. Null picks the first active unstarted state, then backlog.
+- **Duplicate status** (`teams.duplicate_status`, canceled only): adding a `duplicate` relation moves the duplicate there (null: the `duplicate` state, else the first canceled state). Closed issues are left alone. Triage → Duplicate still archives the intake as before.
+- **GitHub automation** (`github_draft_status`, `github_open_status`, `github_merged_status`): null = automatic (draft PR → In Progress, open/ready for review → In Review, merged → Done), `-` = no status change, or any active state.
+- Settings point at saved states; the workflow editor refuses to disable or delete a state those settings still use.
+- **No built-in Blocked status** for new teams (use the *blocked by* relation). New teams get a **Duplicate** state. Existing teams keep their states.
+- **Auto-close sub-issues** (`auto_close_children`): closing a parent closes its open descendants with the same category.
+- **Auto-close stale issues** (`auto_close_stale_months`, 1–60): the worker cancels backlog/unstarted/triage issues untouched for that long, skipping issues in an open cycle; recorded as `issue.status_changed` with `auto: 'stale'`.
+- **Triage on/off** (`triage_enabled`): off hides the team's Triage page and queue, rejects triage statuses and sends intake-form submissions to the default status. It can only be turned off with an empty queue.
+- **SLA** (`sla_enabled`): urgent issues get 1 day and high priority 7 days from when the priority was set (`issues.sla_breaches_at`); cleared for other priorities and closed issues. Rows and issue detail show the time left or *breached*.
+- **Inbox snooze** (`notifications.snoozed_until`): `PATCH /api/notifications/:id/snooze { until | null }` hides a notification (and its unread count) until the time passes; the Inbox has a Snoozed filter.
+- **Live unread count** (no polling): `GET /api/notifications/unread-count/stream` is a Server-Sent Events stream of `{ count }` sent on connect, after each change by the API, when the worker publishes user ids on Redis channel `reka:notifications` (GitHub notifications), and when a snooze ends. A `ping` event every 25s keeps proxies from closing it. The web app opens one `EventSource` in the sidebar and refreshes open Inbox lists on each change.
 
 ## Recurring issues and worker configuration
 

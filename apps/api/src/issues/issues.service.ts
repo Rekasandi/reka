@@ -13,7 +13,9 @@ import { GITHUB_USER_TOKENS } from '../auth/auth.service';
 import { getIssueNotificationRecipients } from './issue-notification-recipients';
 import { getIssueStatusCategory, loadIssueStatusCategories } from './issue-status';
 import { IssueSubscriptionsService } from '../issue-subscriptions/issue-subscriptions.service';
-import { DEFAULT_TEAM_WORKFLOW_STATES } from '../teams/workflow-state-defaults';
+import { DEFAULT_TEAM_WORKFLOW_STATES, resolveDefaultStatus } from '../teams/workflow-state-defaults';
+
+const SLA_HOURS: Record<string, number> = { urgent: 24, high: 24 * 7 };
 import { ConfigureIssueRecurrenceDto } from './dto/issue-recurrence.dto';
 import type { RecurringIssueTemplate } from '@reka/database';
 import { estimateScaleValues, type EstimateScale } from '@reka/types';
@@ -56,19 +58,85 @@ export class IssuesService {
       const configured = workflowByTeam.get(`${issue.teamId}:${issue.status}`);
       const fallback = DEFAULT_TEAM_WORKFLOW_STATES.find((state) => state.key === issue.status);
       return { ...issue, statusLabel: configured?.name ?? fallback?.name ?? issue.status.replaceAll('_', ' '),
-        statusCategory: configured?.category ?? fallback?.category ?? 'started', statusPosition: configured?.position ?? fallback?.position ?? 99,
+        statusCategory: configured?.category ?? fallback?.category ?? 'started', statusPosition: configured?.position ?? fallback?.position ?? 99, statusColor: configured?.color ?? fallback?.color ?? null,
         labels: labelsByIssue.get(issue.id) ?? [] };
     });
   }
 
   private async validateStatus(teamId: string, status: string) {
-    const configuredStates = await this.database.db.select({ key: teamWorkflowStates.key, isActive: teamWorkflowStates.isActive })
+    const configuredStates = await this.database.db.select({ key: teamWorkflowStates.key, isActive: teamWorkflowStates.isActive, category: teamWorkflowStates.category })
       .from(teamWorkflowStates).where(eq(teamWorkflowStates.teamId, teamId));
-    if (configuredStates.length) {
-      if (configuredStates.some((state) => state.key === status && state.isActive)) return;
-      throw new BadRequestException('Status is not active in this team workflow');
+    const state = configuredStates.length ? configuredStates.find((item) => item.key === status && item.isActive) : DEFAULT_TEAM_WORKFLOW_STATES.find((item) => item.key === status);
+    if (!state) throw new BadRequestException('Status is not active in this team workflow');
+    if (state.category === 'triage') {
+      const [team] = await this.database.db.select({ triageEnabled: teams.triageEnabled }).from(teams).where(eq(teams.id, teamId));
+      if (team && !team.triageEnabled) throw new BadRequestException('Triage is turned off for this team');
     }
-    if (!DEFAULT_TEAM_WORKFLOW_STATES.some((state) => state.key === status)) throw new BadRequestException('Status is not active in this team workflow');
+  }
+
+  /** The status a new issue gets when none is chosen (team setting, else first unstarted/backlog state). */
+  private async defaultStatus(teamId: string, chosen: string | null) {
+    const states = await this.database.db.select().from(teamWorkflowStates).where(eq(teamWorkflowStates.teamId, teamId)).orderBy(teamWorkflowStates.position);
+    const status = resolveDefaultStatus(states, chosen);
+    if (!status) throw new BadRequestException('Configure an active backlog or unstarted state for this team');
+    return status;
+  }
+
+  /** Keeps `sla_breaches_at` in step with priority/status: urgent 1 day, high 7 days from when the priority was set;
+   * cleared for other priorities, closed issues and teams without SLA. */
+  private async syncSla(rows: (typeof issues.$inferSelect)[], before?: Map<string, typeof issues.$inferSelect>) {
+    const db = this.database.db;
+    for (const teamId of new Set(rows.map((issue) => issue.teamId))) {
+      const [team] = await db.select({ slaEnabled: teams.slaEnabled }).from(teams).where(eq(teams.id, teamId));
+      const categories = await loadIssueStatusCategories(db, [teamId]);
+      for (const issue of rows.filter((row) => row.teamId === teamId)) {
+        const hours = SLA_HOURS[issue.priority];
+        const closed = ['completed', 'canceled'].includes(getIssueStatusCategory(issue, categories));
+        const previous = before?.get(issue.id);
+        const next = !team?.slaEnabled || !hours || closed ? null
+          : issue.slaBreachesAt && previous?.priority === issue.priority ? issue.slaBreachesAt : new Date(Date.now() + hours * 3_600_000);
+        if ((next?.getTime() ?? null) === (issue.slaBreachesAt?.getTime() ?? null)) continue;
+        await db.update(issues).set({ slaBreachesAt: next }).where(eq(issues.id, issue.id));
+        issue.slaBreachesAt = next;
+      }
+    }
+  }
+
+  /** "Auto-close sub-issues": when a parent is completed/canceled, close its open descendants the same way. */
+  private async autoCloseChildren(changed: (typeof issues.$inferSelect)[], actor: WorkspaceActor) {
+    const db = this.database.db;
+    for (const parent of changed) {
+      const [team] = await db.select({ enabled: teams.autoCloseChildren }).from(teams).where(eq(teams.id, parent.teamId));
+      if (!team?.enabled) continue;
+      const categories = await loadIssueStatusCategories(db, [parent.teamId]);
+      const category = getIssueStatusCategory(parent, categories);
+      if (category !== 'completed' && category !== 'canceled') continue;
+      const status = await this.closeStateKey(parent.teamId, category);
+      const subtree = (await this.issueSubtreeIds(parent.teamId, parent.id, actor)).filter((id) => id !== parent.id);
+      if (!subtree.length) continue;
+      const open = (await db.select().from(issues).where(and(inArray(issues.id, subtree), isNull(issues.archivedAt))))
+        .filter((child) => !['completed', 'canceled'].includes(getIssueStatusCategory(child, categories)));
+      if (!open.length) continue;
+      const closed = await db.update(issues).set({ status, slaBreachesAt: null, updatedAt: new Date() }).where(inArray(issues.id, open.map((child) => child.id))).returning();
+      await db.insert(activities).values(closed.map((child) => ({ actorId: actor.userId, issueId: child.id, projectId: child.projectId, type: 'issue.status_changed',
+        metadata: { from: open.find((item) => item.id === child.id)!.status, to: status, identifier: child.identifier, auto: 'parent closed' } })));
+    }
+  }
+
+  /** Moves an issue marked as a duplicate to the team's duplicate status (canceled category), unless it is already closed. */
+  private async moveToDuplicateStatus(issue: typeof issues.$inferSelect, actorId: string) {
+    const db = this.database.db;
+    const categories = await loadIssueStatusCategories(db, [issue.teamId]);
+    if (['completed', 'canceled'].includes(getIssueStatusCategory(issue, categories))) return;
+    const [team] = await db.select({ duplicateStatus: teams.duplicateStatus }).from(teams).where(eq(teams.id, issue.teamId));
+    const canceled = await db.select({ key: teamWorkflowStates.key }).from(teamWorkflowStates)
+      .where(and(eq(teamWorkflowStates.teamId, issue.teamId), eq(teamWorkflowStates.category, 'canceled'), eq(teamWorkflowStates.isActive, true))).orderBy(teamWorkflowStates.position);
+    const status = (team?.duplicateStatus && canceled.find((state) => state.key === team.duplicateStatus)?.key)
+      ?? canceled.find((state) => state.key === 'duplicate')?.key ?? canceled[0]?.key ?? (categories.size ? null : 'duplicate');
+    if (!status) return;
+    await db.update(issues).set({ status, slaBreachesAt: null, updatedAt: new Date() }).where(eq(issues.id, issue.id));
+    await db.insert(activities).values({ actorId, issueId: issue.id, projectId: issue.projectId, type: 'issue.status_changed',
+      metadata: { from: issue.status, to: status, identifier: issue.identifier, auto: 'marked as duplicate' } });
   }
 
   /** Rejects cycle/estimate writes that the team's settings do not allow (feature disabled, or value outside its estimate scale). */
@@ -98,16 +166,57 @@ export class IssuesService {
     return cycle?.id ?? null;
   }
 
+  /** Key of the team's first active status in a category (completed/canceled), falling back to the defaults. */
+  private async closeStateKey(teamId: string, category: 'completed' | 'canceled') {
+    const [state] = await this.database.db.select({ key: teamWorkflowStates.key }).from(teamWorkflowStates)
+      .where(and(eq(teamWorkflowStates.teamId, teamId), eq(teamWorkflowStates.category, category), eq(teamWorkflowStates.isActive, true)))
+      .orderBy(teamWorkflowStates.position).limit(1);
+    return state?.key ?? (category === 'completed' ? 'done' : 'canceled');
+  }
+
+  /** "Auto-close parent issues": once every active sub-issue is completed or canceled, close the parent too
+   * (completed if any sub-issue completed, otherwise canceled), then keep walking up the hierarchy. */
+  private async autoCloseParents(changed: (typeof issues.$inferSelect)[], actorId: string) {
+    const db = this.database.db;
+    const seen = new Set<string>();
+    let queue = changed.filter((issue) => issue.parentId);
+    for (let depth = 0; queue.length && depth < 10; depth += 1) {
+      const next: (typeof issues.$inferSelect)[] = [];
+      for (const child of queue) {
+        const parentId = child.parentId;
+        if (!parentId || seen.has(parentId)) continue;
+        seen.add(parentId);
+        const [team] = await db.select({ enabled: teams.autoCloseParent }).from(teams).where(eq(teams.id, child.teamId));
+        if (!team?.enabled) continue;
+        const categories = await loadIssueStatusCategories(db, [child.teamId]);
+        const category = (issue: { teamId: string; status: string }) => getIssueStatusCategory(issue, categories);
+        const [parent] = await db.select().from(issues).where(and(eq(issues.id, parentId), isNull(issues.archivedAt)));
+        if (!parent || ['completed', 'canceled'].includes(category(parent))) continue;
+        const siblings = await db.select().from(issues).where(and(eq(issues.parentId, parentId), isNull(issues.archivedAt)));
+        if (!siblings.length || !siblings.every((sibling) => ['completed', 'canceled'].includes(category(sibling)))) continue;
+        const status = await this.closeStateKey(parent.teamId, siblings.some((sibling) => category(sibling) === 'completed') ? 'completed' : 'canceled');
+        const [closed] = await db.update(issues).set({ status, slaBreachesAt: null, updatedAt: new Date() }).where(eq(issues.id, parentId)).returning();
+        if (!closed) continue;
+        await db.insert(activities).values({ actorId, issueId: closed.id, projectId: closed.projectId, type: 'issue.status_changed',
+          metadata: { from: parent.status, to: status, identifier: closed.identifier, auto: 'all sub-issues closed' } });
+        next.push(closed);
+      }
+      queue = next;
+    }
+  }
+
   private async validateLabelIds(actor: WorkspaceActor, labelIds: string[] | undefined, teamId: string, projectId?: string | null) {
     if (labelIds === undefined || labelIds.length === 0) return;
     const projectFilter = projectId
       ? or(isNull(labels.projectId), eq(labels.projectId, projectId))
       : isNull(labels.projectId);
-    const eligible = await this.database.db.select({ id: labels.id }).from(labels).where(and(
+    const eligible = await this.database.db.select({ id: labels.id, parentId: labels.parentId }).from(labels).where(and(
       inArray(labels.id, labelIds), labelScope(this.database.db, actor),
       or(isNull(labels.teamId), eq(labels.teamId, teamId)), projectFilter,
     ));
     if (eligible.length !== labelIds.length) throw new BadRequestException('Every label must be visible and eligible for this issue team and project');
+    const groups = eligible.map((label) => label.parentId).filter((id): id is string => !!id);
+    if (new Set(groups).size !== groups.length) throw new BadRequestException('An issue can have only one label from each label group');
   }
 
   private async replaceLabels(issueId: string, labelIds: string[] | undefined) {
@@ -170,13 +279,14 @@ export class IssuesService {
     const team = await requireTeamWrite(this.database.db, actor, teamId);
     const teamKey = team.key;
     await this.validateRelations(actor, teamId, dto.projectId, dto.cycleId, dto.parentId, undefined, dto.milestoneId);
-    await this.validateStatus(teamId, dto.status ?? 'todo');
+    const status = dto.status || await this.defaultStatus(teamId, team.defaultStatus);
+    await this.validateStatus(teamId, status);
     await this.validateTeamFeatures(teamId, { cycleId: dto.cycleId, estimate: dto.estimate });
     if (dto.assigneeId) await requireEligibleUser(this.database.db, actor, dto.assigneeId, teamId);
     await this.validateLabelIds(actor, dto.labelIds, teamId, dto.projectId);
 
     const reporterId = actorId;
-    const cycleId = dto.cycleId || await this.autoAddCycleId(teamId, dto.status ?? 'todo');
+    const cycleId = dto.cycleId || await this.autoAddCycleId(teamId, status);
 
     // The team counter allocates a unique identifier atomically across concurrent creators.
     const [counter] = await this.database.db.update(teams)
@@ -195,7 +305,7 @@ export class IssuesService {
         number: nextNumber,
         title: dto.title.trim(),
         description: dto.description || null,
-        status: dto.status || 'todo',
+        status,
         priority: dto.priority || 'no_priority',
         type: dto.type || 'task',
         teamId,
@@ -210,6 +320,7 @@ export class IssuesService {
       })
       .returning();
     await this.replaceLabels(created.id, dto.labelIds);
+    await this.syncSla([created]);
 
     // 5. Automatic Linear-style GitHub Issue Creation (Sync)
     void this.syncToGithub(created, reporterId);
@@ -333,7 +444,7 @@ ${issue.description || 'No description provided.'}
       const configured = states.find((state) => state.key === issue.status);
       const fallback = DEFAULT_TEAM_WORKFLOW_STATES.find((state) => state.key === issue.status);
       return { ...issue, statusLabel: configured?.name ?? fallback?.name ?? issue.status.replaceAll('_', ' '),
-        statusCategory: configured?.category ?? fallback?.category ?? 'started', statusPosition: configured?.position ?? fallback?.position ?? 99 };
+        statusCategory: configured?.category ?? fallback?.category ?? 'started', statusPosition: configured?.position ?? fallback?.position ?? 99, statusColor: configured?.color ?? fallback?.color ?? null };
     });
   }
 
@@ -418,6 +529,12 @@ ${issue.description || 'No description provided.'}
       }
     }
 
+    if (dto.status && dto.status !== existing.status) {
+      await this.autoCloseParents([updated], actorId);
+      await this.autoCloseChildren([updated], actor);
+    }
+    await this.syncSla([updated], new Map([[existing.id, existing]]));
+
     // Notify if assignee changed
     if (dto.assigneeId && dto.assigneeId !== existing.assigneeId) {
       const subscribers = await this.issueSubscriptions?.getSubscriberIds(id) ?? [];
@@ -483,6 +600,11 @@ ${issue.description || 'No description provided.'}
       actorId, issueId: issue.id, projectId: issue.projectId, type: 'issue.status_changed',
       metadata: { from: before.status, to: issue.status, identifier: issue.identifier },
     })));
+    if (statusChanges.length) {
+      await this.autoCloseParents(statusChanges.map(({ issue }) => issue), actorId);
+      await this.autoCloseChildren(statusChanges.map(({ issue }) => issue), actor);
+    }
+    await this.syncSla(updated, new Map(current.map((issue) => [issue.id, issue])));
     for (const { issue, before } of statusChanges) {
       const subscribers = await this.issueSubscriptions?.getSubscriberIds(issue.id) ?? [];
       for (const userId of getIssueNotificationRecipients(issue.assigneeId, issue.reporterId, actorId, subscribers)) {
@@ -663,6 +785,7 @@ ${issue.description || 'No description provided.'}
       actorId, issueId, projectId: issue.projectId, type: 'issue.relation_added',
       metadata: { type: dto.type, relatedIssueIdentifier: related.identifier },
     });
+    if (created && dto.type === 'duplicate') await this.moveToDuplicateStatus(issue, actorId);
     const [persistedRelation] = created ? [created] : await this.database.db.select().from(issueRelations).where(and(
       eq(issueRelations.issueId, relation.issueId), eq(issueRelations.relatedIssueId, relation.relatedIssueId), eq(issueRelations.type, relation.type),
     )).limit(1);

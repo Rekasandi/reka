@@ -15,8 +15,11 @@ function TeamsDirectory() {
   const [descending, setDescending] = React.useState(false);
   const [createOpen, setCreateOpen] = React.useState(false);
   const rows = (query.data || []).filter(team => team.name.toLowerCase().includes(search.toLowerCase().trim()) && (visibility === 'all' || team.isPrivate === (visibility === 'private'))).sort((a, b) => (descending ? -1 : 1) * a.name.localeCompare(b.name));
-  return <div className="flex min-w-0 flex-col gap-5 pb-10">
-    <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">Teams</h1>
+  return <div className="mx-auto flex w-full max-w-5xl min-w-0 flex-col gap-8 pb-10">
+    <header className="flex flex-col gap-2 border-b border-border pb-5">
+      <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">Teams</h1>
+      <p className="text-sm text-muted-foreground">Manage teams and their members.</p>
+    </header>
     <div className="flex flex-wrap items-center gap-2"><Input type="search" aria-label="Filter teams by name" placeholder="Filter by name…" value={search} onChange={event => setSearch(event.target.value)} className="w-full sm:w-72" />
       <Select value={visibility} onValueChange={setVisibility}><SelectTrigger aria-label="Team visibility"><SelectValue /></SelectTrigger><SelectContent><SelectGroup><SelectItem value="all">All visibility</SelectItem><SelectItem value="workspace">Workspace</SelectItem><SelectItem value="private">Private</SelectItem></SelectGroup></SelectContent></Select>
       <Button className="sm:ml-auto" onClick={() => setCreateOpen(true)}><Plus data-icon="inline-start" />Create team</Button>
@@ -38,7 +41,7 @@ function TeamAdministration({ id }: { id: string }) {
   const query = useTeam(id);
   const [settingsOpen, setSettingsOpen] = React.useState(false);
   const team = query.data;
-  return <div className="flex min-w-0 max-w-4xl flex-col gap-6 pb-10">
+  return <div className="mx-auto flex w-full max-w-5xl min-w-0 flex-col gap-6 pb-10">
     <Button variant="ghost" size="sm" asChild className="w-fit"><Link to="/settings/teams"><ArrowLeft data-icon="inline-start" />Back to teams</Link></Button>
     {query.isPending ? <Skeleton className="h-48 w-full" /> : query.isError || !team ? <Alert variant="destructive"><AlertDescription>Team unavailable. It may have been removed, or you may not have access. <Button variant="link" onClick={() => void query.refetch()}>Retry</Button></AlertDescription></Alert> : <>
       <header className="flex flex-wrap items-center justify-between gap-4 border-b border-border pb-5"><div className="min-w-0"><h1 className="break-words text-xl font-semibold tracking-tight sm:text-2xl">{team.name}</h1><div className="mt-2 flex items-center gap-2"><span className="font-mono text-xs text-muted-foreground">{team.key}</span><Badge variant="outline">{team.isPrivate ? 'Private' : 'Workspace'}</Badge></div></div>{team.canManage && <div className="flex gap-2"><Button variant="outline" onClick={() => setSettingsOpen(true)}><Settings2 data-icon="inline-start" />Team settings</Button><Button variant="outline" asChild><Link to={`/teams/${team.id}?tab=members`}>Open team</Link></Button></div>}</header>

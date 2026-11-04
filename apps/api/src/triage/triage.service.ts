@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { and, asc, desc, eq, inArray, isNull, or } from 'drizzle-orm';
-import { activities, issueTemplates, issues, teamWorkflowStates, type IssueTemplateField } from '@reka/database';
+import { activities, issueTemplates, issues, teams, teamWorkflowStates, type IssueTemplateField } from '@reka/database';
 import { requireAdmin, requireResourceId, requireTeamManager, requireTeamWrite, requireWorkspace, issueScope, visibleTeamIds } from '../common/access/workspace-access';
 import { DatabaseService } from '../common/database/database.service';
 import { IssuesService } from '../issues/issues.service';
@@ -125,8 +125,9 @@ export class TriageService {
     const { actor, template } = await this.requireTemplate(id, actorId, true);
     const teamId = template.teamId ?? dto.teamId;
     if (!teamId || (template.teamId && dto.teamId && dto.teamId !== template.teamId)) throw new BadRequestException('Select a valid team for this intake form');
-    await requireTeamWrite(this.database.db, actor, teamId);
-    await this.assertTriageStatus(teamId, template.defaultStatus);
+    const team = await requireTeamWrite(this.database.db, actor, teamId);
+    // With triage off the submission skips the queue and lands in the team's default status.
+    if (team.triageEnabled) await this.assertTriageStatus(teamId, template.defaultStatus);
     const answers = dto.answers ?? {};
     const fields = template.fields;
     this.validateFields(fields);
@@ -146,7 +147,7 @@ export class TriageService {
     if (!title || title.length > 255) throw new BadRequestException('The resulting issue title must be 1–255 characters');
     const description = [template.description?.trim(), ...answerLines].filter(Boolean).join('\n\n') || undefined;
     const issue = await this.issuesService.create({
-      title, description, teamId, status: template.defaultStatus, type: template.defaultType,
+      title, description, teamId, status: team.triageEnabled ? template.defaultStatus : undefined, type: template.defaultType,
       priority: template.defaultPriority, estimate: template.defaultEstimate, assigneeId: null,
     }, actorId);
     await this.database.db.insert(activities).values({
@@ -173,7 +174,8 @@ export class TriageService {
     const actor = await requireWorkspace(this.database.db, actorId);
     if (teamId) await requireTeamWrite(this.database.db, actor, teamId);
     const states = await this.database.db.select({ teamId: teamWorkflowStates.teamId, key: teamWorkflowStates.key, name: teamWorkflowStates.name })
-      .from(teamWorkflowStates).where(eq(teamWorkflowStates.category, 'triage'));
+      .from(teamWorkflowStates).innerJoin(teams, and(eq(teams.id, teamWorkflowStates.teamId), eq(teams.triageEnabled, true)))
+      .where(eq(teamWorkflowStates.category, 'triage'));
     if (!states.length) return [];
     const visibleTeamIds = [...new Set(states.map((state) => state.teamId))];
     const clauses = states.filter((state) => !teamId || state.teamId === teamId).map((state) => and(eq(issues.teamId, state.teamId), eq(issues.status, state.key))!);
@@ -188,10 +190,10 @@ export class TriageService {
   async accept(id: string, dto: AcceptTriageIssueDto, actorId: string) {
     const { actor, issue } = await this.requireTriageIssue(id, actorId);
     const teamId = dto.teamId ?? issue.teamId;
-    await requireTeamWrite(this.database.db, actor, teamId);
+    const team = await requireTeamWrite(this.database.db, actor, teamId);
     const states = await this.database.db.select().from(teamWorkflowStates).where(and(eq(teamWorkflowStates.teamId, teamId), eq(teamWorkflowStates.isActive, true))).orderBy(asc(teamWorkflowStates.position));
     const defaults = DEFAULT_TEAM_WORKFLOW_STATES;
-    const defaultStatus = states.length ? states.find((state) => ['unstarted', 'started', 'backlog'].includes(state.category))?.key : defaults.find((state) => state.category === 'unstarted')!.key;
+    const defaultStatus = team.defaultStatus && states.some((state) => state.key === team.defaultStatus) ? team.defaultStatus : states.length ? states.find((state) => ['unstarted', 'started', 'backlog'].includes(state.category))?.key : defaults.find((state) => state.category === 'unstarted')!.key;
     const status = dto.status ?? defaultStatus;
     if (!status) throw new BadRequestException('Configure an active work state before accepting triage issues');
     const targetCategory = states.find((state) => state.key === status)?.category ?? defaults.find((state) => state.key === status)?.category;

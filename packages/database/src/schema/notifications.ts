@@ -12,6 +12,7 @@ export const notifications = pgTable('notifications', {
   body: text('body').notNull(),
   link: text('link'),
   read: boolean('read').notNull().default(false),
+  snoozedUntil: timestamp('snoozed_until', { withTimezone: true }),
   metadata: jsonb('metadata').notNull().default({}),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [uniqueIndex('notifications_webhook_delivery_unique_idx')

@@ -71,7 +71,7 @@ export function IssueKanbanBoard({ issues, onSelectIssue }: IssueKanbanBoardProp
           >
             <div className="flex items-center justify-between px-1 py-0.5">
               <div className="flex items-center gap-1.5">
-                <StatusIconOnly status={col.status} />
+                <StatusIconOnly status={col.status} category={colIssues[0]?.statusCategory} color={colIssues[0]?.statusColor} teamId={colIssues[0]?.teamId} />
                 <span className="text-xs font-semibold tracking-tight text-foreground">
                   {col.label}
                 </span>

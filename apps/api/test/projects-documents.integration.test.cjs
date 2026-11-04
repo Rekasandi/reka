@@ -199,14 +199,15 @@ test('project workflow migration adds scoped records and order without replacing
     const milestoneId = randomUUID();
     await postgres.db.execute(sql`INSERT INTO milestones (id, project_id, name, is_completed) VALUES (${milestoneId}, ${project.id}, 'Existing milestone', true)`);
     const milestone = { id: milestoneId };
-    const [issue] = await postgres.db.insert(issues).values({ identifier: `${team.key}-1`, number: 1, title: 'Existing milestone issue', teamId: team.id, projectId: project.id, milestoneId: milestone.id, reporterId: owner.id }).returning();
+    // Raw SQL: later migrations add issue columns this legacy schema lacks.
+    const issue = (await postgres.db.execute(sql`INSERT INTO issues (identifier, number, title, team_id, project_id, milestone_id, reporter_id) VALUES (${team.key + '-1'}, 1, 'Existing milestone issue', ${team.id}::uuid, ${project.id}::uuid, ${milestone.id}::uuid, ${owner.id}::uuid) RETURNING id`)).rows[0];
     const migratedJournal = { ...sourceJournal, entries: sourceJournal.entries.slice(0, 21) };
     fs.copyFileSync(path.join(migrationSource, '0019_overconfident_thunderbolts.sql'), path.join(folder, '0019_overconfident_thunderbolts.sql'));
     fs.copyFileSync(path.join(migrationSource, '0020_aberrant_kulan_gath.sql'), path.join(folder, '0020_aberrant_kulan_gath.sql'));
     fs.writeFileSync(path.join(meta, '_journal.json'), JSON.stringify(migratedJournal, null, 2));
     await postgres.migrate(folder);
     const [afterMilestone] = await postgres.db.select().from(milestones).where(eq(milestones.id, milestone.id));
-    const [afterIssue] = await postgres.db.select().from(issues).where(eq(issues.id, issue.id));
+    const [afterIssue] = await postgres.db.select({ title: issues.title, milestoneId: issues.milestoneId }).from(issues).where(eq(issues.id, issue.id));
     equal(afterMilestone.name, 'Existing milestone'); equal(afterMilestone.isCompleted, true); equal(afterMilestone.position, 0);
     equal(afterIssue.title, 'Existing milestone issue'); equal(afterIssue.milestoneId, milestone.id);
     equal((await postgres.db.select().from(documents)).length, 0);

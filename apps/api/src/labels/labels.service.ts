@@ -10,6 +10,20 @@ import { UpdateLabelDto } from './dto/update-label.dto';
 export class LabelsService {
   constructor(private readonly database: DatabaseService) {}
 
+  /** One level of grouping: the parent is a top-level label of the same team and project, and a group label cannot itself be grouped. */
+  private async validateParent(actor: Awaited<ReturnType<typeof requireWorkspace>>, label: { id?: string; teamId: string; projectId: string | null }, parentId: string) {
+    if (label.id && parentId === label.id) throw new BadRequestException('A label cannot be its own group');
+    const [parent] = await this.database.db.select().from(labels).where(and(eq(labels.id, parentId), labelScope(this.database.db, actor))).limit(1);
+    if (!parent || parent.teamId !== label.teamId || (parent.projectId ?? null) !== (label.projectId ?? null)) {
+      throw new BadRequestException('Group must be a label in the same team and project');
+    }
+    if (parent.parentId) throw new BadRequestException('Groups cannot be nested');
+    if (label.id) {
+      const [child] = await this.database.db.select({ id: labels.id }).from(labels).where(eq(labels.parentId, label.id)).limit(1);
+      if (child) throw new BadRequestException('A label that already has labels in its group cannot be placed in another group');
+    }
+  }
+
   async findAll(actorId: string) {
     const actor = await requireWorkspace(this.database.db, actorId);
     return this.database.db.select().from(labels).where(labelScope(this.database.db, actor));
@@ -22,6 +36,7 @@ export class LabelsService {
     const [label] = await this.database.db.select().from(labels).where(and(eq(labels.id, id), labelScope(this.database.db, actor))).limit(1);
     if (!label?.teamId) throw new NotFoundException('Label not found');
     await requireTeamManager(this.database.db, actor, label.teamId);
+    if (dto.parentId) await this.validateParent(actor, { id, teamId: label.teamId, projectId: label.projectId }, dto.parentId);
     const [updated] = await this.database.db.update(labels).set(dto).where(and(eq(labels.id, id), labelScope(this.database.db, actor))).returning();
     if (!updated) throw new NotFoundException('Label not found');
     return updated;
@@ -45,8 +60,9 @@ export class LabelsService {
       const project = await requireProject(this.database.db, actor, dto.projectId);
       if (project.teamId !== team.id) throw new BadRequestException('Label project must belong to the selected team');
     }
+    if (dto.parentId) await this.validateParent(actor, { teamId: team.id, projectId: dto.projectId ?? null }, dto.parentId);
     const [label] = await this.database.db.insert(labels).values({
-      organizationId: actor.organizationId, teamId: team.id, projectId: dto.projectId ?? null,
+      organizationId: actor.organizationId, teamId: team.id, projectId: dto.projectId ?? null, parentId: dto.parentId ?? null,
       name: dto.name.trim(), color: dto.color,
     }).returning();
     return label;

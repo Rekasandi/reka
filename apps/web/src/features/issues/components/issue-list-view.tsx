@@ -13,7 +13,7 @@ import {
   ArrowRight,
   X,
 } from 'lucide-react';
-import { StatusPicker, STATUS_CONFIG } from './status-picker';
+import { StatusPicker, renderStateIcon } from './status-picker';
 import { IssueRowProperties } from './issue-row-properties';
 import { IssueContextMenu } from './issue-context-menu';
 import { CreateIssueDialog } from './create-issue-dialog';
@@ -333,7 +333,7 @@ export function IssueListView({
             <DropdownMenuContent align="center" className="w-40 p-1">
               {bulkStatusOptions.map((state) => (
                 <DropdownMenuItem key={state.key} onClick={() => handleBatchStatus(state.key)} className="text-xs gap-2">
-                  {STATUS_CONFIG[state.key]?.renderIcon() ?? <span className="size-3 rounded-full border border-current" style={{ color: state.color, backgroundColor: `${state.color}30` }} />}
+                  {renderStateIcon(state.category, state.color)}
                   <span>{state.name}</span>
                 </DropdownMenuItem>
               ))}

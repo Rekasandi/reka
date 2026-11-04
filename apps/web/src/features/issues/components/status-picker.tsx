@@ -115,9 +115,29 @@ export const STATUS_CONFIG: Record<
   },
 };
 
-export function StatusIconOnly({ status }: { status: string }) {
-  const config = STATUS_CONFIG[status] || STATUS_CONFIG.backlog;
-  return config.renderIcon();
+/** Linear-style workflow icon: the category decides the shape, the state's own colour tints it. */
+export function renderStateIcon(category: string, color?: string | null) {
+  const style = { color: color || CATEGORY_DEFAULT_COLOR[category] || '#8f8f8f' };
+  const common = { className: 'size-3.5 shrink-0', viewBox: '0 0 16 16', style, 'aria-hidden': true } as const;
+  switch (category) {
+    case 'triage': return <svg {...common} fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.75" /><circle cx="8" cy="8" r="2.5" fill="currentColor" /></svg>;
+    case 'backlog': return <svg {...common} fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.75" strokeDasharray="2 3" /></svg>;
+    case 'unstarted': return <svg {...common} fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.75" /></svg>;
+    case 'started': return <svg {...common} fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.75" /><path d="M8 4.5A3.5 3.5 0 0 1 8 11.5z" fill="currentColor" /></svg>;
+    case 'completed': return <svg {...common} fill="currentColor"><circle cx="8" cy="8" r="7" /><path d="M5 8.2l2 2 4.2-4.4" fill="none" stroke="var(--background, #fff)" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" /></svg>;
+    case 'canceled': return <svg {...common} fill="currentColor"><circle cx="8" cy="8" r="7" /><path d="M5.6 5.6l4.8 4.8M10.4 5.6l-4.8 4.8" stroke="var(--background, #fff)" strokeWidth="1.6" strokeLinecap="round" /></svg>;
+    default: return <svg {...common} fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.75" /></svg>;
+  }
+}
+const CATEGORY_DEFAULT_COLOR: Record<string, string> = { triage: '#ec9a3c', backlog: '#8f8f8f', unstarted: '#8f8f8f', started: '#f5a623', completed: '#7928ca', canceled: '#8f8f8f' };
+
+/** Pass `category` (and `color`) when known, or `teamId` to look the state up; otherwise falls back to the built-in icons. */
+export function StatusIconOnly({ status, category, color, teamId }: { status: string; category?: string | null; color?: string | null; teamId?: string }) {
+  const { data: states = [] } = useTeamWorkflowStates(category ? undefined : teamId);
+  const state = states.find((item) => item.key === status);
+  const resolved = category ?? state?.category;
+  if (resolved) return renderStateIcon(resolved, color ?? state?.color);
+  return (STATUS_CONFIG[status] || STATUS_CONFIG.backlog).renderIcon();
 }
 
 interface StatusPickerProps {
@@ -133,7 +153,7 @@ export function StatusPicker({ status, onStatusChange, className, appearance = '
   const [open, setOpen] = React.useState(false);
   const { data: configuredStates = [] } = useTeamWorkflowStates(teamId);
   const options = configuredStates.length
-    ? configuredStates.filter((state) => state.isActive).map((state) => ({ key: state.key, label: state.name, number: state.position + 1, color: state.color, category: state.category, renderIcon: () => STATUS_CONFIG[state.key]?.renderIcon() ?? <span className="size-3 rounded-full border border-current" style={{ color: state.color, backgroundColor: `${state.color}30` }} /> }))
+    ? configuredStates.filter((state) => state.isActive).map((state) => ({ key: state.key, label: state.name, number: state.position + 1, color: state.color, category: state.category, renderIcon: () => renderStateIcon(state.category, state.color) }))
     : Object.entries(STATUS_CONFIG).map(([key, config]) => ({ key, ...config, category: key === 'triage' ? 'triage' : ['done'].includes(key) ? 'completed' : key === 'canceled' ? 'canceled' : ['backlog'].includes(key) ? 'backlog' : ['todo'].includes(key) ? 'unstarted' : 'started' }));
   const selected = options.find((option) => option.key === status);
   const correctedStatus = React.useRef<string | null>(null);
@@ -172,7 +192,7 @@ export function StatusPicker({ status, onStatusChange, className, appearance = '
               title="Change status"
               onKeyDown={handleShortcut}
             >
-              <StatusIconOnly status={status} />
+              <StatusIconOnly status={status} teamId={teamId} />
               <span>{statusLabel}</span>
             </Button>
           </Badge>
@@ -186,7 +206,7 @@ export function StatusPicker({ status, onStatusChange, className, appearance = '
             aria-keyshortcuts="1 2 3 4 5 6 7 8"
             onKeyDown={handleShortcut}
           >
-            <StatusIconOnly status={status} />
+            <StatusIconOnly status={status} teamId={teamId} />
           </Button>
         )}
       </DropdownMenuTrigger>

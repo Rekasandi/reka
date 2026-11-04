@@ -17,6 +17,15 @@ export function IssueLabelsPicker({ teamId, projectId, value, onChange, compact 
   const available = labels.filter((label) => (!label.teamId || label.teamId === teamId) && (!label.projectId || label.projectId === projectId));
 
   const selected = available.filter(label => value.includes(label.id));
+  const groupIds = new Set(available.map(label => label.parentId).filter((id): id is string => !!id));
+  // Group labels act as headings for their children; other top-level labels stay selectable on their own.
+  const ordered = available.filter(label => !label.parentId).flatMap(label => [label, ...available.filter(child => child.parentId === label.id)]);
+  const toggle = (label: typeof available[number], checked: boolean) => {
+    if (!checked) return onChange(value.filter(id => id !== label.id));
+    // One label per group: choosing a sibling replaces the previous choice.
+    const siblings = label.parentId ? available.filter(other => other.parentId === label.parentId).map(other => other.id) : [];
+    onChange([...value.filter(id => !siblings.includes(id)), label.id]);
+  };
 
   return (
     <DropdownMenu>
@@ -35,11 +44,11 @@ export function IssueLabelsPicker({ teamId, projectId, value, onChange, compact 
           {isLoading ? <p className="p-2 text-xs text-muted-foreground">Loading labels…</p> : null}
           {isError ? <Button type="button" variant="ghost" size="sm" onClick={() => void refetch()}>Retry loading labels</Button> : null}
           {!isLoading && !isError && available.length === 0 ? <p className="p-2 text-xs text-muted-foreground">No labels yet.</p> : null}
-          {available.map((label) => (
-            <DropdownMenuCheckboxItem key={label.id} checked={value.includes(label.id)} onCheckedChange={(checked) => onChange(checked ? [...value, label.id] : value.filter((id) => id !== label.id))}>
+          {ordered.map((label) => groupIds.has(label.id)
+            ? <p key={label.id} className="px-2 pb-0.5 pt-2 text-xs font-medium text-muted-foreground">{label.name}</p>
+            : <DropdownMenuCheckboxItem key={label.id} className={label.parentId ? 'pl-6' : undefined} checked={value.includes(label.id)} onCheckedChange={(checked) => toggle(label, checked === true)}>
               <span className="mr-2 size-2 rounded-full" style={{ backgroundColor: label.color }} />{label.name}
-            </DropdownMenuCheckboxItem>
-          ))}
+            </DropdownMenuCheckboxItem>)}
         </div>
         <div className="mt-2 flex gap-1 border-t border-border pt-2">
           <Input aria-label="New label name" value={name} onChange={(event) => setName(event.target.value)} onKeyDown={(event) => event.stopPropagation()} placeholder="Create label…" maxLength={50} className="h-8" />

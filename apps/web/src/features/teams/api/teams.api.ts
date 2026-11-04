@@ -26,6 +26,18 @@ export interface Team {
   cyclesEnabled: boolean;
   estimatesEnabled: boolean;
   estimateScale: EstimateScale;
+  autoCloseParent: boolean;
+  autoArchiveMonths: number | null;
+  autoCloseChildren: boolean;
+  autoCloseStaleMonths: number | null;
+  triageEnabled: boolean;
+  slaEnabled: boolean;
+  /** Workflow state keys; null = automatic. GitHub fields also accept '-' (no status change). */
+  defaultStatus: string | null;
+  duplicateStatus: string | null;
+  githubDraftStatus: string | null;
+  githubOpenStatus: string | null;
+  githubMergedStatus: string | null;
   currentMemberUserId?: string;
   currentMemberRole?: 'lead' | 'member' | 'viewer' | null;
   canManage?: boolean;
@@ -58,6 +70,17 @@ export interface UpdateTeamInput {
   cyclesEnabled?: boolean;
   estimatesEnabled?: boolean;
   estimateScale?: EstimateScale;
+  autoCloseParent?: boolean;
+  autoArchiveMonths?: number | null;
+  autoCloseChildren?: boolean;
+  autoCloseStaleMonths?: number | null;
+  triageEnabled?: boolean;
+  slaEnabled?: boolean;
+  defaultStatus?: string | null;
+  duplicateStatus?: string | null;
+  githubDraftStatus?: string | null;
+  githubOpenStatus?: string | null;
+  githubMergedStatus?: string | null;
 }
 
 export interface AddTeamMemberInput {

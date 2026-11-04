@@ -165,3 +165,32 @@ test('GitHub worker withholds private-team notifications until recipient has exp
     await postgres.close();
   }
 });
+
+test('GitHub PR events follow the team status mapping: automatic, configured state or no change', { timeout: 90_000 }, async () => {
+  const postgres = await createPersistentPostgres();
+  try {
+    const db = postgres.db;
+    const marker = randomUUID().replaceAll('-', '').slice(0, 8).toLowerCase();
+    const [org] = await db.insert(organizations).values({ name: `Map ${marker}`, slug: `map-${marker}` }).returning();
+    const [sender] = await db.insert(users).values({ name: 'Mapper', email: `map-${marker}@example.test`, githubUsername: `map-${marker}` }).returning();
+    await db.insert(organizationMembers).values({ organizationId: org.id, userId: sender.id, role: 'member' });
+    const [team] = await db.insert(teams).values({ organizationId: org.id, name: 'Map team', key: `M${marker.replace(/[0-9]/g, 'A').toUpperCase()}` }).returning();
+    const [installation] = await db.insert(githubInstallations).values({ organizationId: org.id, installationId: Date.now() + 31, accountLogin: 'acme' }).returning();
+    const [repository] = await db.insert(githubRepositories).values({ installationId: installation.id, repoId: Date.now() + 32, owner: 'acme', name: 'repo', fullName: 'acme/repo' }).returning();
+    let number = 0;
+    const pr = async (action, extra = {}) => {
+      const [issue] = await db.insert(issues).values({ identifier: `${team.key}-${++number}`, number, title: 'Mapped', status: 'todo', teamId: team.id, reporterId: sender.id }).returning();
+      await processGithubWebhookEvent(db, { eventId: `pr-${marker}-${number}`, event: 'pull_request', payload: {
+        action, installation: { id: installation.installationId }, repository: { id: repository.repoId }, sender: { login: sender.githubUsername },
+        pull_request: { number, title: `${issue.identifier} work`, html_url: `https://github.com/acme/repo/pull/${number}`, state: 'open', merged: false, head: { ref: `feature/${issue.identifier}` }, ...extra },
+      } });
+      return (await db.select().from(issues).where(eq(issues.id, issue.id)))[0].status;
+    };
+    equal(await pr('opened', { draft: true }), 'in_progress', 'automatic: draft PR -> in progress');
+    equal(await pr('opened'), 'in_review', 'automatic: open PR -> in review');
+    equal(await pr('ready_for_review'), 'in_review', 'ready for review moves to the open-PR status');
+    await db.update(teams).set({ githubDraftStatus: '-', githubOpenStatus: 'ready_to_deploy' }).where(eq(teams.id, team.id));
+    equal(await pr('opened', { draft: true }), 'todo', "'-' leaves the status alone");
+    equal(await pr('opened'), 'ready_to_deploy', 'configured target wins');
+  } finally { await postgres.close(); }
+});

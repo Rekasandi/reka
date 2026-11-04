@@ -11,6 +11,7 @@ export * from './favorites';
 export * from './issue-history';
 export * from './labels';
 export * from './comments';
+export * from './reactions';
 export * from './collaboration';
 export * from './cycles';
 export * from './activities';

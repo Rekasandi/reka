@@ -1,4 +1,4 @@
-const { insertLegacyTeam } = require('./support/legacy-team.cjs');
+const { insertLegacyTeam, insertLegacyIssue } = require('./support/legacy-team.cjs');
 const { equal } = require('node:assert/strict');
 const { test } = require('node:test');
 const { mkdtempSync, mkdirSync, copyFileSync, readFileSync, writeFileSync, rmSync } = require('node:fs');
@@ -33,7 +33,7 @@ test('insight history migration preserves preexisting rows as unknown and captur
       { teamId: team.id, key: 'reviewing', name: 'Reviewing', category: 'started', color: '#4488ff', position: 1 },
       { teamId: team.id, key: 'shipped', name: 'Shipped', category: 'completed', color: '#44aa77', position: 2 },
     ]);
-    const [legacyIssue] = await db.insert(issues).values({ identifier: `${team.key}-1`, number: 1, title: 'Legacy row', status: 'shipped', teamId: team.id, reporterId: owner.id }).returning();
+    const legacyIssue = await insertLegacyIssue(db, { identifier: `${team.key}-1`, number: 1, title: 'Legacy row', status: 'shipped', teamId: team.id, reporterId: owner.id });
     await db.execute(sql`INSERT INTO issue_history (issue_id, team_id, event, before_state, after_state) VALUES (${legacyIssue.id}::uuid, ${team.id}::uuid, 'created', NULL, ${JSON.stringify({ status: 'shipped' })}::jsonb)`);
 
     await migrate(db, { migrationsFolder: source });

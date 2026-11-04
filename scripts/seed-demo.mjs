@@ -40,6 +40,8 @@ export async function seedDemo({ apiUrl, token, sql, owner, manifestFile }) {
   ];
   const teams = {};
   for (const [key, teamKey, name, isPrivate, description] of teamDefs) teams[key] = await ensure('teams', key, '/teams', { name: prefix + name, key: teamKey, isPrivate, description: prefix + description });
+  // New teams start with cycles/estimates off; the demo shows both.
+  for (const key of Object.keys(teams)) if (!teams[key].cyclesEnabled || !teams[key].estimatesEnabled) await api(`/teams/${teams[key].id}`, 'PATCH', { cyclesEnabled: true, estimatesEnabled: true });
 
   for (const [key, name, role] of [['developer', 'Dina Developer', 'member'], ['designer', 'Bima Designer', 'member'], ['admin', 'Ari Admin Pending', 'admin'], ['guest', 'Gita Read-only Pending', 'guest'], ['client', 'Citra Client Pending', 'client']]) {
     await ensure('users', key, '/users?includeInactive=true', { name: prefix + name, email: `reka.demo.${key}@example.test`, role });
@@ -104,7 +106,7 @@ export async function seedDemo({ apiUrl, token, sql, owner, manifestFile }) {
     issues[key] = [];
     for (const [i, title] of tasks[key].entries()) {
       const finished = key === 'payment' || (i < 2 && ['store', 'onboard'].includes(key));
-      const targetStatus = finished ? 'done' : i === 2 ? 'in_review' : i === 3 ? 'blocked' : key === 'system' ? 'backlog' : 'todo';
+      const targetStatus = finished ? 'done' : i === 2 ? 'in_review' : i === 3 ? 'in_progress' : key === 'system' ? 'backlog' : 'todo';
       const cycle = team === 'eng' && finished ? cycles.closed : cycles[`${team}-active`];
       const body = { title: prefix + title, description: `${prefix}Issue fiktif untuk demonstrasi workflow ${projects[key].name}.\n\nKriteria selesai:\n1. Implementasi dan pengujian diselesaikan.\n2. Catat hasil pada komentar.\n3. Perbarui status setelah verifikasi.\n\nTidak ada PR GitHub nyata untuk issue demo ini.`, teamId: teams[team].id, projectId: projects[key].id, assigneeId: i === 4 ? null : owner.id, status: 'todo', priority: ['high', 'medium', 'high', 'urgent', 'low'][i], type: i === 0 || i === 3 ? 'bug' : 'task', labelIds: [labels[team][i % 3].id], estimate: i === 4 ? null : [3, 5, 2, 0][i], dueDate: iso(i === 3 ? -2 : i + 1), cycleId: cycle.id };
       const issue = issues[key][i] = await ensure('issues', `${key}-${i}`, '/issues?includeArchived=true', body, 'title');

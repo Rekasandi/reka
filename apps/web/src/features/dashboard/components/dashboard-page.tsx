@@ -27,7 +27,7 @@ import { useWorkspaceActivities } from '../../issues/hooks/use-issue-details';
 import { useAuth } from '../../auth/hooks/use-auth';
 import { useTheme } from '../../../components/theme/theme-provider';
 import { PriorityIcon } from '../../issues/components/priority-picker';
-import { STATUS_CONFIG } from '../../issues/components/status-picker';
+import { STATUS_CONFIG, StatusIconOnly } from '../../issues/components/status-picker';
 import { CreateIssueDialog } from '../../issues/components/create-issue-dialog';
 import { IssueDetailSheet } from '../../issues/components/issue-detail-sheet';
 import { isIssueClosed, type Issue } from '@reka/types';
@@ -264,7 +264,7 @@ export function DashboardPage() {
                     className="flex w-full items-center justify-between rounded-md p-3 text-left text-xs transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     <div className="flex items-center gap-3 min-w-0 pr-3">
-                      <span className="shrink-0">{STATUS_CONFIG[issue.status]?.renderIcon()}</span>
+                      <span className="shrink-0"><StatusIconOnly status={issue.status} category={issue.statusCategory} color={issue.statusColor} teamId={issue.teamId} /></span>
                       <span className="font-mono text-xs font-semibold text-muted-foreground shrink-0">
                         {issue.identifier}
                       </span>

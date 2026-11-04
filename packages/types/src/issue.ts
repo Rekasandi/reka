@@ -12,6 +12,7 @@ export interface Issue {
   statusLabel?: string;
   statusCategory?: IssueStatusCategory;
   statusPosition?: number;
+  statusColor?: string | null;
   priority: IssuePriority;
   type: IssueType;
   teamId: string;
@@ -24,6 +25,7 @@ export interface Issue {
   parentId?: string | null;
   estimate?: number | null;
   dueDate?: Date | string | null;
+  slaBreachesAt?: Date | string | null;
   archivedAt?: Date | string | null;
   labelIds?: string[];
   githubIssueNumber?: number | null;
@@ -55,6 +57,8 @@ export interface Label {
   name: string;
   color: string;
   description?: string | null;
+  /** Group (top-level label) this label belongs to; an issue holds at most one label per group. */
+  parentId?: string | null;
   createdAt: Date;
 }
 

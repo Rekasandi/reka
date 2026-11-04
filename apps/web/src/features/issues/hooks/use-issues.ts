@@ -19,7 +19,7 @@ export function useIssues(status?: string, archived = false) {
 export function useCreateLabel() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { teamId: string; projectId?: string | null; name: string; color?: string }) => {
+    mutationFn: async (input: { teamId: string; projectId?: string | null; name: string; color?: string; parentId?: string | null }) => {
       const response = await fetch('/api/labels', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input) });
       if (!response.ok) throw new Error((await response.json().catch(() => null))?.message || 'Could not create label');
       return response.json() as Promise<Label>;
@@ -35,8 +35,8 @@ export function useCreateLabel() {
 export function useUpdateLabel() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, name, color }: { id: string; name: string; color: string }) => {
-      const response = await fetch(`/api/labels/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, color }) });
+    mutationFn: async ({ id, ...changes }: { id: string; name?: string; color?: string; parentId?: string | null }) => {
+      const response = await fetch(`/api/labels/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(changes) });
       if (!response.ok) throw new Error((await response.json().catch(() => null))?.message || 'Could not update label');
       return response.json() as Promise<Label>;
     },

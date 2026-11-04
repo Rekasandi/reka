@@ -29,4 +29,5 @@ export class TeamCycleSettingsDto {
   @IsDateString({ strict: true }) nextStartDate!: string;
   @IsBoolean() autoCreate!: boolean;
   @IsOptional() @IsBoolean() autoAddStarted?: boolean;
+  @IsOptional() @IsBoolean() autoRollover?: boolean;
 }

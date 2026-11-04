@@ -213,7 +213,7 @@ export function IssueGroupedListView({
 
         return (
           <div key={group.key} className="flex flex-col">
-            <WorkListGroupHeader label={group.label} count={group.issues.length} icon={<StatusIconOnly status={group.key} />} resource="issues"
+            <WorkListGroupHeader label={group.label} count={group.issues.length} icon={<StatusIconOnly status={group.key} category={group.issues[0]?.statusCategory} color={group.issues[0]?.statusColor} teamId={group.issues[0]?.teamId} />} resource="issues"
               collapsed={isCollapsed} controlsId={contentId} onToggle={() => toggleGroupCollapse(group.key)}
               onCreate={onCreateWithStatus ? () => onCreateWithStatus(group.key) : undefined} />
 

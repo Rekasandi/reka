@@ -35,11 +35,14 @@ import { useIssueComments, useCreateComment, useUpdateComment, useDeleteComment,
 import { useIssueBranches, useIssuePullRequests } from '../hooks/use-github-integration';
 import { StatusPicker } from './status-picker';
 import { PriorityIcon, PriorityPicker } from './priority-picker';
+import { SlaBadge } from './sla-badge';
 import { IssueTypePicker } from './issue-type-picker';
 import { AssigneePicker } from './assignee-picker';
 import { ProjectPicker } from './project-picker';
 import { CyclePicker } from './cycle-picker';
 import { EstimatePicker } from './estimate-picker';
+import { ReactionBar } from './reaction-bar';
+import { useIssueReactions, useToggleReaction } from '../hooks/use-reactions';
 import { useTeamFeatures } from '../../teams/hooks/use-team-features';
 import { LinkPullRequestDialog } from './link-pr-dialog';
 import { IssueLabelsPicker } from './issue-labels-picker';
@@ -206,6 +209,8 @@ export function IssueDetailContent({ issue, presentation = 'sheet', headerAction
   const [deleteTarget, setDeleteTarget] = React.useState<{ title: string; confirm: () => void } | null>(null);
   const currentUser = useAuth().user;
   const { data: team } = useTeam(issue.teamId);
+  const { data: reactions } = useIssueReactions(issue.id);
+  const toggleReactionMutation = useToggleReaction(issue.id);
   const { estimatesEnabled, cyclesEnabled, estimateValues } = useTeamFeatures(issue.teamId);
   const canEdit = !!currentUser && !['guest', 'client'].includes(currentUser.role) && (presentation === 'triage' ? team?.canWrite === true : team?.canWrite !== false);
   const readOnly = !canEdit || !!issue.archivedAt;
@@ -383,6 +388,7 @@ export function IssueDetailContent({ issue, presentation = 'sheet', headerAction
           {presentation !== 'sheet' && <Button type="button" variant="ghost" size="icon-sm" className={presentation === 'triage' ? 'triage-back' : undefined} aria-label={presentation === 'triage' ? 'Back to queue' : 'Back to issues'} onClick={onClose}><ArrowLeft /></Button>}
           <span className="truncate font-mono text-xs text-muted-foreground">{issue.identifier}</span>
           {issue.archivedAt && <Badge variant="secondary">Archived</Badge>}
+          <SlaBadge issue={issue} />
         </div>
         <div className="flex shrink-0 items-center gap-1">
           <Button type="button" variant="ghost" size="icon-sm" aria-label={subscriptionError ? 'Retry follow status' : subscription?.subscribed ? 'Unfollow issue' : 'Follow issue'} title={subscription?.subscribed ? 'Unfollow issue' : 'Follow issue'} disabled={subscriptionLoading || subscriptionMutation.isPending} onClick={() => subscriptionError ? void refetchSubscription() : subscriptionMutation.mutate(!subscription?.subscribed)}><Bell className={subscription?.subscribed ? 'fill-current' : ''} /></Button>
@@ -795,6 +801,7 @@ export function IssueDetailContent({ issue, presentation = 'sheet', headerAction
           </DetailSection>
 
           <section aria-label="Discussion" className="flex min-w-0 flex-col gap-4 border-t border-border pt-5">
+            <ReactionBar label="this issue" reactions={reactions?.issue ?? []} disabled={readOnly || toggleReactionMutation.isPending} onToggle={emoji => toggleReactionMutation.mutate({ target: { issueId: issue.id }, emoji })} />
             <Tabs
               value={activeTab}
               onValueChange={(val) => setActiveTab(val as 'comments' | 'activity')}
@@ -865,6 +872,8 @@ export function IssueDetailContent({ issue, presentation = 'sheet', headerAction
                       {comment.canEdit && <div className="flex items-center gap-1"><Button type="button" size="xs" variant="ghost" aria-label={`Edit comment by ${comment.authorName || 'author'}`} onClick={() => { setEditingCommentId(comment.id); }}>Edit</Button><Button type="button" size="xs" variant="ghost" aria-label={`Delete comment by ${comment.authorName || 'author'}`} disabled={deleteCommentMutation.isPending} onClick={() => setDeleteTarget({ title: 'Delete this comment?', confirm: () => deleteCommentMutation.mutate(comment.id) })}>Delete</Button></div>}
                     </div>
                     {editingCommentId === comment.id ? <EditCommentForm initialBody={comment.body} pending={updateCommentMutation.isPending} onCancel={() => setEditingCommentId(null)} onSave={(body, done) => updateCommentMutation.mutate({ id: comment.id, body }, { onSuccess: () => { done(); setEditingCommentId(null); } })} /> : <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-foreground/90 pl-7">{comment.body}</p>}
+                  
+                    <div className="mt-1.5"><ReactionBar label={`comment by ${comment.authorName || 'author'}`} reactions={reactions?.comments?.[comment.id] ?? []} disabled={readOnly || toggleReactionMutation.isPending} onToggle={emoji => toggleReactionMutation.mutate({ target: { commentId: comment.id }, emoji })} /></div>
                   </article>)}
                   {!commentsLoading && !commentsError && comments.length === 0 && <p className="py-2 text-sm text-muted-foreground">No comments yet.</p>}
                 </div>

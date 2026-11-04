@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useTeams } from '../../features/teams/hooks/use-teams';
 import { useNavigate } from 'react-router-dom';
 import {
   CommandDialog, CommandInput, CommandList, CommandEmpty, CommandGroup,
@@ -16,6 +17,7 @@ export function CommandPalette() {
   const isOpen = useUiStore(state => state.isCommandPaletteOpen);
   const setOpen = useUiStore(state => state.setCommandPaletteOpen);
   const navigate = useNavigate();
+  const { data: teams = [] } = useTeams();
   const [query, setQuery] = React.useState('');
   const [offset, setOffset] = React.useState(0);
   const [debouncedQuery, setDebouncedQuery] = React.useState('');
@@ -61,7 +63,7 @@ export function CommandPalette() {
           <CommandItem onSelect={() => handleSelect(() => navigate('/my-issues'))}><CheckSquare /><span>Go to My Issues</span><CommandShortcut>G I</CommandShortcut></CommandItem>
           <CommandItem onSelect={() => handleSelect(() => navigate('/projects'))}><FolderKanban /><span>Go to Projects</span><CommandShortcut>G P</CommandShortcut></CommandItem>
           <CommandItem onSelect={() => handleSelect(() => navigate('/documents'))}><FileText /><span>Go to Documents</span><CommandShortcut>G D</CommandShortcut></CommandItem>
-          <CommandItem onSelect={() => handleSelect(() => navigate('/cycles'))}><RotateCcw /><span>Go to Cycles</span></CommandItem>
+          {(teams.length === 0 || teams.some(team => team.cyclesEnabled !== false)) && <CommandItem onSelect={() => handleSelect(() => navigate('/cycles'))}><RotateCcw /><span>Go to Cycles</span></CommandItem>}
           <CommandItem onSelect={() => handleSelect(() => navigate('/triage'))}><ClipboardList /><span>Go to Triage</span></CommandItem>
           <CommandItem onSelect={() => handleSelect(() => navigate('/favorites'))}><Star /><span>Go to Favorites</span></CommandItem>
           <CommandItem onSelect={() => handleSelect(() => navigate('/insights'))}><Activity /><span>Go to Insights</span></CommandItem>

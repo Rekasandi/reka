@@ -41,10 +41,13 @@ export function InsightsPage() {
   const [teamId, setTeamId] = React.useState('');
   const [projectId, setProjectId] = React.useState('');
   const [cycleId, setCycleId] = React.useState('');
-  const [unit, setUnit] = React.useState<'issues' | 'estimate'>('issues');
+  const [chosenUnit, setUnit] = React.useState<'issues' | 'estimate'>('issues');
   const [page, setPage] = React.useState(1);
   const teamsQuery = useTeams(); const projectsQuery = useProjects(); const cyclesQuery = useCycles();
   const teams = teamsQuery.data ?? []; const projects = projectsQuery.data ?? []; const cycles = cyclesQuery.data ?? [];
+  // Estimate points only make sense for teams that still have estimates switched on.
+  const estimatesAvailable = teams.length === 0 || (teamId ? teams.find(team => team.id === teamId)?.estimatesEnabled !== false : teams.some(team => team.estimatesEnabled !== false));
+  const unit: 'issues' | 'estimate' = estimatesAvailable ? chosenUnit : 'issues';
   const visibleProjects = projects.filter(project => !teamId || project.teamId === teamId);
   const visibleCycles = cycles.filter(cycle => !teamId || cycle.teamId === teamId);
   const baseFilters = { from, to, timezone, ...(teamId ? { teamId } : {}) };
@@ -68,7 +71,7 @@ export function InsightsPage() {
         <FilterSelect label="Project" value={projectId} onChange={value => resetPage(() => setProjectId(value))} options={[{ value: '', label: 'All projects' }, ...visibleProjects.map(project => ({ value: project.id, label: project.name }))]} />
       </> : <>
         <FilterSelect label="Cycle" value={cycleId} onChange={setCycleId} options={[{ value: '', label: 'Team velocity' }, ...visibleCycles.map(cycle => ({ value: cycle.id, label: cycle.name || `Cycle ${cycle.number}` }))]} />
-        <FilterSelect label="Unit" value={unit} onChange={value => setUnit(value as 'issues' | 'estimate')} options={[{ value: 'issues', label: 'Issue count' }, { value: 'estimate', label: 'Estimate points' }]} />
+        <FilterSelect label="Unit" value={unit} onChange={value => setUnit(value as 'issues' | 'estimate')} options={[{ value: 'issues', label: 'Issue count' }, ...(estimatesAvailable ? [{ value: 'estimate', label: 'Estimate points' }] : [])]} />
       </>}
       <Label className="flex min-w-0 flex-col gap-1 text-xs text-muted-foreground"><span>Timezone</span><Input aria-label="Report timezone" value={timezone} onChange={event => resetPage(() => setTimezone(event.target.value))} list="insight-timezones" /><datalist id="insight-timezones"><option value="UTC" /><option value="America/Los_Angeles" /><option value="America/New_York" /><option value="Europe/London" /><option value="Asia/Jakarta" /></datalist></Label>
     </section>

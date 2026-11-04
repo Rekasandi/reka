@@ -16,11 +16,30 @@ export const teams = pgTable('teams', {
   cyclesEnabled: boolean('cycles_enabled').notNull().default(true),
   estimatesEnabled: boolean('estimates_enabled').notNull().default(true),
   estimateScale: varchar('estimate_scale', { length: 16 }).notNull().default('fibonacci'),
+  autoCloseParent: boolean('auto_close_parent').notNull().default(false),
+  /** Archive completed/canceled issues untouched for this many months; null keeps them forever. */
+  autoArchiveMonths: integer('auto_archive_months'),
+  /** When a parent is completed or canceled, close its open sub-issues with the same category. */
+  autoCloseChildren: boolean('auto_close_children').notNull().default(false),
+  /** Cancel backlog/unstarted/triage issues untouched for this many months; null keeps them open. */
+  autoCloseStaleMonths: integer('auto_close_stale_months'),
+  triageEnabled: boolean('triage_enabled').notNull().default(true),
+  /** SLA deadlines for urgent (1 day) and high (7 days) priority issues. */
+  slaEnabled: boolean('sla_enabled').notNull().default(false),
+  /** Workflow state keys. Null = automatic (first fitting active state). */
+  defaultStatus: varchar('default_status', { length: 32 }),
+  duplicateStatus: varchar('duplicate_status', { length: 32 }),
+  /** GitHub PR automation targets. Null = automatic, '-' = no status change, otherwise a workflow state key. */
+  githubDraftStatus: varchar('github_draft_status', { length: 32 }),
+  githubOpenStatus: varchar('github_open_status', { length: 32 }),
+  githubMergedStatus: varchar('github_merged_status', { length: 32 }),
   issueCounter: integer('issue_counter').notNull().default(0),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [
   check('teams_estimate_scale_check', sql`${t.estimateScale} IN ('fibonacci', 'exponential', 'linear', 'free')`),
+  check('teams_auto_archive_months_check', sql`${t.autoArchiveMonths} IS NULL OR ${t.autoArchiveMonths} BETWEEN 1 AND 60`),
+  check('teams_auto_close_stale_months_check', sql`${t.autoCloseStaleMonths} IS NULL OR ${t.autoCloseStaleMonths} BETWEEN 1 AND 60`),
 ]);
 
 export const teamMembers = pgTable(

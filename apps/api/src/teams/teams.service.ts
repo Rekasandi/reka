@@ -7,7 +7,7 @@ import { eq, desc, and, inArray, sql, asc, notInArray } from 'drizzle-orm';
 import { NotificationsService } from '../notifications/notifications.service';
 import { CreateTeamDto, UpdateTeamDto, AddTeamMemberDto, UpdateTeamMemberDto } from './dto/team.dto';
 import { UpdateTeamWorkflowStatesDto } from './dto/workflow-state.dto';
-import { DEFAULT_TEAM_WORKFLOW_STATES } from './workflow-state-defaults';
+import { DEFAULT_TEAM_WORKFLOW_STATES, TEAM_STATUS_REFERENCES } from './workflow-state-defaults';
 
 @Injectable()
 export class TeamsService {
@@ -67,8 +67,8 @@ export class TeamsService {
     try {
       await db.execute(sql`
         WITH created AS (
-          INSERT INTO teams (id, organization_id, name, key, description, is_private)
-          SELECT ${id}::uuid, ${actor.organizationId}::uuid, ${dto.name.trim()}, ${key}, ${dto.description?.trim() || null}, ${dto.isPrivate ?? false}
+          INSERT INTO teams (id, organization_id, name, key, description, is_private, cycles_enabled, estimates_enabled)
+          SELECT ${id}::uuid, ${actor.organizationId}::uuid, ${dto.name.trim()}, ${key}, ${dto.description?.trim() || null}, ${dto.isPrivate ?? false}, false, false
           WHERE ${membershipScope(db, actor)} RETURNING id
         ) INSERT INTO team_members (team_id, user_id, role) SELECT id, ${actorId}::uuid, 'lead' FROM created
       `);
@@ -133,8 +133,7 @@ export class TeamsService {
   async getWorkflowStates(id: string, actorId: string) {
     const db = this.database.db, actor = await requireWorkspace(db, actorId);
     await requireTeam(db, actor, id);
-    const configured = await db.select().from(teamWorkflowStates).where(eq(teamWorkflowStates.teamId, id)).orderBy(asc(teamWorkflowStates.position), asc(teamWorkflowStates.key));
-    return configured.length ? configured : DEFAULT_TEAM_WORKFLOW_STATES.map((state) => ({ ...state, teamId: id, isActive: true }));
+    return this.getWorkflowStatesUnchecked(id);
   }
 
   async updateWorkflowStates(id: string, dto: UpdateTeamWorkflowStatesDto, actorId: string) {
@@ -161,6 +160,11 @@ export class TeamsService {
         intakeTemplates.some(({ defaultStatus }) => !requested.get(defaultStatus)?.isActive || requested.get(defaultStatus)?.category !== 'triage')) {
       throw new BadRequestException('A workflow state used by existing issues cannot be disabled or removed');
     }
+    const [team] = await db.select().from(teams).where(eq(teams.id, id));
+    const referenced = TEAM_STATUS_REFERENCES.map((field) => team?.[field]).filter((key): key is string => !!key && key !== '-');
+    if (referenced.some((key) => !requested.get(key)?.isActive)) {
+      throw new BadRequestException('This state is used by the team default, duplicate or GitHub settings. Change those settings first');
+    }
     const keys = dto.states.map((state) => state.key);
     // States left out of the request are deleted. The checks above guarantee none of them is used by an issue,
     // recurring issue or intake form, so no work references them.
@@ -174,11 +178,40 @@ export class TeamsService {
     return this.getWorkflowStates(id, actorId);
   }
 
+  /** Default/duplicate/GitHub targets must be active states of this team, in a category that makes sense. */
+  private async validateStatusReferences(id: string, dto: UpdateTeamDto) {
+    if (!TEAM_STATUS_REFERENCES.some((field) => dto[field])) return;
+    const states = await this.getWorkflowStatesUnchecked(id);
+    const check = (field: (typeof TEAM_STATUS_REFERENCES)[number], categories: string[] | null, label: string) => {
+      const key = dto[field];
+      if (!key || (key === '-' && field.startsWith('github'))) return;
+      const state = states.find((item) => item.key === key && item.isActive);
+      if (!state || (categories && !categories.includes(state.category))) throw new BadRequestException(`${label} must be an active ${categories ? categories.join(' or ') + ' ' : ''}state of this team`);
+    };
+    check('defaultStatus', ['backlog', 'unstarted'], 'Default status');
+    check('duplicateStatus', ['canceled'], 'Duplicate status');
+    check('githubDraftStatus', null, 'GitHub draft PR status');
+    check('githubOpenStatus', null, 'GitHub open PR status');
+    check('githubMergedStatus', null, 'GitHub merged PR status');
+  }
+
+  private async getWorkflowStatesUnchecked(id: string) {
+    const configured = await this.database.db.select().from(teamWorkflowStates).where(eq(teamWorkflowStates.teamId, id)).orderBy(asc(teamWorkflowStates.position), asc(teamWorkflowStates.key));
+    return configured.length ? configured : DEFAULT_TEAM_WORKFLOW_STATES.map((state) => ({ ...state, teamId: id, isActive: true }));
+  }
+
   async update(id: string, dto: UpdateTeamDto, actorId: string) {
     const db = this.database.db, actor = await requireWorkspace(db, actorId);
     const previous = await requireTeamManager(db, actor, id);
     if (dto.name !== undefined && !dto.name?.trim()) throw new BadRequestException('Team name cannot be empty');
     if (dto.key !== undefined && !/^[A-Z][A-Z0-9]{0,9}$/i.test(dto.key?.trim() ?? '')) throw new BadRequestException('Team key must be alphanumeric');
+    await this.validateStatusReferences(id, dto);
+    if (dto.triageEnabled === false && previous.triageEnabled) {
+      const [waiting] = await db.select({ id: issues.id }).from(issues)
+        .innerJoin(teamWorkflowStates, and(eq(teamWorkflowStates.teamId, issues.teamId), eq(teamWorkflowStates.key, issues.status), eq(teamWorkflowStates.category, 'triage')))
+        .where(and(eq(issues.teamId, id), sql`${issues.archivedAt} IS NULL`)).limit(1);
+      if (waiting) throw new BadRequestException('Accept or decline the issues waiting in triage before turning triage off');
+    }
     const changed = db.$with('updated_team').as(db.update(teams).set({ ...dto, name: dto.name?.trim(), key: dto.key?.trim().toUpperCase(),
       description: dto.description !== undefined ? dto.description?.trim() || null : undefined, updatedAt: new Date(),
     }).where(and(eq(teams.id, id), teamManagerScope(db, actor))).returning({ id: teams.id }));
@@ -192,6 +225,17 @@ export class TeamsService {
           ...(dto.cyclesEnabled !== undefined ? [sql`cycles_enabled = ${dto.cyclesEnabled}`] : []),
           ...(dto.estimatesEnabled !== undefined ? [sql`estimates_enabled = ${dto.estimatesEnabled}`] : []),
           ...(dto.estimateScale !== undefined ? [sql`estimate_scale = ${dto.estimateScale}`] : []),
+          ...(dto.autoCloseParent !== undefined ? [sql`auto_close_parent = ${dto.autoCloseParent}`] : []),
+          ...(dto.autoArchiveMonths !== undefined ? [sql`auto_archive_months = ${dto.autoArchiveMonths}`] : []),
+          ...(dto.autoCloseChildren !== undefined ? [sql`auto_close_children = ${dto.autoCloseChildren}`] : []),
+          ...(dto.autoCloseStaleMonths !== undefined ? [sql`auto_close_stale_months = ${dto.autoCloseStaleMonths}`] : []),
+          ...(dto.triageEnabled !== undefined ? [sql`triage_enabled = ${dto.triageEnabled}`] : []),
+          ...(dto.slaEnabled !== undefined ? [sql`sla_enabled = ${dto.slaEnabled}`] : []),
+          ...(dto.defaultStatus !== undefined ? [sql`default_status = ${dto.defaultStatus}`] : []),
+          ...(dto.duplicateStatus !== undefined ? [sql`duplicate_status = ${dto.duplicateStatus}`] : []),
+          ...(dto.githubDraftStatus !== undefined ? [sql`github_draft_status = ${dto.githubDraftStatus}`] : []),
+          ...(dto.githubOpenStatus !== undefined ? [sql`github_open_status = ${dto.githubOpenStatus}`] : []),
+          ...(dto.githubMergedStatus !== undefined ? [sql`github_merged_status = ${dto.githubMergedStatus}`] : []),
           sql`updated_at = now()`,
         ];
         const enrolled = await db.execute(sql`
@@ -208,8 +252,20 @@ export class TeamsService {
         const [updated] = await db.with(changed).select().from(changed);
         if (!updated) throw new NotFoundException('Team not found');
       }
+      if (dto.slaEnabled !== undefined && dto.slaEnabled !== previous.slaEnabled) await this.backfillSla(id, dto.slaEnabled);
       return await this.findById(id, actorId);
     } catch (error) { return this.writeError(error); }
+  }
+
+  /** Turning SLA on starts the clock now for open urgent (1 day) / high (7 days) issues; turning it off clears every deadline. */
+  private async backfillSla(teamId: string, enabled: boolean) {
+    if (!enabled) { await this.database.db.update(issues).set({ slaBreachesAt: null }).where(eq(issues.teamId, teamId)); return; }
+    await this.database.db.execute(sql`
+      UPDATE issues i SET sla_breaches_at = now() + CASE i.priority WHEN 'urgent' THEN interval '1 day' ELSE interval '7 days' END
+      FROM teams t
+      WHERE t.id = i.team_id AND i.team_id = ${teamId}::uuid AND i.archived_at IS NULL AND i.sla_breaches_at IS NULL AND i.priority IN ('urgent', 'high')
+        AND COALESCE((SELECT s.category FROM team_workflow_states s WHERE s.team_id = i.team_id AND s.key = i.status),
+          CASE i.status WHEN 'done' THEN 'completed' WHEN 'canceled' THEN 'canceled' WHEN 'duplicate' THEN 'canceled' ELSE 'open' END) NOT IN ('completed', 'canceled')`);
   }
 
   async delete(id: string, actorId: string) {

@@ -9,7 +9,7 @@ const { eq } = require('drizzle-orm');
 const { organizations, organizationMembers, users, teams, teamMembers, sessions, issues, activities, issueRelations, issueTemplates, teamWorkflowStates } = require('@reka/database');
 const { TriageModule } = require('../dist/triage/triage.module');
 const { TeamsModule } = require('../dist/teams/teams.module');
-const { insertLegacyTeam } = require('./support/legacy-team.cjs');
+const { insertLegacyTeam, insertLegacyIssue } = require('./support/legacy-team.cjs');
 const { createPersistentPostgres } = require('./support/persistent-postgres.cjs');
 const { createIsolatedApi } = require('./support/isolated-api.cjs');
 
@@ -164,13 +164,11 @@ test('triage migration preserves existing custom workflow states and issue rows 
       { teamId: team.id, key: 'qa', name: 'Quality assurance', category: 'started', color: '#123456', position: 8, isActive: true },
       { teamId: team.id, key: 'done', name: 'Finished', category: 'completed', color: '#654321', position: 9, isActive: true },
     ]);
-    const [legacyIssue] = await postgres.db.insert(issues).values({
-      identifier: `${team.key}-1`, number: 1, title: 'Existing issue', teamId: team.id, reporterId: owner.id, status: 'qa',
-    }).returning();
+    const legacyIssue = await insertLegacyIssue(postgres.db, { identifier: `${team.key}-1`, number: 1, title: 'Existing issue', teamId: team.id, reporterId: owner.id, status: 'qa' });
     fs.copyFileSync(path.join(source, '0017_internal_issue_triage.sql'), path.join(migrationsFolder, '0017_internal_issue_triage.sql'));
     fs.writeFileSync(path.join(metaFolder, '_journal.json'), JSON.stringify({ ...sourceJournal, entries: sourceJournal.entries.slice(0, 18) }, null, 2));
     await postgres.migrate(migrationsFolder);
-    const [savedIssue] = await postgres.db.select().from(issues).where(eq(issues.id, legacyIssue.id));
+    const [savedIssue] = await postgres.db.select({ title: issues.title, status: issues.status }).from(issues).where(eq(issues.id, legacyIssue.id));
     const savedStates = await postgres.db.select().from(teamWorkflowStates).where(eq(teamWorkflowStates.teamId, team.id));
     equal(savedIssue.title, 'Existing issue');
     equal(savedIssue.status, 'qa');

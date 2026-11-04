@@ -80,3 +80,25 @@ export async function captureCurrentCycleSnapshots(db: DbClient, now = new Date(
   });
   return db.insert(cycleSnapshots).values(values).onConflictDoNothing().returning();
 }
+
+/** Close cycles that have ended for teams with "auto-close ended cycles" on, rolling unfinished work into the next
+ * open cycle via the same database function the manual flow uses (atomic, idempotent). A cycle with unfinished work
+ * and no later open cycle is left open and retried on the next run. */
+export async function closeEndedCycles(db: DbClient, now = new Date()) {
+  const due = await db.execute(sql`
+    SELECT c.id FROM cycles c
+    JOIN team_cycle_settings s ON s.team_id = c.team_id AND s.auto_rollover = true
+    JOIN teams t ON t.id = c.team_id AND t.cycles_enabled = true
+    WHERE c.is_completed = false AND c.end_date < ${now.toISOString()}::timestamptz
+    ORDER BY c.end_date LIMIT 50
+  `);
+  const closed: Array<{ id: string; rolledOver: number }> = [];
+  for (const row of due.rows as Array<{ id: string }>) {
+    try {
+      const result = await db.execute(sql`SELECT * FROM complete_reka_cycle(${row.id}::uuid, 'next_cycle', NULL::uuid)`);
+      const done = result.rows[0] as { success: boolean; rolled_over_count: number; already_completed: boolean } | undefined;
+      if (done?.success && !done.already_completed) closed.push({ id: row.id, rolledOver: done.rolled_over_count });
+    } catch { /* no later open cycle yet; try again next run */ }
+  }
+  return closed;
+}

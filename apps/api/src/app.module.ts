@@ -28,6 +28,7 @@ import { IssueSubscriptionsModule } from './issue-subscriptions/issue-subscripti
 import { AttachmentsModule } from './attachments/attachments.module';
 import { InsightsModule } from './insights/insights.module';
 import { MailModule } from './mail/mail.module';
+import { ReactionsModule } from './reactions/reactions.module';
 
 @Module({
   imports: [
@@ -37,6 +38,7 @@ import { MailModule } from './mail/mail.module';
     }),
     DatabaseModule,
     MailModule,
+    ReactionsModule,
     RedisModule,
     HealthModule,
     AuthModule,

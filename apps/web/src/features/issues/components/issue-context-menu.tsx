@@ -7,7 +7,7 @@ import {
   ContextMenuRadioItem, toast,
 } from '@reka/ui';
 import { Archive, ArrowUpToLine, Copy, ExternalLink, GitBranchPlus, ListTodo, RotateCcw, SignalHigh, Tag, Trash2 } from 'lucide-react';
-import { STATUS_CONFIG } from './status-picker';
+import { STATUS_CONFIG, renderStateIcon } from './status-picker';
 import { PRIORITY_CONFIG, PriorityIcon } from './priority-picker';
 import { ISSUE_TYPES } from './issue-type-picker';
 import { useTeamWorkflowStates } from '../../teams/hooks/use-teams';
@@ -24,7 +24,7 @@ export function IssueContextMenu({ issue, onOpen, onAddSubIssue, onUpdate, onDel
 }) {
   const { data: workflowStates = [] } = useTeamWorkflowStates(issue.teamId);
   const statusOptions = workflowStates.length
-    ? workflowStates.filter((state) => state.isActive).map((state) => ({ key: state.key, label: state.name, renderIcon: () => STATUS_CONFIG[state.key]?.renderIcon() ?? <span className="size-3 rounded-full border border-current" style={{ color: state.color, backgroundColor: `${state.color}30` }} /> }))
+    ? workflowStates.filter((state) => state.isActive).map((state) => ({ key: state.key, label: state.name, renderIcon: () => renderStateIcon(state.category, state.color) }))
     : Object.entries(STATUS_CONFIG).map(([key, config]) => ({ key, label: config.label, renderIcon: config.renderIcon }));
   const copyIdentifier = async () => {
     try {

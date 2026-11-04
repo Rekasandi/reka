@@ -3,6 +3,7 @@ import { IssueTypePicker } from './issue-type-picker';
 import { ProjectPicker } from './project-picker';
 import { CyclePicker } from './cycle-picker';
 import { AssigneePicker } from './assignee-picker';
+import { SlaBadge } from './sla-badge';
 
 export function IssueRowProperties({ issue, onUpdate }: {
   issue: Issue;
@@ -13,6 +14,7 @@ export function IssueRowProperties({ issue, onUpdate }: {
       <IssueTypePicker type={issue.type} identifier={issue.identifier} compact onTypeChange={type => onUpdate({ type })} />
       <ProjectPicker projectId={issue.projectId ?? null} identifier={issue.identifier} compact onProjectChange={projectId => onUpdate({ projectId })} />
       <CyclePicker cycleId={issue.cycleId ?? null} teamId={issue.teamId} identifier={issue.identifier} compact onCycleChange={cycleId => onUpdate({ cycleId })} />
+      <SlaBadge issue={issue} />
       <AssigneePicker size="icon" assigneeId={issue.assigneeId} onAssigneeChange={assigneeId => onUpdate({ assigneeId })} />
     </div>
   );

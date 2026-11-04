@@ -9,7 +9,7 @@ import { buildGithubPrNotification, getGithubPrRecipients } from './github-pr-no
 
 type ReviewStatus = 'none' | 'approved' | 'changes_requested';
 type PrNotice = 'status_change' | 'pr_review_requested' | 'pr_approved' | 'pr_changes_requested' | 'pr_closed' | 'pr_merged';
-type PrStatusTarget = 'in_review' | 'done' | null;
+type PrStatusTarget = 'draft' | 'in_review' | 'done' | null;
 
 async function githubScope(db: any, installationId: number, repositoryId: number) {
   if (!Number.isSafeInteger(installationId) || installationId <= 0 || !Number.isSafeInteger(repositoryId) || repositoryId <= 0) return null;
@@ -33,9 +33,18 @@ async function resolveIssue(db: any, organizationId: string, identifier: string)
   return row?.issue ?? null;
 }
 
-async function statusForTeam(db: any, teamId: string, target: Exclude<PrStatusTarget, null> | 'branch') {
-  const states = await db.select({ key: teamWorkflowStates.key, category: teamWorkflowStates.category })
+/** Status for a GitHub event: the team's configured target ('-' = leave the status alone), else the automatic choice. */
+async function statusForTeam(db: any, teamId: string, target: Exclude<PrStatusTarget, null> | 'branch'): Promise<string | null> {
+  const states = await db.select({ key: teamWorkflowStates.key, category: teamWorkflowStates.category, isActive: teamWorkflowStates.isActive })
     .from(teamWorkflowStates).where(eq(teamWorkflowStates.teamId, teamId)).orderBy(asc(teamWorkflowStates.position));
+  if (target !== 'branch') {
+    const [team] = await db.select({ draft: teams.githubDraftStatus, open: teams.githubOpenStatus, merged: teams.githubMergedStatus }).from(teams).where(eq(teams.id, teamId));
+    const configured = team?.[target === 'draft' ? 'draft' : target === 'in_review' ? 'open' : 'merged'];
+    if (configured === '-') return null;
+    // Teams without saved states use the defaults, which the API already validated the target against.
+    if (configured && (!states.length || states.some((state: any) => state.key === configured && state.isActive))) return configured;
+    if (target === 'draft') target = 'branch';
+  }
   const category = target === 'done' ? 'completed' : 'started';
   const preferred = target === 'done' ? ['done'] : target === 'in_review' ? ['in_review', 'in_progress'] : ['in_progress'];
   return states.find((state: any) => preferred.includes(state.key) && state.category === category)?.key ?? states.find((state: any) => state.category === category)?.key ??
@@ -66,7 +75,7 @@ export async function processGithubBranchCreatedEvent(
       .where(and(eq(teamWorkflowStates.teamId, issue.teamId), eq(teamWorkflowStates.key, issue.status))).limit(1))[0]?.category;
     const isPending = currentCategory ? currentCategory === 'backlog' || currentCategory === 'unstarted' : issue.status === 'todo' || issue.status === 'backlog';
     const targetStatus = await statusForTeam(db, issue.teamId, 'branch');
-    const [updated] = isPending ? await db.update(issues).set({ status: targetStatus, updatedAt: new Date() })
+    const [updated] = isPending && targetStatus ? await db.update(issues).set({ status: targetStatus, updatedAt: new Date() })
       .where(and(eq(issues.id, issue.id), eq(issues.status, issue.status))).returning({ id: issues.id }) : [];
     const activityType = 'github.branch_created';
     if (!input.eventId || !updated) {
@@ -124,12 +133,12 @@ export async function processGithubPrEvent(
   let statusTransition: { from: string; to: string } | undefined;
   if (input.nextStatus) {
     const targetStatus = await statusForTeam(db, issue.teamId, input.nextStatus);
-    if (issue.status !== targetStatus) {
+    if (targetStatus && issue.status !== targetStatus) {
       await db.update(issues).set({ status: targetStatus, updatedAt: new Date() }).where(eq(issues.id, issue.id));
       statusTransition = { from: issue.status, to: targetStatus };
     }
   }
-  const noticeType = input.noticeType ?? (input.nextStatus === 'done' ? 'pr_merged' : input.nextStatus === 'in_review' ? 'status_change' : null);
+  const noticeType = input.noticeType ?? (input.nextStatus === 'done' ? 'pr_merged' : input.nextStatus === 'in_review' || input.nextStatus === 'draft' ? 'status_change' : null);
   const activityType = noticeType === 'pr_merged' ? 'github.pr_merged'
     : noticeType === 'pr_closed' ? 'github.pr_closed'
     : noticeType === 'pr_approved' ? 'github.pr_review_approved'
@@ -161,6 +170,7 @@ export async function processGithubPrEvent(
     ? reviewers.map((row: any) => String(row.id))
     : getGithubPrRecipients(issue.assigneeId, issue.reporterId, senderId);
   const notification = buildGithubPrNotification(issue, input.pullRequest, input.eventId, noticeType);
+  const notifiedUserIds: string[] = [];
   for (const userId of [...new Set(candidates.filter(id => id !== senderId))]) {
     const [membership] = await db.select({ userId: organizationMembers.userId }).from(organizationMembers)
       .where(and(eq(organizationMembers.organizationId, scope.organizationId), eq(organizationMembers.userId, userId), eq(organizationMembers.isActive, true))).limit(1);
@@ -171,8 +181,10 @@ export async function processGithubPrEvent(
     const [saved] = await db.select({ preferences: notificationPreferences.preferences }).from(notificationPreferences)
       .where(eq(notificationPreferences.userId, userId)).limit(1);
     if (!activeNotificationPreference(noticeType, saved?.preferences ?? DEFAULT_NOTIFICATION_PREFERENCES)) continue;
-    await db.insert(notifications).values({ userId, ...notification }).onConflictDoNothing();
+    const inserted = await db.insert(notifications).values({ userId, ...notification }).onConflictDoNothing().returning({ id: notifications.id });
+    if (inserted.length) notifiedUserIds.push(userId);
   }
+  return { notifiedUserIds };
 }
 
 async function resolveIssueById(db: any, organizationId: string, issueId: string) {
@@ -211,7 +223,8 @@ export async function processGithubWebhookEvent(db: any, input: { eventId: strin
   let nextStatus: PrStatusTarget = null; let noticeType: PrNotice | undefined; let reviewStatus: ReviewStatus | undefined;
   let reviewerLogin: string | undefined;
   if (input.event === 'pull_request') {
-    if (payload.action === 'opened' || payload.action === 'reopened') { nextStatus = 'in_review'; noticeType = 'status_change'; }
+    if (payload.action === 'opened' || payload.action === 'reopened') { nextStatus = pr.draft === true ? 'draft' : 'in_review'; noticeType = 'status_change'; }
+    else if (payload.action === 'ready_for_review') { nextStatus = 'in_review'; noticeType = 'status_change'; }
     else if (payload.action === 'closed' && pr.merged === true) { nextStatus = 'done'; noticeType = 'pr_merged'; }
     else if (payload.action === 'closed') noticeType = 'pr_closed';
     else if (payload.action === 'review_requested') { noticeType = 'pr_review_requested'; reviewerLogin = payload.requested_reviewer?.login; }
@@ -232,10 +245,12 @@ export async function processGithubWebhookEvent(db: any, input: { eventId: strin
   });
 }
 
-export async function processGithubWebhookDelivery(db: any, input: { eventId: string; event: string; payload: any }) {
+/** Returns the users who got a new notification, so the caller can tell the API to refresh their unread count. */
+export async function processGithubWebhookDelivery(db: any, input: { eventId: string; event: string; payload: any }): Promise<string[]> {
   try {
-    await processGithubWebhookEvent(db, input);
+    const result = await processGithubWebhookEvent(db, input) as { notifiedUserIds?: string[] } | undefined;
     if (input.eventId) await db.update(webhookEvents).set({ processed: true, error: null }).where(eq(webhookEvents.id, input.eventId));
+    return result?.notifiedUserIds ?? [];
   } catch (error) {
     if (input.eventId) {
       await db.update(webhookEvents).set({ error: (error as Error).message.slice(0, 2000) }).where(eq(webhookEvents.id, input.eventId));
