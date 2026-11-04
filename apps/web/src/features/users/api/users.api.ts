@@ -11,6 +11,7 @@ export interface User {
   admission?: 'legacy' | 'pending' | 'invited';
   assignedIssuesCount?: number;
   teamsCount?: number;
+  teams?: Array<{ id: string; key: string; name: string }>;
   assignedIssues?: Issue[];
   createdAt: string;
   updatedAt: string;

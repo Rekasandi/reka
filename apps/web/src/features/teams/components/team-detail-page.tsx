@@ -82,7 +82,7 @@ export function TeamDetailPage() {
 
   if (isLoading) {
     return (
-      <div className="mx-auto flex w-full max-w-5xl flex-col gap-5">
+      <div className="flex w-full flex-col gap-5">
         <Skeleton className="h-8 w-40 rounded-[6px]" />
         <Skeleton className="h-32 w-full rounded-lg" />
         <Skeleton className="h-64 w-full rounded-lg" />
@@ -92,7 +92,7 @@ export function TeamDetailPage() {
 
   if (isError || !team) {
     return (
-      <div className="mx-auto flex w-full max-w-5xl items-center justify-between rounded-lg border border-destructive/30 bg-destructive/10 p-6 text-xs text-destructive">
+      <div className="flex w-full items-center justify-between rounded-lg border border-destructive/30 bg-destructive/10 p-6 text-xs text-destructive">
         <span>Failed to load team details.</span>
         <Button variant="outline" size="sm" onClick={() => refetch()} className="rounded-[6px]">
           <RefreshCw data-icon="inline-start" className="size-3.5" />
@@ -106,7 +106,7 @@ export function TeamDetailPage() {
   const memberCount = team.members?.length ?? team.memberCount ?? 0;
 
   return (
-    <div className="team-detail-page mx-auto flex w-full max-w-5xl min-w-0 flex-col gap-5 pb-10 selection:bg-foreground selection:text-background">
+    <div className="team-detail-page flex w-full min-w-0 flex-col gap-5 pb-10 selection:bg-foreground selection:text-background">
       <header className="flex flex-col gap-4">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex min-w-0 items-center gap-3">
@@ -259,7 +259,7 @@ export function TeamDetailPage() {
         <TabsContent value="members" className="mt-0 w-full">
           <TeamMembersPanel key={team.id} team={team} />
         </TabsContent>
-        <TabsContent value="settings" className="mt-0 flex w-full flex-col gap-8">
+        <TabsContent value="settings" className="mt-0 flex w-full max-w-4xl flex-col gap-8">
           {team.canManage ? <><section className="flex min-w-0 flex-col gap-6"><div><h2 className="text-xl font-semibold tracking-[-0.02em]">Team settings</h2><p className="mt-1 text-xs text-muted-foreground">Manage team access and issue workflow.</p></div><TeamSettingsForm team={team} onPendingChange={setSettingsPending} /></section>{team.canDelete && <section className="flex flex-col items-start gap-3 border-t border-border pt-6"><h2 className="text-sm font-semibold">Delete team</h2><p className="max-w-prose text-sm text-muted-foreground">Permanently deletes this team and its issues. This action cannot be undone.</p><Button variant="destructive" disabled={settingsPending || deleteMutation.isPending} onClick={() => setIsDeleteDialogOpen(true)}><Trash2 data-icon="inline-start" />Delete team</Button></section>}</> : <p className="text-sm text-muted-foreground">Only team managers can change these settings.</p>}
         </TabsContent>
       </Tabs>

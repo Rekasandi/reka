@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { DatabaseService } from '../common/database/database.service';
-import { issues, teamMembers } from '@reka/database';
+import { issues, teamMembers, teams } from '@reka/database';
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import { CreateUserDto, UpdateUserDto } from './dto/user.dto';
 import { WorkspaceService } from '../workspace/workspace.service';
@@ -18,12 +18,30 @@ export class UsersService {
     const members = (await this.workspace.findMembers(actorId)).filter(member => includeInactive || member.isActive);
     const [assigned, memberships] = await Promise.all([
       db.select({ assigneeId: issues.assigneeId }).from(issues).where(issueScope(db, actor)),
-      db.select({ userId: teamMembers.userId }).from(teamMembers).where(inArray(teamMembers.teamId, visibleTeamIds(db, actor))),
+      db.select({
+        userId: teamMembers.userId,
+        teamId: teamMembers.teamId,
+        teamKey: teams.key,
+        teamName: teams.name,
+      })
+      .from(teamMembers)
+      .innerJoin(teams, eq(teamMembers.teamId, teams.id))
+      .where(inArray(teamMembers.teamId, visibleTeamIds(db, actor))),
     ]);
-    const issueCounts = new Map<string, number>(), teamCounts = new Map<string, number>();
+    const issueCounts = new Map<string, number>();
+    const userTeamsMap = new Map<string, Array<{ id: string; key: string; name: string }>>();
     for (const row of assigned) if (row.assigneeId) issueCounts.set(row.assigneeId, (issueCounts.get(row.assigneeId) ?? 0) + 1);
-    for (const row of memberships) teamCounts.set(row.userId, (teamCounts.get(row.userId) ?? 0) + 1);
-    return members.map(member => ({ ...member, assignedIssuesCount: issueCounts.get(member.id) ?? 0, teamsCount: teamCounts.get(member.id) ?? 0 }));
+    for (const row of memberships) {
+      const list = userTeamsMap.get(row.userId) ?? [];
+      list.push({ id: row.teamId, key: row.teamKey, name: row.teamName });
+      userTeamsMap.set(row.userId, list);
+    }
+    return members.map(member => ({
+      ...member,
+      assignedIssuesCount: issueCounts.get(member.id) ?? 0,
+      teamsCount: userTeamsMap.get(member.id)?.length ?? 0,
+      teams: userTeamsMap.get(member.id) ?? [],
+    }));
   }
 
   async findById(actorId: string, id: string) {

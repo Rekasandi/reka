@@ -2,7 +2,7 @@ import { BadRequestException, ForbiddenException, NotFoundException } from '@nes
 import {
   type DbClient, organizationMembers, users, teams, teamMembers,
   issues, projects, cycles, clients, labels, activities, notifications,
-  githubRepositories, githubInstallations, projectRepositories, projectMembers, documents,
+  githubRepositories, githubInstallations, projectRepositories, projectMembers, projectTeams, documents,
 } from '@reka/database';
 import { and, eq, exists, inArray, isNull, notExists, or, sql, type SQL } from 'drizzle-orm';
 import type { UserRole } from '@reka/types';
@@ -65,7 +65,10 @@ export function issueScope(db: DbClient, actor: WorkspaceActor): SQL {
 
 export function projectScope(db: DbClient, actor: WorkspaceActor): SQL {
   return and(membershipScope(db, actor), eq(projects.organizationId, actor.organizationId), or(
-    isNull(projects.teamId), inArray(projects.teamId, visibleTeamIds(db, actor)),
+    isNull(projects.teamId),
+    inArray(projects.teamId, visibleTeamIds(db, actor)),
+    exists(db.select({ one: sql`1` }).from(projectTeams)
+      .where(and(eq(projectTeams.projectId, projects.id), inArray(projectTeams.teamId, visibleTeamIds(db, actor))))),
   ))!;
 }
 

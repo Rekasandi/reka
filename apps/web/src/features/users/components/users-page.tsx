@@ -1,6 +1,7 @@
 import * as React from 'react';
-import { Badge, Button, Skeleton, Avatar, AvatarImage, AvatarFallback, Select, SelectTrigger, SelectValue, SelectContent, SelectGroup, SelectItem } from '@reka/ui';
-import { UserPlus, Shield, CheckSquare, Users, Trash2, RefreshCw, ExternalLink } from 'lucide-react';
+import { Badge, Button, Skeleton, Avatar, AvatarImage, AvatarFallback, Select, SelectTrigger, SelectValue, SelectContent, SelectGroup, SelectItem, Table, TableHeader, TableBody, TableRow, TableHead, TableCell, cn } from '@reka/ui';
+import { UserPlus, Trash2, RefreshCw, ArrowDown, Contact } from 'lucide-react';
+import { format } from 'date-fns';
 import { useUsers, useUpdateUser, useDeleteUser } from '../hooks/use-users';
 import { CreateUserDialog } from './create-user-dialog';
 import { ConfirmDeleteDialog } from '../../../components/common/confirm-delete-dialog';
@@ -12,22 +13,30 @@ import { getWorkspace, updateWorkspaceMember, WORKSPACE_QUERY_KEY } from '../../
 import { USERS_QUERY_KEY } from '../hooks/use-users';
 import { useAuth, useLogout } from '../../auth/hooks/use-auth';
 
-function RoleBadge({ role }: { role: User['role'] }) {
-  const map: Record<string, { label: string; variant: 'default' | 'secondary' | 'outline' }> = {
-    owner: { label: 'Owner', variant: 'default' },
-    admin: { label: 'Admin', variant: 'default' },
-    member: { label: 'Member', variant: 'secondary' },
-    guest: { label: 'Guest · read-only', variant: 'outline' },
-    client: { label: 'Client · read-only', variant: 'outline' },
-  };
+const AVATAR_BG_COLORS = [
+  'bg-pink-600 text-white',
+  'bg-sky-600 text-white',
+  'bg-emerald-600 text-white',
+  'bg-purple-600 text-white',
+  'bg-amber-600 text-white',
+  'bg-indigo-600 text-white',
+];
 
-  const item = map[role] || { label: role, variant: 'secondary' };
-  return (
-    <Badge variant={item.variant} className="capitalize text-xs font-mono h-5 px-2 font-normal">
-      {(role === 'owner' || role === 'admin') && <Shield className="size-2.5 mr-1" />}
-      <span>{item.label}</span>
-    </Badge>
-  );
+function getAvatarBg(name: string) {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  return AVATAR_BG_COLORS[Math.abs(hash) % AVATAR_BG_COLORS.length];
+}
+
+function formatDateLabel(val?: string | null): string {
+  if (!val) return '—';
+  try {
+    const d = new Date(val);
+    if (Number.isNaN(d.getTime())) return '—';
+    return format(d, 'MMM dd');
+  } catch {
+    return '—';
+  }
 }
 
 export function UsersPage() {
@@ -127,106 +136,176 @@ export function UsersPage() {
         </div>
       )}
 
-      {/* Users Table / List View */}
+      {/* Users Table */}
       {!isLoading && !isError && (
-        <div className="divide-y divide-border">
-          {filteredUsers.map((u) => {
-            const initial = (u.name || 'User')[0].toUpperCase();
+        <div className="overflow-x-auto">
+          <Table aria-label="Workspace users" className="w-full text-xs">
+            <TableHeader className="text-muted-foreground border-0 [&_tr]:border-0">
+              <TableRow className="border-0 hover:bg-transparent">
+                <TableHead className="w-[36%] py-3 font-medium text-muted-foreground">
+                  <span className="inline-flex items-center gap-1">
+                    Name <ArrowDown className="size-3 text-muted-foreground" />
+                  </span>
+                </TableHead>
+                <TableHead className="w-[16%] py-3 font-medium text-muted-foreground">Role</TableHead>
+                <TableHead className="w-[14%] py-3 font-medium text-muted-foreground">Joined</TableHead>
+                <TableHead className="w-[14%] py-3 font-medium text-muted-foreground">Teams</TableHead>
+                <TableHead className="w-[20%] py-3 font-medium text-muted-foreground">Last seen</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody className="border-0 [&_tr]:border-0">
+              {filteredUsers.map((u) => {
+                const names = u.name.trim().split(/\s+/);
+                const initial = names.length >= 2 ? (names[0][0] + names[1][0]).toUpperCase() : (u.name[0] || 'U').toUpperCase();
+                const avatarBg = getAvatarBg(u.name);
+                const joined = formatDateLabel(u.createdAt);
+                const isCurrent = currentUser?.id === u.id;
+                const lastSeen = isCurrent ? 'Online' : formatDateLabel(u.updatedAt || u.createdAt);
 
-            return (
-              <div
-                key={u.id}
-                className="group flex flex-col items-stretch justify-between gap-3 rounded-md px-3 py-4 text-xs transition-colors hover:bg-muted/50 sm:flex-row sm:items-center"
-              >
-                {/* User info */}
-                <div className="flex items-center gap-3.5 min-w-0 flex-1">
-                  <Avatar className="size-8 rounded-full border border-border/70 shrink-0">
-                    {u.avatarUrl && <AvatarImage src={u.avatarUrl} alt={u.name} />}
-                    <AvatarFallback className="text-xs font-semibold bg-secondary text-foreground">
-                      {initial}
-                    </AvatarFallback>
-                  </Avatar>
+                return (
+                  <TableRow key={u.id} className="h-14 border-0 hover:bg-muted/30 transition-colors">
+                    {/* Name column */}
+                    <TableCell className="py-2.5">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <Avatar className="size-8 rounded-full shrink-0 border border-border/60">
+                          {u.avatarUrl && <AvatarImage src={u.avatarUrl} alt={u.name} />}
+                          <AvatarFallback className={cn('text-xs font-semibold', avatarBg)}>
+                            {initial}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex flex-col min-w-0 leading-tight gap-0.5">
+                          <span className="font-medium text-sm text-foreground truncate">{u.name}</span>
+                          {u.githubUsername ? (
+                            <a
+                              href={`https://github.com/${encodeURIComponent(u.githubUsername)}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              aria-label={`GitHub profile for ${u.name}`}
+                              className="text-xs text-muted-foreground/70 hover:text-foreground hover:underline font-mono truncate block"
+                            >
+                              {u.githubUsername}
+                            </a>
+                          ) : (
+                            <span className="text-xs text-muted-foreground/60 truncate font-mono">{u.email}</span>
+                          )}
+                        </div>
+                      </div>
+                    </TableCell>
 
-                  <div className="flex flex-col gap-0.5 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold text-foreground truncate text-sm">
-                        {u.name}
-                      </span>
-                      {u.role === 'owner' && <RoleBadge role={u.role} />}
-                      {u.isActive === false && <Badge variant="outline">{u.admission === 'pending' ? 'Not joined' : 'Inactive'}</Badge>}
-                    </div>
-                    <div className="flex min-w-0 items-center gap-2 text-xs">
-                      <span className="truncate text-muted-foreground">{u.email}</span>
-                      {u.githubUsername && (
-                        <a
-                          href={`https://github.com/${encodeURIComponent(u.githubUsername)}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          aria-label={`GitHub profile for ${u.name}`}
-                          className="inline-flex shrink-0 items-center gap-1 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
+                    {/* Role column */}
+                    <TableCell className="py-2.5">
+                      {canManage && (u.role !== 'owner' || actorIsOwner) ? (
+                        <Select
+                          disabled={updateMutation.isPending}
+                          value={u.role}
+                          onValueChange={(val) => updateMutation.mutate({ id: u.id, data: { role: val } })}
                         >
-                          <ExternalLink className="size-3" />
-                          <span>{u.githubUsername}</span>
-                        </a>
+                          <SelectTrigger
+                            aria-label={`Role for ${u.name}`}
+                            size="compact"
+                            className={cn(
+                              'h-6 w-auto px-2 py-0 rounded-md border text-xs font-medium cursor-pointer transition-colors',
+                              u.role === 'admin'
+                                ? 'bg-indigo-500/15 text-indigo-400 border-indigo-500/30 hover:bg-indigo-500/25'
+                                : u.role === 'owner'
+                                  ? 'bg-purple-500/15 text-purple-400 border-purple-500/30 hover:bg-purple-500/25'
+                                  : 'bg-secondary text-secondary-foreground border-border/80 hover:bg-muted'
+                            )}
+                          >
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectGroup>
+                              {actorIsOwner && <SelectItem value="owner" disabled={u.admission === 'pending'}>Owner</SelectItem>}
+                              <SelectItem value="admin">Admin</SelectItem>
+                              <SelectItem value="member">Member</SelectItem>
+                              <SelectItem value="guest">Guest · read-only</SelectItem>
+                              <SelectItem value="client">Client · read-only</SelectItem>
+                            </SelectGroup>
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <span className={cn(
+                          'inline-flex h-6 items-center px-2 py-0 rounded-md border text-xs font-medium',
+                          u.role === 'admin'
+                            ? 'bg-indigo-500/15 text-indigo-400 border-indigo-500/30'
+                            : u.role === 'owner'
+                              ? 'bg-purple-500/15 text-purple-400 border-purple-500/30'
+                              : 'bg-secondary text-secondary-foreground border-border/80'
+                        )}>
+                          {u.role.charAt(0).toUpperCase() + u.role.slice(1)}
+                        </span>
                       )}
-                    </div>
-                  </div>
-                </div>
+                    </TableCell>
 
-                {/* Stats & Actions */}
-                <div className="flex shrink-0 items-center justify-end gap-3 sm:gap-6">
-                  <div className="hidden sm:flex items-center gap-4 text-xs font-mono text-muted-foreground">
-                    <div className="flex items-center gap-1.5" title="Assigned issues">
-                      <CheckSquare className="size-3.5 text-muted-foreground/60" />
-                      <span>{u.assignedIssuesCount || 0} issues</span>
-                    </div>
+                    {/* Joined column */}
+                    <TableCell className="py-2.5 text-muted-foreground text-xs font-mono">
+                      {joined}
+                    </TableCell>
 
-                    <div className="flex items-center gap-1.5" title="Teams">
-                      <Users className="size-3.5 text-muted-foreground/60" />
-                      <span>{u.teamsCount || 0} teams</span>
-                    </div>
-                  </div>
+                    {/* Teams column */}
+                    <TableCell className="py-2.5">
+                      {u.teams && u.teams.length > 0 ? (
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {u.teams.map((t) => (
+                            <span key={t.id} className="inline-flex items-center gap-1.5 text-xs text-foreground font-mono" title={t.name}>
+                              <Contact className="size-3.5 text-muted-foreground" />
+                              <span>{t.key}</span>
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground text-xs">—</span>
+                      )}
+                    </TableCell>
 
-                  {/* Change Role Select */}
-                  {canManage && (u.role !== 'owner' || actorIsOwner) ? (
-                    <Select
-                      disabled={updateMutation.isPending}
-                      value={u.role}
-                      onValueChange={(val) => updateMutation.mutate({ id: u.id, data: { role: val } })}
-                    >
-                      <SelectTrigger aria-label={`Role for ${u.name}`} size="sm" className="w-28 bg-background/80 border-border/60">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectGroup>
-                          {actorIsOwner && <SelectItem value="owner" disabled={u.admission === 'pending'}>Owner</SelectItem>}
-                          <SelectItem value="admin">Admin</SelectItem>
-                          <SelectItem value="member">Member</SelectItem>
-                          <SelectItem value="guest">Guest · read-only</SelectItem>
-                          <SelectItem value="client">Client · read-only</SelectItem>
-                        </SelectGroup>
-                      </SelectContent>
-                    </Select>
-                  ) : u.role !== 'owner' ? <RoleBadge role={u.role} /> : null}
+                    {/* Last seen & Actions column */}
+                    <TableCell className="py-2.5">
+                      <div className="flex items-center justify-between gap-2">
+                        {isCurrent ? (
+                          <span className="inline-flex items-center gap-1.5 text-xs text-emerald-400 font-medium font-mono">
+                            <span className="size-1.5 rounded-full bg-emerald-500" />
+                            Online
+                          </span>
+                        ) : (
+                          <span className="text-xs text-muted-foreground font-mono">
+                            {lastSeen}
+                          </span>
+                        )}
 
-                  {canManage && u.isActive === false && (u.role !== 'owner' || actorIsOwner) && <Button variant="outline" size="sm" disabled={activate.isPending || u.admission === 'pending'} title={u.admission === 'pending' ? 'Send an invitation before granting access' : undefined} onClick={() => activate.mutate(u.id)}>Reactivate</Button>}
-                  {/* Deactivation preserves authored work. */}
-                  {canManage && u.isActive !== false && u.role !== 'owner' ? (
-                    <Button variant="plain" size="auto"
-                      type="button"
-                      onClick={(e) => handleDelete(u, e)}
-                      className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                      title="Deactivate user"
-                    >
-                      <Trash2 className="size-3.5" />
-                    </Button>
-                  ) : (
-                    <div className="w-5" />
-                  )}
-                </div>
-              </div>
-            );
-          })}
+                        <div className="flex items-center gap-1">
+                          {canManage && u.isActive === false && (u.role !== 'owner' || actorIsOwner) && (
+                            <Button
+                              variant="outline"
+                              size="xs"
+                              disabled={activate.isPending || u.admission === 'pending'}
+                              title={u.admission === 'pending' ? 'Send an invitation before granting access' : undefined}
+                              onClick={() => activate.mutate(u.id)}
+                              className="h-6 text-[10px]"
+                            >
+                              Reactivate
+                            </Button>
+                          )}
+                          {canManage && u.isActive !== false && u.role !== 'owner' && (
+                            <Button
+                              variant="plain"
+                              size="auto"
+                              type="button"
+                              onClick={(e) => handleDelete(u, e)}
+                              className="rounded-md p-1 text-muted-foreground/30 transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                              title="Deactivate user"
+                            >
+                              <Trash2 className="size-3" />
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
 
           {filteredUsers.length === 0 && (
             <div className="p-12 text-center text-xs text-muted-foreground">

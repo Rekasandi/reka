@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { DatabaseService } from '../common/database/database.service';
-import { projects, users, issues, projectRepositories, githubRepositories, projectMembers, milestones, projectDependencies, projectUpdates, projectUpdateSubscriptions } from '@reka/database';
+import { projects, teams, users, issues, projectRepositories, githubRepositories, projectMembers, projectTeams, milestones, projectDependencies, projectUpdates, projectUpdateSubscriptions } from '@reka/database';
 import { eq, desc, asc, and, inArray, isNull } from 'drizzle-orm';
 import { requireWorkspace, requireWrite, requireProject, requireProjectManager, requireTeamWrite, requireEligibleUser, requireIssueWrite, requireResourceId, projectScope, issueScope, userScope, repositoryScope } from '../common/access/workspace-access';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -29,24 +29,42 @@ export class ProjectsService {
     const categories = await loadIssueStatusCategories(this.database.db, [...new Set(allIssues.map((issue) => issue.teamId))]);
 
     // Attach linked repositories for each project
-    const allProjectRepos = await this.database.db
-      .select({
-        projectId: projectRepositories.projectId,
-        id: githubRepositories.id,
-        fullName: githubRepositories.fullName,
-        name: githubRepositories.name,
-        owner: githubRepositories.owner,
-        isPrivate: githubRepositories.isPrivate,
-        defaultBranch: githubRepositories.defaultBranch,
-      })
-      .from(projectRepositories)
-      .innerJoin(githubRepositories, eq(projectRepositories.repositoryId, githubRepositories.id))
-      .where(and(repositoryScope(this.database.db, actor), inArray(projectRepositories.projectId,
-        this.database.db.select({ id: projects.id }).from(projects).where(projectScope(this.database.db, actor)))));
+    const projectIds = projectList.map((p) => p.id);
+    const allProjectRepos = projectIds.length
+      ? await this.database.db
+          .select({
+            projectId: projectRepositories.projectId,
+            id: githubRepositories.id,
+            fullName: githubRepositories.fullName,
+            name: githubRepositories.name,
+            owner: githubRepositories.owner,
+            isPrivate: githubRepositories.isPrivate,
+            defaultBranch: githubRepositories.defaultBranch,
+          })
+          .from(projectRepositories)
+          .innerJoin(githubRepositories, eq(projectRepositories.repositoryId, githubRepositories.id))
+          .where(and(repositoryScope(this.database.db, actor), inArray(projectRepositories.projectId, projectIds)))
+      : [];
+
+    const allProjectTeams = projectIds.length
+      ? await this.database.db
+          .select({
+            projectId: projectTeams.projectId,
+            id: teams.id,
+            name: teams.name,
+            key: teams.key,
+            icon: teams.icon,
+            isPrivate: teams.isPrivate,
+          })
+          .from(projectTeams)
+          .innerJoin(teams, eq(projectTeams.teamId, teams.id))
+          .where(inArray(projectTeams.projectId, projectIds))
+      : [];
 
     return projectList.map((p) => {
       const pIssues = allIssues.filter((i) => i.projectId === p.id);
       const pRepos = allProjectRepos.filter((r) => r.projectId === p.id);
+      const pTeams = allProjectTeams.filter((t) => t.projectId === p.id);
       const progressIssues = pIssues.filter((issue) => getIssueStatusCategory(issue, categories) !== 'canceled');
       const totalIssues = pIssues.length;
       const completedIssues = progressIssues.filter((issue) => getIssueStatusCategory(issue, categories) === 'completed').length;
@@ -58,6 +76,8 @@ export class ProjectsService {
         completedIssues,
         progress,
         repositories: pRepos,
+        teams: pTeams,
+        teamIds: pTeams.map((t) => t.id),
       };
     });
   }
@@ -66,7 +86,10 @@ export class ProjectsService {
     const actor = await requireWorkspace(this.database.db, actorId);
     const p = await requireProject(this.database.db, actor, id);
     const pIssues = await this.database.db.select().from(issues).where(and(eq(issues.projectId, p.id), issueScope(this.database.db, actor), isNull(issues.archivedAt)));
-    const pRepos = await this.findRepositories(p.id, actorId);
+    const [pRepos, pTeams] = await Promise.all([
+      this.findRepositories(p.id, actorId),
+      this.findTeams(p.id, actorId),
+    ]);
     const totalIssues = pIssues.length;
     const categories = await loadIssueStatusCategories(this.database.db, [...new Set(pIssues.map((issue) => issue.teamId))]);
     const progressIssues = pIssues.filter((issue) => getIssueStatusCategory(issue, categories) !== 'canceled');
@@ -77,6 +100,8 @@ export class ProjectsService {
       ...p,
       issues: pIssues,
       repositories: pRepos,
+      teams: pTeams,
+      teamIds: pTeams.map((t) => t.id),
       totalIssues,
       completedIssues,
       progress,
@@ -194,7 +219,72 @@ export class ProjectsService {
     }).onConflictDoNothing();
     await this.database.db.insert(projectUpdateSubscriptions).values({ projectId: created.id, userId: actorId }).onConflictDoNothing();
 
+    // Link all selected teams to this project
+    const allTeamIds = [...new Set([team.id, ...(dto.teamIds || [])])];
+    for (const tId of allTeamIds) {
+      await this.database.db.insert(projectTeams).values({
+        projectId: created.id,
+        teamId: tId,
+      }).onConflictDoNothing();
+    }
+
     return created;
+  }
+
+  async findTeams(projectId: string, actorId: string) {
+    const actor = await requireWorkspace(this.database.db, actorId);
+    await requireProject(this.database.db, actor, projectId);
+    return this.database.db
+      .select({
+        id: teams.id,
+        name: teams.name,
+        key: teams.key,
+        icon: teams.icon,
+        isPrivate: teams.isPrivate,
+      })
+      .from(projectTeams)
+      .innerJoin(teams, eq(projectTeams.teamId, teams.id))
+      .where(eq(projectTeams.projectId, projectId));
+  }
+
+  async addTeam(projectId: string, teamId: string, actorId: string) {
+    const actor = await requireWorkspace(this.database.db, actorId);
+    await requireProjectManager(this.database.db, actor, projectId);
+    await requireTeamWrite(this.database.db, actor, teamId);
+
+    await this.database.db
+      .insert(projectTeams)
+      .values({ projectId, teamId })
+      .onConflictDoNothing();
+
+    return this.findTeams(projectId, actorId);
+  }
+
+  async removeTeam(projectId: string, teamId: string, actorId: string) {
+    const actor = await requireWorkspace(this.database.db, actorId);
+    const project = await requireProjectManager(this.database.db, actor, projectId);
+
+    const currentTeams = await this.database.db
+      .select()
+      .from(projectTeams)
+      .where(eq(projectTeams.projectId, projectId));
+
+    if (currentTeams.length <= 1) {
+      throw new BadRequestException('A project must have at least one team associated');
+    }
+
+    if (project.teamId === teamId) {
+      const remainingTeam = currentTeams.find((t) => t.teamId !== teamId);
+      if (remainingTeam) {
+        await this.database.db.update(projects).set({ teamId: remainingTeam.teamId, updatedAt: new Date() }).where(eq(projects.id, projectId));
+      }
+    }
+
+    await this.database.db.delete(projectTeams).where(
+      and(eq(projectTeams.projectId, projectId), eq(projectTeams.teamId, teamId))
+    );
+
+    return this.findTeams(projectId, actorId);
   }
 
   async findMembers(projectId: string, actorId: string) {
@@ -281,6 +371,17 @@ export class ProjectsService {
       })
       .where(eq(projects.id, id))
       .returning();
+
+    if (dto.teamIds && Array.isArray(dto.teamIds)) {
+      await requireProjectManager(this.database.db, actor, id);
+      const nextTeams = [...new Set([dto.teamId || project.teamId, ...dto.teamIds])];
+      for (const tId of nextTeams) {
+        await this.database.db.insert(projectTeams).values({
+          projectId: id,
+          teamId: tId,
+        }).onConflictDoNothing();
+      }
+    }
 
     if (dto.ownerId && dto.ownerId !== project.ownerId) {
       await this.database.db.update(projectMembers).set({ role: 'member' }).where(and(

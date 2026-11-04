@@ -1,7 +1,7 @@
 import { Injectable, ConflictException, BadRequestException, NotFoundException } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { DatabaseService } from '../common/database/database.service';
-import { teams, users, teamMembers, issues, cycles, organizationMembers, teamWorkflowStates, issueRecurrences, issueTemplates } from '@reka/database';
+import { teams, users, teamMembers, issues, cycles, organizationMembers, teamWorkflowStates, issueRecurrences, issueTemplates, projects, projectTeams } from '@reka/database';
 import { requireWorkspace, requireAdmin, requireWrite, requireTeam, requireTeamManager, requireEligibleUser, teamScope, teamManagerScope, issueScope, userScope, visibleTeamIds, membershipScope, requireResourceId, type WorkspaceActor } from '../common/access/workspace-access';
 import { eq, desc, and, inArray, sql, asc, notInArray } from 'drizzle-orm';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -32,9 +32,25 @@ export class TeamsService {
       inArray(teamMembers.userId, db.select({ id: users.id }).from(users).where(userScope(db, actor)))));
     const allUsers = await db.select().from(users).where(userScope(db, actor));
     const issueCounts = await db.select({ teamId: issues.teamId, count: sql<number>`count(*)::int` }).from(issues).where(issueScope(db, actor)).groupBy(issues.teamId);
+    const activeProjectCounts = await db
+      .select({ teamId: projectTeams.teamId, count: sql<number>`count(distinct ${projects.id})::int` })
+      .from(projectTeams)
+      .innerJoin(projects, and(
+        eq(projectTeams.projectId, projects.id),
+        sql`${projects.status} NOT IN ('completed', 'canceled')`
+      ))
+      .groupBy(projectTeams.teamId);
+
     return teamList.map(team => {
       const members = allMembers.filter(member => member.teamId === team.id).map(member => ({ ...member, user: allUsers.find(user => user.id === member.userId) }));
-      return { ...team, ...this.capabilities(team, actor, members), members, memberCount: members.length, issueCount: issueCounts.find(row => row.teamId === team.id)?.count ?? 0 };
+      return {
+        ...team,
+        ...this.capabilities(team, actor, members),
+        members,
+        memberCount: members.length,
+        issueCount: issueCounts.find(row => row.teamId === team.id)?.count ?? 0,
+        activeProjectCount: activeProjectCounts.find(row => row.teamId === team.id)?.count ?? 0,
+      };
     });
   }
 

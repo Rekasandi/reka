@@ -47,6 +47,7 @@ export interface Team {
   canLeave?: boolean;
   memberCount?: number;
   issueCount?: number;
+  activeProjectCount?: number;
   members?: TeamMember[];
   issues?: Issue[];
   cycles?: Cycle[];

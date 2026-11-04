@@ -1,14 +1,15 @@
 import * as React from 'react';
 import { useParams, Link, useLocation, useNavigate } from 'react-router-dom';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, Badge, Button, Skeleton, Select, SelectTrigger, SelectContent, SelectGroup, SelectItem, DatePicker, Tabs, TabsList, TabsTrigger, TabsContent, Avatar, AvatarImage, AvatarFallback, toast, cn, Progress, Spinner } from '@reka/ui';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, Badge, Button, Skeleton, Select, SelectTrigger, SelectContent, SelectGroup, SelectItem, DatePicker, Tabs, TabsList, TabsTrigger, TabsContent, Avatar, AvatarImage, AvatarFallback, toast, cn, Progress, Spinner, DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from '@reka/ui';
 import {
   Plus, CheckCircle2, AlertTriangle, AlertCircle, Trash2, RefreshCw,
   GitBranch, Lock, Globe, ExternalLink, Users, Circle, CircleDot,
   CirclePause, CircleX, Minus, SignalLow, SignalMedium, SignalHigh,
-  Link2, PanelRight, Tag, Star,
+  Link2, PanelRight, Tag, Star, X,
 } from 'lucide-react';
 import { useProject, useUpdateProject, useDeleteProject } from '../hooks/use-projects';
 import { useProjectRepositories, useUnlinkProjectRepository } from '../hooks/use-project-repos';
+import { useProjectTeams, useAddProjectTeam, useRemoveProjectTeam } from '../hooks/use-project-teams';
 import { ProjectDependenciesPanel, ProjectMilestonesPanel, ProjectUpdatesPanel } from './project-planning-panels';
 import { DocumentsPage } from './documents-page';
 import { useIssues } from '../../issues/hooks/use-issues';
@@ -190,6 +191,93 @@ function LeadBadgePicker({
   );
 }
 
+function ProjectTeamsManager({
+  projectId,
+  primaryTeamId,
+  teams,
+  allTeams,
+}: {
+  projectId: string;
+  primaryTeamId?: string;
+  teams: Array<{ id: string; name: string; key: string; icon?: string | null; isPrivate?: boolean }>;
+  allTeams: Array<{ id: string; name: string; key: string; canWrite?: boolean }>;
+}) {
+  const addTeam = useAddProjectTeam(projectId);
+  const removeTeam = useRemoveProjectTeam(projectId);
+  const [open, setOpen] = React.useState(false);
+
+  const linkedIds = new Set(teams.map((t) => t.id));
+  const availableTeams = allTeams.filter((t) => !linkedIds.has(t.id) && t.canWrite);
+
+  return (
+    <div className="flex items-center gap-2 flex-wrap">
+      <span className="text-muted-foreground font-medium">Teams</span>
+      <div className="flex flex-wrap items-center gap-1.5">
+        {teams.map((t) => (
+          <div key={t.id} className="group inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-muted/30 pl-2 pr-1.5 py-0.5 text-xs font-medium text-foreground">
+            <Link to={`/teams/${t.id}`} className="inline-flex items-center gap-1.5 hover:underline">
+              <span aria-hidden="true" className="inline-flex size-4 shrink-0 items-center justify-center rounded border border-border bg-background text-[8px] font-semibold text-muted-foreground">
+                {t.key}
+              </span>
+              <span className="max-w-[140px] truncate">{t.name}</span>
+            </Link>
+            {t.id === primaryTeamId && (
+              <span className="text-[9px] text-muted-foreground bg-muted px-1 rounded font-mono">Lead</span>
+            )}
+            {teams.length > 1 && t.id !== primaryTeamId && (
+              <button
+                type="button"
+                onClick={() => removeTeam.mutate(t.id)}
+                disabled={removeTeam.isPending}
+                className="opacity-60 hover:opacity-100 hover:text-destructive p-0.5 rounded-full transition-opacity cursor-pointer"
+                title={`Remove ${t.name} from project`}
+                aria-label={`Remove ${t.name} from project`}
+              >
+                <X className="size-3" />
+              </button>
+            )}
+          </div>
+        ))}
+
+        {availableTeams.length > 0 && (
+          <DropdownMenu open={open} onOpenChange={setOpen}>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon-xs"
+                className="size-5 rounded-full"
+                title="Add another team to this project"
+                aria-label="Add team to project"
+              >
+                <Plus className="size-3" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-52 p-1">
+              <div className="px-2 py-1 text-[11px] font-medium text-muted-foreground">
+                Link additional team
+              </div>
+              <DropdownMenuSeparator />
+              {availableTeams.map((t) => (
+                <DropdownMenuItem
+                  key={t.id}
+                  onClick={() => {
+                    addTeam.mutate(t.id);
+                    setOpen(false);
+                  }}
+                  className="gap-2 text-xs cursor-pointer"
+                >
+                  <span className="font-mono text-[9px] px-1 bg-muted rounded border border-border">{t.key}</span>
+                  <span className="truncate">{t.name}</span>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function HealthBadge({ health }: { health: Project['health'] }) {
   const option = HEALTH_OPTIONS.find((item) => item.value === health) || HEALTH_OPTIONS[0];
   const Icon = option.icon;
@@ -353,21 +441,13 @@ export function ProjectDetailPage() {
                 </div>
 
                 {/* Team & Resources sub-bar */}
-                <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs pt-0.5">
-                  {team && (
-                    <div className="flex items-center gap-2">
-                      <span className="text-muted-foreground font-medium">Team</span>
-                      <Link
-                        to={`/teams/${team.id}`}
-                        className="inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-muted/30 px-2.5 py-0.5 text-xs hover:bg-muted transition-colors font-medium text-foreground"
-                      >
-                        <span aria-hidden="true" className="inline-flex size-4 shrink-0 items-center justify-center rounded border border-border bg-background text-[8px] font-semibold text-muted-foreground">
-                          {team.key}
-                        </span>
-                        <span>{team.name}</span>
-                      </Link>
-                    </div>
-                  )}
+                <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-xs pt-0.5">
+                  <ProjectTeamsManager
+                    projectId={project.id}
+                    primaryTeamId={project.teamId}
+                    teams={project.teams && project.teams.length > 0 ? project.teams : team ? [team] : []}
+                    allTeams={teams}
+                  />
 
                   <div className="flex items-center gap-2">
                     <span className="text-muted-foreground font-medium">Resources</span>

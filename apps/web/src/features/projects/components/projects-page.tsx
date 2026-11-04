@@ -63,7 +63,9 @@ export function ProjectsPage() {
   const { data: teams = [] } = useTeams();
   const usersById = new Map(users.map(person => [person.id, person]));
   const teamId = new URLSearchParams(location.search).get('teamId');
-  const scopedProjects = teamId ? projects.filter(project => project.teamId === teamId) : projects;
+  const scopedProjects = teamId
+    ? projects.filter(project => project.teamId === teamId || project.teamIds?.includes(teamId) || project.teams?.some(t => t.id === teamId))
+    : projects;
   const canCreate = !!user && ['owner', 'admin', 'member'].includes(user.role)
     && teams.some(team => (!teamId || team.id === teamId) && team.canWrite);
   const sortedProjects = [...scopedProjects].sort((a, b) => (sortDirection === 'asc' ? 1 : -1) * (a.name.localeCompare(b.name) || a.id.localeCompare(b.id)));

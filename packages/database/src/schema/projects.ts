@@ -104,3 +104,20 @@ export const projectMembers = pgTable(
   },
   (t) => [primaryKey({ columns: [t.projectId, t.userId] })],
 );
+
+export const projectTeams = pgTable(
+  'project_teams',
+  {
+    projectId: uuid('project_id')
+      .notNull()
+      .references(() => projects.id, { onDelete: 'cascade' }),
+    teamId: uuid('team_id')
+      .notNull()
+      .references(() => teams.id, { onDelete: 'cascade' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.projectId, t.teamId] }),
+    index('project_teams_team_idx').on(t.teamId, t.projectId),
+  ],
+);

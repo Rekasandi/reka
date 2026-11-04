@@ -1,5 +1,13 @@
 import type { EntityIconName } from '@reka/types';
 
+export interface ProjectTeam {
+  id: string;
+  name: string;
+  key: string;
+  icon?: string | null;
+  isPrivate?: boolean;
+}
+
 export interface ProjectRepository {
   id: string;
   repoId?: number;
@@ -15,6 +23,8 @@ export interface Project {
   id: string;
   organizationId: string;
   teamId: string;
+  teams?: ProjectTeam[];
+  teamIds?: string[];
   clientId?: string | null;
   name: string;
   icon?: EntityIconName | null;
@@ -47,6 +57,7 @@ export interface ProjectDependencies { dependsOn: ProjectDependencyItem[]; block
 
 export interface CreateProjectInput {
   teamId: string;
+  teamIds?: string[];
   name: string;
   icon?: EntityIconName | null;
   description?: string;
@@ -118,6 +129,36 @@ export async function unlinkProjectRepository(projectId: string, repositoryId: s
     method: 'DELETE',
   });
   if (!res.ok) throw new Error('Failed to unlink repository from project');
+  return res.json();
+}
+
+export async function getProjectTeams(projectId: string): Promise<ProjectTeam[]> {
+  const res = await fetch(`/api/projects/${projectId}/teams`);
+  if (!res.ok) throw new Error('Failed to fetch project teams');
+  return res.json();
+}
+
+export async function addProjectTeam(projectId: string, teamId: string): Promise<ProjectTeam[]> {
+  const res = await fetch(`/api/projects/${projectId}/teams`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ teamId }),
+  });
+  if (!res.ok) {
+    const error = await res.json().catch(() => null);
+    throw new Error(error?.message || 'Failed to add team to project');
+  }
+  return res.json();
+}
+
+export async function removeProjectTeam(projectId: string, teamId: string): Promise<ProjectTeam[]> {
+  const res = await fetch(`/api/projects/${projectId}/teams/${teamId}`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) {
+    const error = await res.json().catch(() => null);
+    throw new Error(error?.message || 'Failed to remove team from project');
+  }
   return res.json();
 }
 

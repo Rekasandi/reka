@@ -26,6 +26,8 @@ import { resolveEntityIcon } from '../entity-icon-picker';
 type NavItem = { label: string; to: string; icon: LucideIcon; count?: number };
 const workspaceNav: NavItem[] = [
   { label: 'Projects', to: '/projects', icon: Box },
+  { label: 'Teams', to: '/teams', icon: Users },
+  { label: 'Users', to: '/users', icon: UserCheck },
 ];
 const moreNav: NavItem[] = [
   { label: 'All Issues', to: '/issues', icon: PanelsTopLeft },
@@ -34,8 +36,6 @@ const moreNav: NavItem[] = [
   { label: 'Cycles', to: '/cycles', icon: CircleDot },
   { label: 'Insights', to: '/insights', icon: Activity },
   { label: 'Favorites', to: '/favorites', icon: Layers2 },
-  { label: 'Teams', to: '/teams', icon: Users },
-  { label: 'Users', to: '/users', icon: UserCheck },
   { label: 'Clients', to: '/clients', icon: Building2 },
 ];
 const favoriteIcons = { issue: PanelsTopLeft, project: Box, document: FileText };

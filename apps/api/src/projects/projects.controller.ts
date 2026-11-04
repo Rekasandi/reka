@@ -109,6 +109,21 @@ export class ProjectsController {
     return this.projectsService.removeMember(id, userId, req.userId);
   }
 
+  @Get(':id/teams')
+  findTeams(@Req() req: Request & { userId: string }, @Param('id') id: string) {
+    return this.projectsService.findTeams(id, req.userId);
+  }
+
+  @Post(':id/teams')
+  addTeam(@Req() req: Request & { userId: string }, @Param('id') id: string, @Body('teamId') teamId: string) {
+    return this.projectsService.addTeam(id, teamId, req.userId);
+  }
+
+  @Delete(':id/teams/:teamId')
+  removeTeam(@Req() req: Request & { userId: string }, @Param('id') id: string, @Param('teamId') teamId: string) {
+    return this.projectsService.removeTeam(id, teamId, req.userId);
+  }
+
   @Get(':id/repositories')
   findRepositories(@Req() req: Request & { userId: string }, @Param('id') id: string) {
     return this.projectsService.findRepositories(id, req.userId);
