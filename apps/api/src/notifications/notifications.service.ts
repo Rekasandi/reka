@@ -1,17 +1,74 @@
-import { Injectable, NotFoundException, ForbiddenException, BadRequestException, Logger, Optional } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, BadRequestException, Logger, Optional, OnModuleInit, OnModuleDestroy, type MessageEvent } from '@nestjs/common';
+import { EventEmitter } from 'node:events';
+import { Observable } from 'rxjs';
+import type { Redis } from 'ioredis';
+import { RedisService } from '../common/redis/redis.service';
 import { DatabaseService } from '../common/database/database.service';
 import { DEFAULT_NOTIFICATION_PREFERENCES, notificationPreferences, notifications, users, type NotificationPreferenceValues } from '@reka/database';
-import { and, desc, eq } from 'drizzle-orm';
+import { and, desc, eq, gt, isNull, lte, min, or, type SQL } from 'drizzle-orm';
 import { CreateNotificationDto, UpdateNotificationPreferencesDto } from './dto/notification.dto';
 import { MailService } from '../mail/mail.service';
 import { notificationEmail } from '../mail/mail-templates';
 import { requireWorkspace, requireIssue, requireProject, requireTeam, notificationScope } from '../common/access/workspace-access';
 
-@Injectable()
-export class NotificationsService {
-  private readonly logger = new Logger(NotificationsService.name);
+const SNOOZE_MAX_MS = 366 * 24 * 60 * 60 * 1000;
+/** Snoozed rows reappear automatically once `snoozed_until` passes. */
+const notSnoozed = (now = new Date()): SQL => or(isNull(notifications.snoozedUntil), lte(notifications.snoozedUntil, now))!;
 
-  constructor(private readonly database: DatabaseService, @Optional() private readonly mail?: MailService) {}
+/** The worker publishes user ids here (JSON array) after it creates notifications. Keep in sync with apps/worker. */
+export const NOTIFICATIONS_CHANNEL = 'reka:notifications';
+const HEARTBEAT_MS = 25_000; // below common proxy idle timeouts (nginx: 60s)
+
+@Injectable()
+export class NotificationsService implements OnModuleInit, OnModuleDestroy {
+  private readonly logger = new Logger(NotificationsService.name);
+  /** Emits a user id whenever that user's unread count may have changed. One listener per open stream, removed on close. */
+  private readonly unreadChanged = new EventEmitter().setMaxListeners(0);
+  private subscriber?: Redis;
+
+  constructor(private readonly database: DatabaseService, @Optional() private readonly mail?: MailService, @Optional() private readonly redis?: RedisService) {}
+
+  onModuleInit() {
+    let warned = false;
+    try { this.subscriber = this.redis?.getClient()?.duplicate(); }
+    catch (error) { this.logger.warn(`Live unread counts from the worker are unavailable: ${(error as Error).message}`); }
+    if (!this.subscriber) return;
+    this.subscriber.on('error', (error) => { if (!warned) this.logger.warn(`Live unread counts from the worker are unavailable: ${error.message}`); warned = true; });
+    this.subscriber.on('message', (_channel, message) => {
+      try { for (const userId of JSON.parse(message)) if (typeof userId === 'string') this.unreadChanged.emit('changed', userId); }
+      catch { /* ignore malformed messages */ }
+    });
+    this.subscriber.subscribe(NOTIFICATIONS_CHANNEL).catch(() => undefined);
+  }
+
+  onModuleDestroy() { this.subscriber?.disconnect(); }
+
+  private changed(userId: string) { this.unreadChanged.emit('changed', userId); }
+
+  /** SSE stream of `{ count }`: sent on connect, after every change for this user, and when a snoozed notification returns. */
+  unreadCountStream(userId: string): Observable<MessageEvent> {
+    return new Observable<MessageEvent>((subscriber) => {
+      let closed = false;
+      let wake: NodeJS.Timeout | undefined;
+      const push = async () => {
+        clearTimeout(wake);
+        try {
+          const { count } = await this.getUnreadCount(userId);
+          if (closed) return;
+          subscriber.next({ data: { count } });
+          const [next] = await this.database.db.select({ at: min(notifications.snoozedUntil) }).from(notifications)
+            .where(and(eq(notifications.userId, userId), eq(notifications.read, false), gt(notifications.snoozedUntil, new Date())));
+          // setTimeout overflows above ~24.8 days; re-arming on the next push covers longer snoozes.
+          if (next?.at && !closed) wake = setTimeout(() => void push(), Math.min(new Date(next.at).getTime() - Date.now() + 1000, 2 ** 31 - 1));
+        } catch (error) { if (!closed) subscriber.error(error); }
+      };
+      const onChanged = (changedUserId: string) => { if (changedUserId === userId) void push(); };
+      const heartbeat = setInterval(() => subscriber.next({ type: 'ping', data: '' }), HEARTBEAT_MS);
+      this.unreadChanged.on('changed', onChanged);
+      void push();
+      return () => { closed = true; clearTimeout(wake); clearInterval(heartbeat); this.unreadChanged.off('changed', onChanged); };
+    });
+  }
 
   async getPreferences(userId: string) {
     await requireWorkspace(this.database.db, userId);
@@ -33,9 +90,9 @@ export class NotificationsService {
     return saved.preferences;
   }
 
-  async findAll(userId: string, params?: { read?: boolean; type?: string; limit?: number }) {
+  async findAll(userId: string, params?: { read?: boolean; type?: string; limit?: number; snoozed?: boolean }) {
     const actor = await requireWorkspace(this.database.db, userId);
-    const conditions = [notificationScope(this.database.db, actor)];
+    const conditions = [notificationScope(this.database.db, actor), params?.snoozed ? gt(notifications.snoozedUntil, new Date()) : notSnoozed()];
     if (params?.read !== undefined) conditions.push(eq(notifications.read, params.read));
     if (params?.type && params.type !== 'all') conditions.push(eq(notifications.type, params.type));
 
@@ -52,7 +109,7 @@ export class NotificationsService {
     const unread = await this.database.db
       .select({ id: notifications.id })
       .from(notifications)
-      .where(and(notificationScope(this.database.db, actor), eq(notifications.read, false)));
+      .where(and(notificationScope(this.database.db, actor), eq(notifications.read, false), notSnoozed()));
     return { count: unread.length };
   }
 
@@ -64,6 +121,19 @@ export class NotificationsService {
       .where(and(eq(notifications.id, id), notificationScope(this.database.db, actor)))
       .returning();
     if (!updated) throw new NotFoundException(`Notification with ID "${id}" not found`);
+    this.changed(userId);
+    return updated;
+  }
+
+  async snooze(id: string, userId: string, until: string | null) {
+    const snoozedUntil = until === null ? null : new Date(until);
+    if (snoozedUntil && !(snoozedUntil.getTime() > Date.now())) throw new BadRequestException('Snooze time must be in the future');
+    if (snoozedUntil && snoozedUntil.getTime() > Date.now() + SNOOZE_MAX_MS) throw new BadRequestException('Snooze time must be within one year');
+    const actor = await requireWorkspace(this.database.db, userId);
+    const [updated] = await this.database.db.update(notifications).set({ snoozedUntil })
+      .where(and(eq(notifications.id, id), notificationScope(this.database.db, actor))).returning();
+    if (!updated) throw new NotFoundException(`Notification with ID "${id}" not found`);
+    this.changed(userId);
     return updated;
   }
 
@@ -74,6 +144,7 @@ export class NotificationsService {
       .set({ read: true })
       .where(and(notificationScope(this.database.db, actor), eq(notifications.read, false)))
       .returning({ id: notifications.id });
+    if (updated.length) this.changed(userId);
     return { success: true, count: updated.length };
   }
 
@@ -93,6 +164,7 @@ export class NotificationsService {
       .where(and(eq(notifications.id, id), notificationScope(this.database.db, actor)))
       .returning({ id: notifications.id });
     if (!deleted.length) throw new NotFoundException(`Notification with ID "${id}" not found`);
+    this.changed(userId);
     return { success: true };
   }
 
@@ -129,6 +201,7 @@ export class NotificationsService {
         metadata: dto.metadata || {},
       })
       .returning();
+    this.changed(userId);
     if (savedPreferences?.preferences?.emailNotifications) void this.emailNotification(userId, created);
     return created;
   }

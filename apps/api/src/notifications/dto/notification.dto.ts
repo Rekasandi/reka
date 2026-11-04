@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsOptional, IsBoolean } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsBoolean, IsDateString, ValidateIf } from 'class-validator';
 
 export class CreateNotificationDto {
   @IsString()
@@ -23,6 +23,11 @@ export class CreateNotificationDto {
 
 export class UpdateNotificationDto {
   @IsBoolean() @IsOptional() read?: boolean;
+}
+
+/** `until` null unsnoozes; future/1-year bounds are enforced in the service. */
+export class SnoozeNotificationDto {
+  @ValidateIf((_, value) => value !== null) @IsDateString() until!: string | null;
 }
 
 export class UpdateNotificationPreferencesDto {

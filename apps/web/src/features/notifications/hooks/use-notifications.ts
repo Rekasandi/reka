@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   getNotifications,
@@ -6,6 +7,7 @@ import {
   markAllNotificationsAsRead,
   clearReadNotifications,
   deleteNotification,
+  snoozeNotification,
   type GetNotificationsParams,
 } from '../api/notifications.api';
 import { toast } from '@reka/ui';
@@ -31,15 +33,34 @@ export function useNotifications(params?: GetNotificationsParams) {
   return useQuery({
     queryKey: [...NOTIFICATIONS_QUERY_KEY, params],
     queryFn: () => getNotifications(params),
-    refetchInterval: 15000, // Light polling every 15s for live inbox updates
   });
 }
 
+/** One shared Server-Sent Events connection per tab, opened by the first component that shows the unread count
+ * and closed when the last one unmounts (so the server-side listener is freed). Replaces polling. */
+let stream: { source: EventSource; users: number } | undefined;
+
 export function useUnreadCount() {
+  const queryClient = useQueryClient();
+  useEffect(() => {
+    if (!stream) {
+      const source = new EventSource('/api/notifications/unread-count/stream');
+      let first = true;
+      source.onmessage = (event) => {
+        queryClient.setQueryData(UNREAD_COUNT_QUERY_KEY, JSON.parse(event.data) as { count: number });
+        // Every later message means this user's notifications changed, so refresh any open inbox list.
+        if (!first) void queryClient.invalidateQueries({ queryKey: NOTIFICATIONS_QUERY_KEY, predicate: query => query.queryKey[1] !== 'unread-count' });
+        first = false;
+      };
+      stream = { source, users: 0 };
+    }
+    const current = stream;
+    current.users += 1;
+    return () => { current.users -= 1; if (!current.users) { current.source.close(); if (stream === current) stream = undefined; } };
+  }, [queryClient]);
   return useQuery({
     queryKey: UNREAD_COUNT_QUERY_KEY,
     queryFn: () => getUnreadCount(),
-    refetchInterval: 15000,
   });
 }
 
@@ -115,5 +136,17 @@ export function useDeleteNotification() {
         description: (err as Error).message,
       });
     },
+  });
+}
+
+export function useSnoozeNotification() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, until }: { id: string; until: Date | null }) => snoozeNotification(id, until),
+    onSuccess: (_, { until }) => {
+      queryClient.invalidateQueries({ queryKey: NOTIFICATIONS_QUERY_KEY });
+      toast.success(until ? 'Notification snoozed' : 'Notification unsnoozed');
+    },
+    onError: err => toast.error('Failed to snooze notification', { description: (err as Error).message }),
   });
 }

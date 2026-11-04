@@ -1,7 +1,7 @@
-import { Controller, Get, Post, Patch, Put, Delete, Param, Body, Query, Req } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Put, Delete, Param, Body, Query, Req, Sse } from '@nestjs/common';
 import type { Request } from 'express';
 import { NotificationsService } from './notifications.service';
-import { UpdateNotificationDto, UpdateNotificationPreferencesDto } from './dto/notification.dto';
+import { SnoozeNotificationDto, UpdateNotificationDto, UpdateNotificationPreferencesDto } from './dto/notification.dto';
 
 type AuthenticatedRequest = Request & { userId: string };
 
@@ -25,11 +25,13 @@ export class NotificationsController {
     @Query('read') read?: string,
     @Query('type') type?: string,
     @Query('limit') limit?: string,
+    @Query('snoozed') snoozed?: string,
   ) {
     return this.notificationsService.findAll(req.userId, {
       read: read !== undefined ? read === 'true' : undefined,
       type,
       limit: limit ? parseInt(limit, 10) : undefined,
+      snoozed: snoozed === 'true',
     });
   }
 
@@ -38,9 +40,20 @@ export class NotificationsController {
     return this.notificationsService.getUnreadCount(req.userId);
   }
 
+  /** Live unread count (replaces polling). EventSource sends the session cookie, so the normal auth guard applies. */
+  @Sse('unread-count/stream')
+  streamUnreadCount(@Req() req: AuthenticatedRequest) {
+    return this.notificationsService.unreadCountStream(req.userId);
+  }
+
   @Patch(':id/read')
   markAsRead(@Req() req: AuthenticatedRequest, @Param('id') id: string, @Body() dto: UpdateNotificationDto) {
     return this.notificationsService.markAsRead(id, req.userId, dto.read ?? true);
+  }
+
+  @Patch(':id/snooze')
+  snooze(@Req() req: AuthenticatedRequest, @Param('id') id: string, @Body() dto: SnoozeNotificationDto) {
+    return this.notificationsService.snooze(id, req.userId, dto.until);
   }
 
   @Post('mark-all-read')

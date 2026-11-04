@@ -9,9 +9,10 @@ import { processGithubWebhookDelivery } from './github-pr-event';
 export class GithubWebhookProcessor implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(GithubWebhookProcessor.name);
   private worker!: Worker;
+  private redis!: Redis;
 
   onModuleInit() {
-    const redis = process.env.REDIS_URL
+    const redis = this.redis = process.env.REDIS_URL
       ? new Redis(process.env.REDIS_URL, { maxRetriesPerRequest: null })
       : new Redis({
           host: process.env.REDIS_HOST || 'localhost',
@@ -34,7 +35,9 @@ export class GithubWebhookProcessor implements OnModuleInit, OnModuleDestroy {
     this.logger.log(`Processing event: ${event} (Event ID: ${eventId})`);
     const db = createDbClient(process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/reka');
     try {
-      await processGithubWebhookDelivery(db, { eventId: String(eventId || ''), event: String(event || ''), payload });
+      const notified = await processGithubWebhookDelivery(db, { eventId: String(eventId || ''), event: String(event || ''), payload });
+      // The API listens on this channel to push live unread counts (see NOTIFICATIONS_CHANNEL in apps/api).
+      if (notified.length) await this.redis.publish('reka:notifications', JSON.stringify(notified)).catch(error => this.logger.warn(`Unread count signal failed: ${error.message}`));
     } catch (error) {
       this.logger.error(`Error processing webhook job: ${(error as Error).message}`);
       throw error;

@@ -20,6 +20,7 @@ import {
   ExternalLink,
   X,
   Settings2,
+  AlarmClock,
 } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
@@ -31,15 +32,43 @@ import {
   useMarkAllAsRead,
   useClearRead,
   useDeleteNotification,
+  useSnoozeNotification,
 } from '../hooks/use-notifications';
 import { useIssues } from '../../issues/hooks/use-issues';
 import { useCreateComment } from '../../issues/hooks/use-issue-details';
 import { getIssueByIdentifier } from '../../issues/api/issues.api';
-import { STATUS_CONFIG } from '../../issues/components/status-picker';
+import { StatusIconOnly } from '../../issues/components/status-picker';
 import { PriorityIcon } from '../../issues/components/priority-picker';
 import { NotificationPreferencesDialog } from './notification-preferences-dialog';
 
-type FilterTab = 'all' | 'unread' | 'mentions' | 'assignments' | 'pr' | 'updates';
+type FilterTab = 'all' | 'unread' | 'mentions' | 'assignments' | 'pr' | 'updates' | 'snoozed';
+
+const at9 = (date: Date) => { date.setHours(9, 0, 0, 0); return date; };
+const SNOOZE_OPTIONS: { label: string; until: () => Date }[] = [
+  { label: '1 hour', until: () => new Date(Date.now() + 60 * 60 * 1000) },
+  { label: 'Tomorrow, 9:00', until: () => { const d = new Date(); d.setDate(d.getDate() + 1); return at9(d); } },
+  { label: 'Next week (Mon 9:00)', until: () => { const d = new Date(); d.setDate(d.getDate() + (((8 - d.getDay()) % 7) || 7)); return at9(d); } },
+];
+
+function SnoozeMenu({ item, className, onSnooze }: { item: Notification; className?: string; onSnooze: (until: Date | null) => void }) {
+  const snoozedUntil = item.snoozedUntil ? new Date(item.snoozedUntil) : null;
+  const isSnoozed = !!snoozedUntil && snoozedUntil.getTime() > Date.now();
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="icon-sm" aria-label={isSnoozed ? 'Snooze options' : 'Snooze notification'} title="Snooze" className={className} onClick={(e) => e.stopPropagation()}>
+          <AlarmClock className="size-3.5" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-52 text-xs" onClick={(e) => e.stopPropagation()}>
+        {isSnoozed && <DropdownMenuItem className="cursor-pointer" onClick={() => onSnooze(null)}>Unsnooze</DropdownMenuItem>}
+        {SNOOZE_OPTIONS.map((option) => (
+          <DropdownMenuItem key={option.label} className="cursor-pointer" onClick={() => onSnooze(option.until())}>{option.label}</DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
 
 export function InboxPage() {
   const navigate = useNavigate();
@@ -53,7 +82,8 @@ export function InboxPage() {
   const searchInputRef = React.useRef<HTMLInputElement>(null);
 
   // Notifications API hooks
-  const { data: notifications = [], isLoading, isError, refetch } = useNotifications();
+  const { data: notifications = [], isLoading, isError, refetch } = useNotifications(activeTab === 'snoozed' ? { snoozed: true } : undefined);
+  const snoozeMutation = useSnoozeNotification();
   const { data: unreadData } = useUnreadCount();
   const markAsReadMutation = useMarkAsRead();
   const markAllAsReadMutation = useMarkAllAsRead();
@@ -244,6 +274,7 @@ export function InboxPage() {
     { id: 'assignments', label: 'Assignments' },
     { id: 'pr', label: 'PRs & Git' },
     { id: 'updates', label: 'Updates' },
+    { id: 'snoozed', label: 'Snoozed' },
   ];
 
   // Helper for notification type icons & badges
@@ -535,10 +566,17 @@ export function InboxPage() {
                       <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">
                         {item.body}
                       </p>
+                      {activeTab === 'snoozed' && item.snoozedUntil && (
+                        <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
+                          <AlarmClock className="size-3" /> Returns {format(new Date(item.snoozedUntil), 'EEE MMM d, HH:mm')}
+                          <Button variant="link" size="auto" type="button" className="text-xs h-auto p-0 ml-1" onClick={(e) => { e.stopPropagation(); snoozeMutation.mutate({ id: item.id, until: null }); }}>Unsnooze</Button>
+                        </p>
+                      )}
                     </div>
 
                     {/* Hover action shortcuts */}
                     <div className="hidden group-hover:flex items-center gap-1 absolute right-2 top-2 bg-card/90 backdrop-blur-xs p-0.5 rounded-md border border-border shadow-xs">
+                      <SnoozeMenu item={item} className="size-5 text-muted-foreground" onSnooze={(until) => snoozeMutation.mutate({ id: item.id, until })} />
                       <Button variant="plain" size="auto"
                         type="button"
                         onClick={(e) => {
@@ -593,6 +631,7 @@ export function InboxPage() {
                 </div>
 
                 <div className="flex items-center gap-1.5">
+                  <SnoozeMenu item={selectedNotification} className="text-muted-foreground" onSnooze={(until) => snoozeMutation.mutate({ id: selectedNotification.id, until })} />
                   <Button
                     variant="ghost"
                     size="sm"
@@ -672,8 +711,8 @@ export function InboxPage() {
                           </div>
                           <span>•</span>
                           <div className="flex items-center gap-1.5">
-                            {STATUS_CONFIG[linkedIssue.status]?.renderIcon()}
-                            <span className="capitalize">{linkedIssue.status.replace('_', ' ')}</span>
+                            <StatusIconOnly status={linkedIssue.status} teamId={linkedIssue.teamId} />
+                            <span className={linkedIssue.statusLabel ? undefined : 'capitalize'}>{linkedIssue.statusLabel ?? linkedIssue.status.replace('_', ' ')}</span>
                           </div>
                           {linkedIssue.description && (
                             <>

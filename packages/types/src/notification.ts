@@ -9,6 +9,7 @@ export interface Notification {
   link?: string | null;
   read: boolean;
   metadata?: Record<string, any>;
+  snoozedUntil?: Date | string | null;
   createdAt: Date | string;
 }
 

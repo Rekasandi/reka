@@ -4,6 +4,8 @@ export interface GetNotificationsParams {
   read?: boolean;
   type?: string;
   limit?: number;
+  /** Only currently snoozed notifications (default list hides them). */
+  snoozed?: boolean;
 }
 
 export async function getNotifications(params?: GetNotificationsParams): Promise<Notification[]> {
@@ -11,6 +13,7 @@ export async function getNotifications(params?: GetNotificationsParams): Promise
   if (params?.read !== undefined) query.set('read', String(params.read));
   if (params?.type && params.type !== 'all') query.set('type', params.type);
   if (params?.limit) query.set('limit', String(params.limit));
+  if (params?.snoozed) query.set('snoozed', 'true');
 
   const url = `/api/notifications${query.toString() ? `?${query.toString()}` : ''}`;
   const res = await fetch(url);
@@ -69,5 +72,13 @@ export async function deleteNotification(id: string): Promise<{ success: boolean
   if (!res.ok) {
     throw new Error('Failed to delete notification');
   }
+  return res.json();
+}
+
+export async function snoozeNotification(id: string, until: Date | null): Promise<Notification> {
+  const res = await fetch(`/api/notifications/${id}/snooze`, {
+    method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ until: until?.toISOString() ?? null }),
+  });
+  if (!res.ok) throw new Error('Failed to snooze notification');
   return res.json();
 }

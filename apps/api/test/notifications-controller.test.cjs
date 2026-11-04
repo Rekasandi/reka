@@ -22,7 +22,7 @@ test('Inbox reads and mutations always use authenticated session user', () => {
   controller.delete(request, 'notification-id');
 
   deepEqual(calls, [
-    ['findAll', 'session-user', { read: undefined, type: undefined, limit: undefined }],
+    ['findAll', 'session-user', { read: undefined, type: undefined, limit: undefined, snoozed: false }],
     ['getUnreadCount', 'session-user'],
     ['markAsRead', 'notification-id', 'session-user', true],
     ['markAllAsRead', 'session-user'],

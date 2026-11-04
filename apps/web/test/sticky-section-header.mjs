@@ -21,6 +21,7 @@ try {
     else if (path === '/api/teams') body = [{ id: 't1', name: 'Test Team', key: 'T' }];
     else if (path === '/api/teams/t1') body = { id: 't1', name: 'Test Team', key: 'T' };
     else if (path === '/api/notifications/unread-count') body = { count: 0 };
+    else if (path === '/api/notifications/unread-count/stream') return route.fulfill({ contentType: 'text/event-stream', body: 'data: {"count":0}\n\n' });
     else if (path === '/api/workspace') body = { id: 'w1', name: 'Test Workspace', role: 'owner' };
     else if (!['/api/projects', '/api/users', '/api/cycles', '/api/labels', '/api/favorites', '/api/triage', '/api/teams/t1/workflow-states'].includes(path)) throw new Error(`Unexpected API request ${path}`);
     await route.fulfill({ json: body });
