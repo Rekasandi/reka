@@ -33,7 +33,7 @@ test('invitation and notification emails are sent only when configured, requeste
       { organizationId: org.id, userId: admin.id, role: 'admin' }, { organizationId: org.id, userId: member.id, role: 'member' },
     ]);
     const tokens = {};
-    for (const user of [admin, member]) { tokens[user.id] = randomUUID(); await postgres.db.insert(sessions).values({ id: tokens[user.id], userId: user.id, expiresAt: new Date(Date.now() + 60_000) }); }
+    for (const user of [admin, member]) { tokens[user.id] = randomUUID(); await postgres.db.insert(sessions).values({ token: tokens[user.id], userId: user.id, expiresAt: new Date(Date.now() + 60_000) }); }
     api = await createIsolatedApi(postgres, [MailModule, WorkspaceModule, NotificationsModule], [[MailService, mail]]);
     const request = (user, path, method = 'GET', body) => fetch(`${api.url}/api${path}`, {
       method, headers: { Authorization: `Bearer ${tokens[user.id]}`, 'Content-Type': 'application/json' }, ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
@@ -41,30 +41,25 @@ test('invitation and notification emails are sent only when configured, requeste
 
     // --- Invitations ---
     const invitee = `new-${randomUUID().slice(0, 6)}@example.test`;
-    equal((await request(member, '/workspace/invitations', 'POST', { email: invitee })).status, 403);
+    equal((await request(member, '/auth/organization/invite-member', 'POST', { email: invitee, role: 'member' })).status, 403);
     equal(mail.sent.length, 0, 'forbidden invites send nothing');
 
-    const created = await request(admin, '/workspace/invitations', 'POST', { email: invitee, role: 'member' });
-    equal(created.status, 201, await created.clone().text());
+    const created = await request(admin, '/auth/organization/invite-member', 'POST', { email: invitee, role: 'member' });
+    equal(created.status, 200, await created.clone().text());
     const invite = await created.json();
-    equal(invite.emailSent, true);
     equal(mail.sent.length, 1);
     equal(mail.sent[0].to, invitee);
-    ok(invite.url.startsWith('https://app.example.test/login?invite='), 'link uses WEB_URL');
-    ok(mail.sent[0].content.text.includes(invite.url) && mail.sent[0].content.html.includes(invite.url.replaceAll('&', '&amp;')), 'email carries the invitation link');
+    const url = `https://app.example.test/accept-invitation/${invite.id}`;
+    ok(mail.sent[0].content.text.includes(url) && mail.sent[0].content.html.includes(url), 'email carries the invitation link using WEB_URL');
     doesNotMatch(mail.sent[0].content.html, /<script>|<b>/, 'workspace/inviter names are HTML-escaped');
     match(mail.sent[0].content.html, /&lt;script&gt;/);
 
-    const noEmail = await (await request(admin, '/workspace/invitations', 'POST', { email: `quiet-${randomUUID().slice(0, 6)}@example.test`, sendEmail: false })).json();
-    equal(noEmail.emailSent, false); ok(noEmail.url); equal(mail.sent.length, 1, 'sendEmail:false sends nothing');
-
     mail.configured = false;
-    const unconfigured = await (await request(admin, '/workspace/invitations', 'POST', { email: `unconf-${randomUUID().slice(0, 6)}@example.test` })).json();
-    equal(unconfigured.emailSent, false); equal(unconfigured.emailError, 'Email is not configured'); ok(unconfigured.url, 'link still returned');
+    const unconfigured = await (await request(admin, '/auth/organization/invite-member', 'POST', { email: `unconf-${randomUUID().slice(0, 6)}@example.test`, role: 'member' })).json();
+    ok(unconfigured.id, 'the invitation exists even when email is off (the link is logged instead)'); equal(mail.sent.length, 1);
     mail.configured = true; mail.fail = true;
-    const failed = await request(admin, '/workspace/invitations', 'POST', { email: `fail-${randomUUID().slice(0, 6)}@example.test` });
-    equal(failed.status, 201, 'a mail failure never fails the invitation');
-    const failedBody = await failed.json(); equal(failedBody.emailSent, false); ok(failedBody.url);
+    const failed = await request(admin, '/auth/organization/invite-member', 'POST', { email: `fail-${randomUUID().slice(0, 6)}@example.test`, role: 'member' });
+    equal(failed.status, 200, 'a mail failure never fails the invitation');
     mail.fail = false;
 
     // --- Notification emails are opt-in ---

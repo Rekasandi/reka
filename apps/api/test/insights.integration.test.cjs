@@ -109,7 +109,7 @@ test('Insights API reports measured throughput/durations with scoped filters, pa
     const tokens = new Map();
     for (const user of [owner, member, outsider]) {
       const token = randomUUID(); tokens.set(user.id, token);
-      await db.insert(sessions).values({ id: token, userId: user.id, expiresAt: new Date(Date.now() + 86_400_000) });
+      await db.insert(sessions).values({ token: token, userId: user.id, expiresAt: new Date(Date.now() + 86_400_000) });
     }
     api = await createIsolatedApi(postgres, [InsightsModule]);
     const call = async (user, path) => fetch(`${api.url}/api${path}`, { headers: { authorization: `Bearer ${tokens.get(user.id)}` } });

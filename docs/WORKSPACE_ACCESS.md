@@ -1,5 +1,7 @@
 # Workspace access — implementation and verification
 
+> **Update 2026-11-04:** sign-in moved to Better Auth (email + password, magic links, GitHub) with open sign-up and multi-workspace memberships. The invitation, OAuth nonce and legacy demo/passkey details below describe the previous implementation; see [AUTH.md](AUTH.md) for the current model. Authorization (`workspace-access.ts`, roles, private teams) is unchanged except that the active workspace now comes from the session.
+
 Goal `mv6rv5a2-43ym1x`, milestone `workspace-access`. Its isolated HTTP/database and focused browser acceptance tests pass; W04 meets the scoped private-team acceptance, while W02 remains partial pending authorized live GitHub OAuth verification. No production-ready/live-provider claim is made. Staged code must not be deployed/restarted against the unmigrated existing database. The user authorized disposable demo/development Neon child validation, not production. The configured parent remains unmigrated and unchanged. No deployment, live invitation or GitHub write was performed.
 
 ## Implemented and locally verified

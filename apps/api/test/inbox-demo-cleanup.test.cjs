@@ -9,7 +9,7 @@ const inboxApi = readFileSync(resolve(__dirname, '../../../apps/web/src/features
 const inboxHooks = readFileSync(resolve(__dirname, '../../../apps/web/src/features/notifications/hooks/use-notifications.ts'), 'utf8');
 const notificationService = readFileSync(resolve(__dirname, '../src/notifications/notifications.service.ts'), 'utf8');
 const authController = readFileSync(resolve(__dirname, '../src/auth/auth.controller.ts'), 'utf8');
-const authService = readFileSync(resolve(__dirname, '../src/auth/auth.service.ts'), 'utf8');
+const authService = readFileSync(resolve(__dirname, '../src/auth/better-auth.ts'), 'utf8');
 const loginPage = readFileSync(resolve(__dirname, '../../../apps/web/src/features/auth/components/login-page.tsx'), 'utf8');
 const clientsController = readFileSync(resolve(__dirname, '../src/clients/clients.controller.ts'), 'utf8');
 const clientsService = readFileSync(resolve(__dirname, '../src/clients/clients.service.ts'), 'utf8');
@@ -38,12 +38,8 @@ test('Inbox has no demo controls or seed fallback', () => {
   doesNotMatch(notificationService, /seedDemo|seed-demo|auto-seed/i);
   // Legacy URLs remain explicit but cannot impersonate users or fabricate
   // passkey challenges. HTTP denial is also covered by workspace-identity tests.
-  const { AuthController } = require('../dist/auth/auth.controller');
-  const legacyAuth = new AuthController(null);
-  throws(() => legacyAuth.demoLogin(), error => error.getStatus() === 403);
-  throws(() => legacyAuth.getRegistrationOptions(), error => error.getStatus() === 501);
-  throws(() => legacyAuth.getLoginOptions(), error => error.getStatus() === 501);
-  doesNotMatch(authController, /mock-challenge|loginOrCreateDemoUser/i);
+  // Sign-in is Better Auth only: no demo login, no fabricated passkey challenges.
+  doesNotMatch(authController, /mock-challenge|loginOrCreateDemoUser|demo-login|passkey/i);
   doesNotMatch(authService, /loginOrCreateDemoUser|mock-challenge/i);
   doesNotMatch(loginPage, /demo-login|Continue with Email|Simulate/i);
   doesNotMatch(clientsController, /seed-demo|seedDemo/i);

@@ -16,7 +16,7 @@ import {
 } from '@reka/ui';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../../features/auth/hooks/use-auth';
-import { getWorkspace, WORKSPACE_QUERY_KEY } from '../../features/settings/api/workspace.api';
+import { WorkspaceSwitcher } from './workspace-switcher';
 import { useTeams } from '../../features/teams/hooks/use-teams';
 import { useUnreadCount } from '../../features/notifications/hooks/use-notifications';
 import { useFavorites } from '../../features/favorites/hooks/use-favorites';
@@ -65,7 +65,6 @@ export function AppSidebar() {
   const showTriage = teams.length === 0 || teams.some(team => team.triageEnabled !== false);
   const visibleMoreNav = moreNav.filter(item => (item.to !== '/cycles' || showCycles) && (item.to !== '/triage' || showTriage));
   const { data: unreadData } = useUnreadCount();
-  const { data: workspace } = useQuery({ queryKey: WORKSPACE_QUERY_KEY, queryFn: getWorkspace });
   const { data: favorites = [], isLoading: favoritesLoading, isError: favoritesError, refetch: retryFavorites } = useFavorites();
   const { data: triage } = useTriage();
   const role = useAuth().user?.role;
@@ -102,12 +101,7 @@ export function AppSidebar() {
 
   return <Sidebar collapsible="icon">
     <SidebarHeader>
-      <SidebarMenu><SidebarMenuItem><SidebarMenuButton asChild tooltip="Workspace home">
-        <Link to="/dashboard" aria-label="Workspace home">
-          <span className="flex size-6 shrink-0 items-center justify-center rounded-[4px] bg-primary text-xs font-semibold text-primary-foreground">R</span>
-          <span className="truncate font-semibold tracking-tight">{workspace?.name || 'REKA'}</span>
-        </Link>
-      </SidebarMenuButton></SidebarMenuItem></SidebarMenu>
+      <SidebarMenu><SidebarMenuItem><WorkspaceSwitcher /></SidebarMenuItem></SidebarMenu>
     </SidebarHeader>
 
     <SidebarContent className="reka-sidebar-nav">

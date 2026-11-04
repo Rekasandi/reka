@@ -1,51 +1,73 @@
 import * as React from 'react';
-import { Button, Alert } from '@reka/ui';
-import { useSearchParams } from 'react-router-dom';
-
-function GithubIcon({ className }: { className?: string }) {
-  return (
-    <svg role="img" viewBox="0 0 24 24" fill="currentColor" className={className || 'size-4'} xmlns="http://www.w3.org/2000/svg">
-      <path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12" />
-    </svg>
-  );
-}
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { Alert, AlertDescription, Button, Field, FieldGroup, FieldLabel, Input, Separator } from '@reka/ui';
+import { Mail } from 'lucide-react';
+import { authClient, authErrorMessage } from '../../../lib/auth-client';
+import { AuthLayout, GithubIcon, safeRedirect } from './auth-layout';
 
 export function LoginPage() {
   const [searchParams] = useSearchParams();
-  const error = searchParams.get('error');
-  const invitation = searchParams.get('invite');
-  const [isLoading, setIsLoading] = React.useState(false);
+  const navigate = useNavigate();
+  const redirect = safeRedirect(searchParams.get('redirect'));
+  const [email, setEmail] = React.useState('');
+  const [password, setPassword] = React.useState('');
+  const [pending, setPending] = React.useState<'password' | 'magic' | 'github' | null>(null);
+  const [error, setError] = React.useState<string | null>(searchParams.get('error'));
+  const [magicSent, setMagicSent] = React.useState(false);
+  const [unverified, setUnverified] = React.useState(false);
+
+  const signInWithPassword = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setPending('password'); setError(null); setUnverified(false);
+    const { error } = await authClient.signIn.email({ email: email.trim(), password });
+    setPending(null);
+    if (error) {
+      if (error.status === 403) { setUnverified(true); setError('Verify your email first. We just sent you a new verification link.'); }
+      else setError(authErrorMessage(error, 'Wrong email or password.'));
+      return;
+    }
+    navigate(redirect, { replace: true });
+  };
+  const sendMagicLink = async () => {
+    if (!email.trim()) { setError('Enter your email to receive a sign-in link.'); return; }
+    setPending('magic'); setError(null);
+    const { error } = await authClient.signIn.magicLink({ email: email.trim(), callbackURL: redirect, newUserCallbackURL: redirect.startsWith('/accept-invitation/') ? redirect : '/onboarding' });
+    setPending(null);
+    if (error) { setError(authErrorMessage(error)); return; }
+    setMagicSent(true);
+  };
+  const signInWithGithub = async () => {
+    setPending('github'); setError(null);
+    const { error } = await authClient.signIn.social({ provider: 'github', callbackURL: redirect, errorCallbackURL: '/login?error=GitHub%20sign-in%20failed.%20Try%20again.' });
+    if (error) { setPending(null); setError(authErrorMessage(error)); }
+  };
 
   return (
-    <main className="min-h-svh flex items-center justify-center bg-background p-6">
-      <section className="w-full max-w-sm flex flex-col gap-6">
-        <div className="flex items-center gap-2">
-          <div className="flex size-6 items-center justify-center rounded-[5px] bg-foreground text-background font-semibold text-xs">R</div>
-          <span className="font-semibold text-sm tracking-tight">REKA</span>
-        </div>
-        <div className="flex flex-col gap-1">
-          <h1 className="text-xl font-semibold tracking-[-0.03em]">{invitation ? 'Join your workspace' : 'Sign in'}</h1>
-          <p className="text-xs text-muted-foreground">{invitation ? 'Use the GitHub account with the verified email this invitation was sent to.' : 'Sign in with GitHub. New members need a workspace invitation.'}</p>
-        </div>
-        {error && (
-          <Alert className="rounded-none border-0 bg-transparent px-0 py-0 text-foreground rounded-md border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive text-center">
-            {error}
-          </Alert>
-        )}
-        <Button
-          type="button"
-          onClick={() => {
-            setIsLoading(true);
-            window.location.href = invitation ? `/api/auth/github?invite=${encodeURIComponent(invitation)}` : '/api/auth/github';
-          }}
-          disabled={isLoading}
-          className="w-full h-9 justify-center gap-2"
-        >
-          <GithubIcon className="size-4" />
-          <span>{isLoading ? 'Connecting...' : 'Continue with GitHub'}</span>
-        </Button>
-        <p className="text-xs text-muted-foreground">&copy; {new Date().getFullYear()} REKA Platform</p>
-      </section>
-    </main>
+    <AuthLayout title="Sign in" description={<>New to REKA? <Link to={`/signup${searchParams.get('redirect') ? `?redirect=${encodeURIComponent(redirect)}` : ''}`} className="text-foreground underline underline-offset-4">Create an account</Link></>}>
+      {error && <Alert variant="destructive" role="alert"><AlertDescription>{error}</AlertDescription></Alert>}
+      {magicSent ? (
+        <Alert role="status"><AlertDescription>Check <strong>{email.trim()}</strong> for a sign-in link. It works once and expires in 15 minutes.</AlertDescription></Alert>
+      ) : (
+        <form className="flex flex-col gap-4" onSubmit={signInWithPassword}>
+          <FieldGroup>
+            <Field>
+              <FieldLabel htmlFor="login-email">Email</FieldLabel>
+              <Input id="login-email" type="email" autoComplete="email" required value={email} onChange={event => setEmail(event.target.value)} />
+            </Field>
+            <Field>
+              <div className="flex items-center justify-between"><FieldLabel htmlFor="login-password">Password</FieldLabel><Link to="/forgot-password" className="text-xs text-muted-foreground underline-offset-4 hover:underline">Forgot password?</Link></div>
+              <Input id="login-password" type="password" autoComplete="current-password" required value={password} onChange={event => setPassword(event.target.value)} />
+            </Field>
+          </FieldGroup>
+          <Button type="submit" className="w-full" disabled={pending !== null}>{pending === 'password' ? 'Signing in…' : 'Sign in'}</Button>
+          {unverified && <Button type="button" variant="link" className="h-auto p-0 text-xs" onClick={() => authClient.sendVerificationEmail({ email: email.trim(), callbackURL: redirect })}>Resend verification email</Button>}
+        </form>
+      )}
+      <div className="flex items-center gap-3 text-xs text-muted-foreground"><Separator className="flex-1" />or<Separator className="flex-1" /></div>
+      <div className="flex flex-col gap-2">
+        <Button type="button" variant="outline" className="w-full justify-center gap-2" disabled={pending !== null || magicSent} onClick={sendMagicLink}><Mail className="size-4" />{pending === 'magic' ? 'Sending link…' : 'Email me a sign-in link'}</Button>
+        <Button type="button" variant="outline" className="w-full justify-center gap-2" disabled={pending !== null} onClick={signInWithGithub}><GithubIcon className="size-4" />{pending === 'github' ? 'Redirecting…' : 'Continue with GitHub'}</Button>
+      </div>
+    </AuthLayout>
   );
 }

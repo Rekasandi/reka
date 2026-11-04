@@ -26,7 +26,7 @@ async function fixture() {
       people[name] = user;
       if (role) await db.insert(organizationMembers).values({ organizationId: company.id, userId: user.id, role, isActive: active });
       tokens[name] = randomUUID();
-      await db.insert(sessions).values({ id: tokens[name], userId: user.id, expiresAt: new Date(Date.now() + 86400000) });
+      await db.insert(sessions).values({ token: tokens[name], userId: user.id, expiresAt: new Date(Date.now() + 86400000) });
     }
     const [publicTeam, privateTeam, foreignTeam] = await db.insert(teams).values([
       { organizationId: org.id, name: 'Public Engineering', key: 'PUB' },
@@ -89,7 +89,7 @@ test('valid sessions still require active single-workspace membership', { timeou
     for (const person of ['outsider', 'deactivated']) equal((await f.request(person, '/issues')).status, 403);
     await f.postgres.db.insert(organizationMembers).values({ organizationId: f.foreignOrg.id, userId: f.people.member.id, role: 'member' });
     equal((await f.request('member', '/issues')).status, 403, 'ambiguous workspace membership cannot choose first organization');
-    await f.postgres.db.update(sessions).set({ expiresAt: new Date(0) }).where(eq(sessions.id, f.tokens.admin));
+    await f.postgres.db.update(sessions).set({ expiresAt: new Date(0) }).where(eq(sessions.token, f.tokens.admin));
     equal((await f.request('admin', '/issues')).status, 401);
   } finally { await f.close(); }
 });

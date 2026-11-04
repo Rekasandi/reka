@@ -40,7 +40,7 @@ test('cycle schedule validation, measured capacity, atomic rollover and immutabl
     const tokens = {};
     for (const user of [owner, member, outsider]) {
       tokens[user.id] = randomUUID();
-      await postgres.db.insert(sessions).values({ id: tokens[user.id], userId: user.id, expiresAt: new Date(Date.now() + 60_000) });
+      await postgres.db.insert(sessions).values({ token: tokens[user.id], userId: user.id, expiresAt: new Date(Date.now() + 60_000) });
     }
     api = await createIsolatedApi(postgres, [CyclesModule]);
     const request = (user, path, method = 'GET', body) => fetch(`${api.url}/api${path}`, {

@@ -57,7 +57,7 @@ test('favorites and global search are persistent, bounded, and private-team scop
     const tokens = {};
     for (const user of [owner, admin, member, teammate, outsider]) {
       tokens[user.id] = randomUUID();
-      await postgres.db.insert(sessions).values({ id: tokens[user.id], userId: user.id, expiresAt: new Date(Date.now() + 60_000) });
+      await postgres.db.insert(sessions).values({ token: tokens[user.id], userId: user.id, expiresAt: new Date(Date.now() + 60_000) });
     }
     api = await createIsolatedApi(postgres, [FavoritesModule, SearchModule]);
     const request = (user, path, method = 'GET', body) => fetch(`${api.url}/api${path}`, {

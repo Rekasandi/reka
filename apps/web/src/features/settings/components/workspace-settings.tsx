@@ -21,7 +21,7 @@ export function WorkspaceSettings() {
   const revoke = useMutation({ mutationFn: revokeWorkspaceInvitation, onSuccess: () => { queryClient.invalidateQueries({ queryKey: INVITATIONS_QUERY_KEY }); toast.success('Invitation revoked'); } });
   return (
     <Card id="workspace">
-      <CardHeader><CardTitle>Workspace</CardTitle><CardDescription>Company settings and GitHub-bound invitations. Owners and admins manage access.</CardDescription></CardHeader>
+      <CardHeader><CardTitle>Workspace</CardTitle><CardDescription>Workspace name and email invitations. Owners and admins manage access.</CardDescription></CardHeader>
       <CardContent className="flex min-w-0 flex-col gap-6">
         {workspace.isLoading && <Skeleton className="h-16 w-full" />}
         {workspace.isError && <Alert variant="destructive"><AlertDescription>Could not load your workspace. <Button variant="outline" size="sm" onClick={() => workspace.refetch()}>Retry workspace</Button></AlertDescription></Alert>}
@@ -48,11 +48,11 @@ export function WorkspaceSettings() {
             {invitations.isLoading && <Skeleton className="h-16 w-full" />}
             {invitations.isError && <Alert variant="destructive"><AlertDescription>Could not load invitations. <Button variant="outline" size="sm" onClick={() => invitations.refetch()}>Retry invitations</Button></AlertDescription></Alert>}
             {revoke.isError && <Alert variant="destructive"><AlertDescription>{revoke.error.message}</AlertDescription></Alert>}
-            {invitations.data?.length === 0 && <p className="text-sm text-muted-foreground">No invitations yet. Create a link and share it directly with a teammate.</p>}
+            {invitations.data?.length === 0 && <p className="text-sm text-muted-foreground">No invitations yet. Invite a teammate by email.</p>}
             <div className="flex flex-col divide-y divide-border">
               {invitations.data?.map(invitation => {
                 const expired = new Date(invitation.expiresAt).getTime() <= Date.now();
-                const status = invitation.acceptedAt ? 'Accepted' : invitation.revokedAt ? 'Revoked' : expired ? 'Expired' : 'Pending';
+                const status = invitation.status === 'accepted' ? 'Accepted' : invitation.status === 'canceled' ? 'Revoked' : invitation.status === 'rejected' ? 'Declined' : expired ? 'Expired' : 'Pending';
                 return <div key={invitation.id} className="flex min-w-0 flex-wrap items-center justify-between gap-3 py-3"><div className="flex min-w-0 flex-1 flex-col gap-1"><span className="break-all text-sm">{invitation.email}</span><span className="text-xs text-muted-foreground">{invitation.role} · Expires {new Date(invitation.expiresAt).toLocaleDateString()}</span></div><Badge variant="outline">{status}</Badge>{status === 'Pending' && <Button variant="outline" size="sm" disabled={revoke.isPending} aria-label={`Revoke invitation for ${invitation.email}`} onClick={() => revoke.mutate(invitation.id)}>{revoke.isPending && revoke.variables === invitation.id ? 'Revoking…' : 'Revoke'}</Button>}</div>;
               })}
             </div>

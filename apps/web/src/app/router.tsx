@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { createBrowserRouter, Navigate, useRouteError, Link } from 'react-router-dom';
+import { createBrowserRouter, Navigate, useLocation, useRouteError, Link } from 'react-router-dom';
 import { useAuth } from '../features/auth/hooks/use-auth';
 import { Button } from '@reka/ui';
 import { AlertCircle, RotateCcw } from 'lucide-react';
@@ -24,12 +24,36 @@ import { SettingsPage } from '../features/settings/components/settings-page';
 import { FavoritesPage } from '../features/favorites/components/favorites-page';
 import { InsightsPage } from '../features/insights/components/insights-page';
 import { LoginPage } from '../features/auth/components/login-page';
+import { SignupPage } from '../features/auth/components/signup-page';
+import { ForgotPasswordPage, ResetPasswordPage } from '../features/auth/components/password-pages';
+import { OnboardingPage } from '../features/auth/components/onboarding-page';
+import { AcceptInvitationPage } from '../features/auth/components/accept-invitation-page';
+import { WorkspaceLinkPage } from '../features/auth/components/workspace-link-page';
 import { NotFoundPage } from '../features/common/components/not-found-page';
 
+/** Signed in AND working in a workspace; otherwise sign in or finish onboarding first. */
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { user, isLoading } = useAuth();
+  const location = useLocation();
   if (isLoading) return null;
-  return isAuthenticated ? children : <Navigate to="/login" replace />;
+  if (!user) return <Navigate to={`/login?redirect=${encodeURIComponent(location.pathname + location.search)}`} replace />;
+  // The API always sends `workspace` (null = none yet); fixtures that omit the key are left alone.
+  if (user.workspace === null) return <Navigate to="/onboarding" replace />;
+  return children;
+}
+
+/** Sign-in pages bounce an already signed-in user into the app. */
+function PublicOnly({ children }: { children: React.ReactNode }) {
+  const { user, isLoading } = useAuth();
+  if (isLoading) return null;
+  return user ? <Navigate to={user.workspace === null ? '/onboarding' : '/'} replace /> : children;
+}
+
+function SignedInOnly({ children }: { children: React.ReactNode }) {
+  const { user, isLoading } = useAuth();
+  const location = useLocation();
+  if (isLoading) return null;
+  return user ? children : <Navigate to={`/login?redirect=${encodeURIComponent(location.pathname + location.search)}`} replace />;
 }
 
 function RouteErrorBoundary() {
@@ -60,11 +84,13 @@ function RouteErrorBoundary() {
 }
 
 export const router = createBrowserRouter([
-  {
-    path: '/login',
-    element: <LoginPage />,
-    errorElement: <RouteErrorBoundary />,
-  },
+  { path: '/login', element: <PublicOnly><LoginPage /></PublicOnly>, errorElement: <RouteErrorBoundary /> },
+  { path: '/signup', element: <PublicOnly><SignupPage /></PublicOnly>, errorElement: <RouteErrorBoundary /> },
+  { path: '/forgot-password', element: <PublicOnly><ForgotPasswordPage /></PublicOnly>, errorElement: <RouteErrorBoundary /> },
+  { path: '/reset-password', element: <ResetPasswordPage />, errorElement: <RouteErrorBoundary /> },
+  { path: '/onboarding', element: <SignedInOnly><OnboardingPage /></SignedInOnly>, errorElement: <RouteErrorBoundary /> },
+  { path: '/accept-invitation/:id', element: <AcceptInvitationPage />, errorElement: <RouteErrorBoundary /> },
+  { path: '/w/:slug/*', element: <WorkspaceLinkPage />, errorElement: <RouteErrorBoundary /> },
   {
     path: '/',
     element: <ProtectedRoute><AppLayout /></ProtectedRoute>,

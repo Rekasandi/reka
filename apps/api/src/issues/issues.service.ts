@@ -9,7 +9,7 @@ import { CreateIssueDto } from './dto/create-issue.dto';
 import { UpdateIssueDto } from './dto/update-issue.dto';
 import { UpdateIssuesBulkDto } from './dto/update-issues-bulk.dto';
 import { CreateIssueRelationDto } from './dto/create-issue-relation.dto';
-import { GITHUB_USER_TOKENS } from '../auth/auth.service';
+import { githubTokenFor } from '../auth/github-token';
 import { getIssueNotificationRecipients } from './issue-notification-recipients';
 import { getIssueStatusCategory, loadIssueStatusCategories } from './issue-status';
 import { IssueSubscriptionsService } from '../issue-subscriptions/issue-subscriptions.service';
@@ -370,10 +370,10 @@ export class IssuesService {
         .where(and(eq(projectRepositories.projectId, issue.projectId), repositoryScope(this.database.db, actor))).limit(1);
       if (!linked) return;
       const repo = linked.repo;
-      const token = GITHUB_USER_TOKENS.get(userId) || process.env.GITHUB_TOKEN;
+      const token = await githubTokenFor(this.database.db, userId);
 
       if (!token) {
-        this.logger.warn('No active GitHub OAuth token available. Re-login via GitHub or set GITHUB_TOKEN in .env to enable auto-sync.');
+        this.logger.warn('No GitHub token available. Sign in with GitHub or set GITHUB_TOKEN in .env to enable auto-sync.');
         return;
       }
 

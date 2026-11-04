@@ -1,4 +1,4 @@
-const { insertLegacyTeam } = require('./support/legacy-team.cjs');
+const { insertLegacyTeam, insertLegacyOrganization, insertLegacyUsers, insertLegacyMembers } = require('./support/legacy-team.cjs');
 const { equal } = require('node:assert/strict');
 const { test } = require('node:test');
 const { mkdtempSync, mkdirSync, copyFileSync, readFileSync, writeFileSync, rmSync } = require('node:fs');
@@ -24,11 +24,11 @@ test('collaboration migration preserves legacy comments, attachment locations an
     pg = new PGlite(); await pg.waitReady;
     const db = drizzle(pg, { schema: require('@reka/database') });
     await migrate(db, { migrationsFolder: staged });
-    const [org] = await db.insert(organizations).values({ name: 'Legacy collaboration', slug: `legacy-collab-${randomUUID()}` }).returning();
-    const [owner, member] = await db.insert(users).values([
+    const org = await insertLegacyOrganization(db, { name: 'Legacy collaboration', slug: `legacy-collab-${randomUUID()}` });
+    const [owner, member] = await insertLegacyUsers(db, [
       { name: 'Legacy owner', email: `legacy-owner-${randomUUID()}@example.test` },
       { name: 'Legacy member', email: `legacy-member-${randomUUID()}@example.test` },
-    ]).returning();
+    ]);
     const team = await insertLegacyTeam(db, { organizationId: org.id, name: 'Legacy team', key: `L${randomUUID().replaceAll('-', '').slice(0, 6)}` });
     const issueId = randomUUID(); const commentId = randomUUID(); const attachmentId = randomUUID(); const notificationId = randomUUID();
     await db.execute(sql`INSERT INTO issues (id, identifier, number, title, team_id, reporter_id, status) VALUES (${issueId}::uuid, ${`${team.key}-1`}, 1, 'Legacy issue', ${team.id}::uuid, ${owner.id}::uuid, 'todo')`);

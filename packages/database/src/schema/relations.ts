@@ -1,5 +1,5 @@
 import { relations } from 'drizzle-orm';
-import { users, userCredentials, sessions } from './users';
+import { users, accounts, sessions } from './users';
 import { organizations, organizationMembers } from './organizations';
 import { teams, teamMembers } from './teams';
 import { clients, clientContacts } from './clients';
@@ -20,7 +20,7 @@ import {
 } from './github';
 
 export const usersRelations = relations(users, ({ many, one }) => ({
-  credentials: many(userCredentials),
+  accounts: many(accounts),
   sessions: many(sessions),
   organizationMemberships: many(organizationMembers),
   teamMemberships: many(teamMembers),

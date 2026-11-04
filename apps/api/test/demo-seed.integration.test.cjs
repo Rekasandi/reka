@@ -21,7 +21,7 @@ test('demo seeding persists connected fixtures, preserves real work and does not
     const [realTeam] = await postgres.db.insert(schema.teams).values({ name: 'Real team', key: 'REAL', organizationId: org.id }).returning();
     const [realIssue] = await postgres.db.insert(schema.issues).values({ title: 'Preserve this real work', teamId: realTeam.id, reporterId: owner.id, identifier: 'REAL-1', number: 1 }).returning();
     const token = randomUUID();
-    await postgres.db.insert(schema.sessions).values({ id: token, userId: owner.id, expiresAt: new Date(Date.now() + 3600000) });
+    await postgres.db.insert(schema.sessions).values({ token, userId: owner.id, expiresAt: new Date(Date.now() + 3600000) });
     const modules = ['auth', 'issues', 'teams', 'users', 'clients', 'projects', 'cycles', 'documents', 'triage', 'favorites', 'comments', 'attachments', 'notifications', 'labels', 'issue-subscriptions'].map(name => Object.values(require(`../dist/${name}/${name}.module`))[0]);
     api = await createIsolatedApi(postgres, modules);
     const { seedDemo } = await import('../../../scripts/seed-demo.mjs');

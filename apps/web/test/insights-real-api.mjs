@@ -30,7 +30,7 @@ try {
   const now = new Date(); const [cycle] = await postgres.db.insert(cycles).values({ teamId: team.id, number: 1, name: 'Recorded cycle', startDate: new Date(now.getTime() - 14 * 86400000), endDate: new Date(now.getTime() + 86400000), isCompleted: true }).returning();
   const [issue] = await postgres.db.insert(issues).values({ identifier: `${team.key}-1`, number: 1, title: 'Completed reporting issue', status: 'shipped', priority: 'high', teamId: team.id, projectId: project.id, reporterId: owner.id }).returning();
   await postgres.db.insert(cycleSnapshots).values({ cycleId: cycle.id, snapshotAt: now, totalIssueCount: 3, completedIssueCount: 2, remainingIssueCount: 1, plannedEstimate: 8, completedEstimate: 5, remainingEstimate: 3, missingEstimateCount: 1 });
-  const token = randomUUID(); await postgres.db.insert(sessions).values({ id: token, userId: owner.id, expiresAt: new Date(Date.now() + 86400000) });
+  const token = randomUUID(); await postgres.db.insert(sessions).values({ token: token, userId: owner.id, expiresAt: new Date(Date.now() + 86400000) });
   api = await createIsolatedApi(postgres, modules);
   browser = await chromium.launch({ ...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE } : {}) });
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 } }); page.setDefaultTimeout(5_000);
@@ -46,10 +46,8 @@ try {
   await page.route('**/src/app/main.tsx*', async route => {
     const original = await (await route.fetch()).text(); const version = original.match(/react\.js(\?v=[\w]+)/)?.[1] ?? '';
     await route.fulfill({ contentType: 'application/javascript', body: `
-      import React from '/node_modules/.vite/deps/react.js${version}';
-      import ReactDOM from '/node_modules/.vite/deps/react-dom_client.js${version}';
-      import { QueryClient, QueryClientProvider } from '/node_modules/.vite/deps/@tanstack_react-query.js${version}';
-      import { MemoryRouter, Routes, Route } from '/node_modules/.vite/deps/react-router-dom.js${version}';
+      import { React, ReactDOM, QueryClient, QueryClientProvider, MemoryRouter, Routes, Route } from '/src/test-support/vendor.ts';
+      
       import { TooltipProvider } from '/@fs${ui}';
       import { ThemeProvider } from '/src/components/theme/theme-provider.tsx';
       import { InsightsPage } from '/src/features/insights/components/insights-page.tsx';

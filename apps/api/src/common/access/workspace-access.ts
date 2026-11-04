@@ -6,6 +6,7 @@ import {
 } from '@reka/database';
 import { and, eq, exists, inArray, isNull, notExists, or, sql, type SQL } from 'drizzle-orm';
 import type { UserRole } from '@reka/types';
+import { AsyncLocalStorage } from 'node:async_hooks';
 
 export type WorkspaceRole = UserRole;
 export interface WorkspaceActor {
@@ -13,16 +14,24 @@ export interface WorkspaceActor {
   organizationId: string;
   role: WorkspaceRole;
 }
+const WORKSPACE_ROLES: readonly string[] = ['owner', 'admin', 'member', 'guest', 'client'];
 
-// Membership, not users.role or a valid session alone, grants company access.
-// Explicit actor arguments avoid ambient/session state on the Neon HTTP driver.
+/** Per-request context set by the session middleware: who is signed in and which workspace they are working in. */
+export const requestContext = new AsyncLocalStorage<{ userId?: string; organizationId: string | null; actor?: WorkspaceActor }>();
+
+// Membership, not users.role or a valid session alone, grants workspace access. A user can belong to several
+// workspaces; the active one comes from the session (request context). Explicit actor arguments avoid
+// ambient/session state on the Neon HTTP driver.
 export async function requireWorkspace(db: DbClient, userId: string): Promise<WorkspaceActor> {
+  const context = requestContext.getStore();
+  if (context?.actor && context.actor.userId === userId) return context.actor;
+  const inWorkspace = context?.organizationId ? [eq(organizationMembers.organizationId, context.organizationId)] : [];
   const memberships = await db.select().from(organizationMembers)
-    .where(and(eq(organizationMembers.userId, userId), eq(organizationMembers.isActive, true))).limit(2);
+    .where(and(eq(organizationMembers.userId, userId), eq(organizationMembers.isActive, true), ...inWorkspace)).limit(2);
   const member = memberships[0];
-  if (memberships.length !== 1 || !member || !['owner', 'admin', 'member', 'guest', 'client'].includes(member.role)) {
-    throw new ForbiddenException('Active membership in the company workspace is required');
-  }
+  if (!member || !WORKSPACE_ROLES.includes(member.role)) throw new ForbiddenException('Active membership in this workspace is required');
+  // Outside a request (worker, tests) a user with one workspace needs no selection; several are ambiguous.
+  if (!context?.organizationId && memberships.length !== 1) throw new ForbiddenException('Select a workspace first');
   return { userId, organizationId: member.organizationId, role: member.role as WorkspaceRole };
 }
 

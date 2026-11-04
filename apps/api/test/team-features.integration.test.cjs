@@ -30,7 +30,7 @@ test('estimate scale, estimates switch and cycles switch are enforced per team',
     const DAY = 86_400_000;
     const [cycle] = await postgres.db.insert(cycles).values({ teamId: team.id, number: 1, startDate: new Date(Date.now() - DAY), endDate: new Date(Date.now() + 6 * DAY) }).returning();
     const tokens = {};
-    for (const user of [owner, member]) { tokens[user.id] = randomUUID(); await postgres.db.insert(sessions).values({ id: tokens[user.id], userId: user.id, expiresAt: new Date(Date.now() + 60_000) }); }
+    for (const user of [owner, member]) { tokens[user.id] = randomUUID(); await postgres.db.insert(sessions).values({ token: tokens[user.id], userId: user.id, expiresAt: new Date(Date.now() + 60_000) }); }
     api = await createIsolatedApi(postgres, [IssuesModule, TeamsModule, CyclesModule]);
     const request = (user, path, method = 'GET', body) => fetch(`${api.url}/api${path}`, {
       method, headers: { Authorization: `Bearer ${tokens[user.id]}`, 'Content-Type': 'application/json' }, ...(body !== undefined ? { body: JSON.stringify(body) } : {}),

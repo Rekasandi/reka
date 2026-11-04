@@ -9,7 +9,7 @@ const { eq } = require('drizzle-orm');
 const { organizations, organizationMembers, users, teams, teamMembers, sessions, issues, activities, issueRelations, issueTemplates, teamWorkflowStates } = require('@reka/database');
 const { TriageModule } = require('../dist/triage/triage.module');
 const { TeamsModule } = require('../dist/teams/teams.module');
-const { insertLegacyTeam, insertLegacyIssue } = require('./support/legacy-team.cjs');
+const { insertLegacyTeam, insertLegacyIssue, insertLegacyOrganization, insertLegacyUsers, insertLegacyMembers } = require('./support/legacy-team.cjs');
 const { createPersistentPostgres } = require('./support/persistent-postgres.cjs');
 const { createIsolatedApi } = require('./support/isolated-api.cjs');
 
@@ -50,7 +50,7 @@ test('internal intake templates validate and persist; triage routes, declines an
     const tokens = {};
     for (const user of [owner, lead, member, guest, outsider]) {
       tokens[user.id] = randomUUID();
-      await postgres.db.insert(sessions).values({ id: tokens[user.id], userId: user.id, expiresAt: new Date(Date.now() + 60_000) });
+      await postgres.db.insert(sessions).values({ token: tokens[user.id], userId: user.id, expiresAt: new Date(Date.now() + 60_000) });
     }
     api = await createIsolatedApi(postgres, [TriageModule, TeamsModule]);
     const request = (user, path, method = 'GET', body) => fetch(`${api.url}/api${path}`, {
@@ -157,8 +157,8 @@ test('triage migration preserves existing custom workflow states and issue rows 
   const postgres = await createPersistentPostgres({ migrationsFolder });
   try {
     const suffix = randomUUID().replaceAll('-', '').slice(0, 8).toLowerCase();
-    const [org] = await postgres.db.insert(organizations).values({ name: 'Legacy workflow', slug: `legacy-${suffix}` }).returning();
-    const [owner] = await postgres.db.insert(users).values({ name: 'Legacy owner', email: `legacy-${suffix}@example.test`, role: 'owner' }).returning();
+    const org = await insertLegacyOrganization(postgres.db, { name: 'Legacy workflow', slug: `legacy-${suffix}` });
+    const [owner] = await insertLegacyUsers(postgres.db, [{ name: 'Legacy owner', email: `legacy-${suffix}@example.test`, role: 'owner' }]);
     const team = await insertLegacyTeam(postgres.db, { organizationId: org.id, name: 'Legacy team', key: `L${suffix.slice(0, 4).toUpperCase()}` });
     await postgres.db.insert(teamWorkflowStates).values([
       { teamId: team.id, key: 'qa', name: 'Quality assurance', category: 'started', color: '#123456', position: 8, isActive: true },

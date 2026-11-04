@@ -1,5 +1,5 @@
-// Focused real Users/Workspace/Login surfaces -> actual Nest -> isolated Postgres.
-// GitHub authorization/profile responses are contract fixtures, never live proof.
+// Focused real Users/Workspace/sign-in surfaces -> actual Nest (Better Auth) -> isolated Postgres.
+// Email is a capturing stub; the invited person signs up with a magic link, no provider is contacted.
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
@@ -9,16 +9,17 @@ const { createPersistentPostgres } = require('./persistent-postgres.cjs');
 const { createIsolatedApi } = require('./isolated-api.cjs');
 const { users, organizations, organizationMembers, sessions, workspaceInvitations } = require('@reka/database');
 const { eq } = require('drizzle-orm');
-const modules = ['users', 'workspace', 'auth', 'teams', 'issues', 'projects', 'cycles'].map(name => Object.values(require(`../../dist/${name}/${name}.module`))[0]);
+const modules = ['users', 'workspace', 'teams', 'issues', 'projects', 'cycles', 'mail'].map(name => Object.values(require(`../../dist/${name}/${name}.module`))[0]);
+const { MailService } = require('../../dist/mail/mail.service');
 const ui = fileURLToPath(new URL('../../../packages/ui/src/index.ts', import.meta.url));
 const playwright = await import(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const { chromium } = playwright.chromium ? playwright : playwright.default;
 const url = process.env.WEB_URL || 'http://localhost:5173';
 const savedFetch = global.fetch;
-const savedEnv = { GITHUB_CLIENT_ID: process.env.GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET: process.env.GITHUB_CLIENT_SECRET, WEB_URL: process.env.WEB_URL };
-process.env.GITHUB_CLIENT_ID = 'isolated-browser-client';
-process.env.GITHUB_CLIENT_SECRET = 'isolated-browser-secret';
+const savedEnv = { WEB_URL: process.env.WEB_URL };
 process.env.WEB_URL = url;
+const mail = { sent: [], isConfigured: () => true, async send(to, content) { mail.sent.push({ to, content }); return { sent: true }; } };
+const lastMailLink = () => mail.sent.at(-1).content.text.match(/https?:\/\/\S+/g).find(link => link.includes('token=') || link.includes('accept-invitation'));
 const postgres = await createPersistentPostgres();
 let api, browser;
 try {
@@ -29,22 +30,13 @@ try {
     people[name] = user;
     await postgres.db.insert(organizationMembers).values({ organizationId: org.id, userId: user.id, role });
     tokens[name] = randomUUID();
-    await postgres.db.insert(sessions).values({ id: tokens[name], userId: user.id, expiresAt: new Date(Date.now() + 86400000) });
+    await postgres.db.insert(sessions).values({ token: tokens[name], userId: user.id, expiresAt: new Date(Date.now() + 86400000) });
   }
-  api = await createIsolatedApi(postgres, modules);
-  global.fetch = async (input, options = {}) => {
-    const target = String(input);
-    if (target === 'https://github.com/login/oauth/access_token') return Response.json({ access_token: 'isolated-browser-provider-token' });
-    if (target === 'https://api.github.com/user') return Response.json({ id: 900001, login: 'joined-person', name: 'Joined Person', avatar_url: null });
-    if (target === 'https://api.github.com/user/emails') return Response.json([{ email: 'joined@example.test', verified: true, primary: false }]);
-    if (target.startsWith('https://api.github.com/') || target.startsWith('https://github.com/')) throw new Error('Unexpected external provider request');
-    return savedFetch(input, options);
-  };
+  api = await createIsolatedApi(postgres, modules, [[MailService, mail]]);
   browser = await chromium.launch({ ...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE } : {}) });
   const errors = [], requests = [], networkFailures = [];
   async function pageFor(who) {
     const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
-    if (who) await context.addCookies([{ name: 'reka_session', value: tokens[who], url, httpOnly: true, sameSite: 'Lax' }]);
     const page = await context.newPage();
     page.on('pageerror', error => { errors.push(error.message); console.error('Browser error:', error.message); });
     page.on('requestfailed', request => networkFailures.push(new URL(request.url()).pathname));
@@ -53,33 +45,26 @@ try {
       if (!target.pathname.startsWith('/api/')) return route.continue();
       requests.push(`${request.method()} ${target.pathname}`);
       // Preserve actual response bodies/Set-Cookie headers; no API response mocks.
-      const response = await route.fetch({ url: `${api.url}${target.pathname}${target.search}`, headers: await request.allHeaders(), maxRedirects: 0 });
+      // Seeded people authenticate with a bearer session; the invited person gets a real cookie from the API.
+      const headers = { ...await request.allHeaders(), ...(who ? { authorization: `Bearer ${tokens[who]}` } : {}) };
+      const response = await route.fetch({ url: `${api.url}${target.pathname}${target.search}`, headers, maxRedirects: 0 });
       if (response.status() >= 400 && target.pathname !== '/api/auth/me') console.error('API rejection:', request.method(), target.pathname, response.status());
-      if (target.pathname === '/api/auth/github' && response.status() === 302) {
-        // Replay only the external authorization handoff. Playwright cannot
-        // intercept subsequent URLs in a redirected navigation reliably.
-        // Both nonce issuance and callback/session responses remain actual Nest.
-        const state = new URL(response.headers().location).searchParams.get('state');
-        const cookie = response.headersArray().find(header => header.name.toLowerCase() === 'set-cookie').value.split(';')[0];
-        const callback = await context.request.get(`${api.url}/api/auth/github/callback?code=controlled-contract-code&state=${state}`, { headers: { Cookie: cookie }, maxRedirects: 0 });
-        return route.fulfill({ response: callback });
-      }
       return route.fulfill({ response });
     });
-    await context.route('https://github.com/**', route => route.abort());
     await page.route('**/src/app/main.tsx*', async route => {
       const original = await (await route.fetch()).text();
       const version = original.match(/react\.js(\?v=[\w]+)/)?.[1] ?? '';
       return route.fulfill({ contentType: 'application/javascript', body: `
-        import React from '/node_modules/.vite/deps/react.js${version}';
-        import ReactDOM from '/node_modules/.vite/deps/react-dom_client.js${version}';
-        import { QueryClient, QueryClientProvider } from '/node_modules/.vite/deps/@tanstack_react-query.js${version}';
-        import { BrowserRouter, Routes, Route } from '/node_modules/.vite/deps/react-router-dom.js${version}';
+        import { React, ReactDOM, QueryClient, QueryClientProvider, BrowserRouter, Routes, Route } from '/src/test-support/vendor.ts';
+        
         import { TooltipProvider, Toaster } from '/@fs${ui}';
         import { ThemeProvider } from '/src/components/theme/theme-provider.tsx';
         import { UsersPage } from '/src/features/users/components/users-page.tsx';
         import { WorkspaceSettings } from '/src/features/settings/components/workspace-settings.tsx';
         import { LoginPage } from '/src/features/auth/components/login-page.tsx';
+        import { SignupPage } from '/src/features/auth/components/signup-page.tsx';
+        import { AcceptInvitationPage } from '/src/features/auth/components/accept-invitation-page.tsx';
+        import { OnboardingPage } from '/src/features/auth/components/onboarding-page.tsx';
         import { TeamsPage } from '/src/features/teams/components/teams-page.tsx';
         import { TeamDetailPage } from '/src/features/teams/components/team-detail-page.tsx';
         import { TeamsSettings } from '/src/features/settings/components/teams-settings.tsx';
@@ -87,6 +72,9 @@ try {
         await (window.__testQueryClient ??= new QueryClient({ defaultOptions: { queries: { retry: false } } })).fetchQuery({ queryKey: ['auth', 'me'], queryFn: () => fetch('/api/auth/me').then(r => r.ok ? r.json() : null), staleTime: 0 });
         const surface = React.createElement(Routes, null,
           React.createElement(Route, { path: '/login', element: React.createElement(LoginPage) }),
+          React.createElement(Route, { path: '/signup', element: React.createElement(SignupPage) }),
+          React.createElement(Route, { path: '/accept-invitation/:id', element: React.createElement(AcceptInvitationPage) }),
+          React.createElement(Route, { path: '/onboarding', element: React.createElement(OnboardingPage) }),
           React.createElement(Route, { path: '/teams', element: React.createElement(TeamsPage) }),
           React.createElement(Route, { path: '/teams/:id', element: React.createElement(TeamDetailPage) }),
           React.createElement(Route, { path: '/settings/teams', element: React.createElement(TeamsSettings) }),
@@ -108,10 +96,12 @@ try {
   await owner.getByRole('button', { name: 'Invite User', exact: true }).first().click();
   let dialog = owner.getByRole('dialog', { name: 'Invite User', exact: true });
   await dialog.getByLabel('Work email', { exact: true }).fill('joined@example.test');
-  await dialog.getByRole('button', { name: 'Create invitation link', exact: true }).click();
+  await dialog.getByRole('button', { name: 'Send invitation', exact: true }).click();
   const invitationLink = await dialog.getByLabel('Invitation link', { exact: true }).inputValue();
-  assert.equal(new URL(invitationLink).pathname, '/login');
-  assert.equal((await postgres.db.select().from(workspaceInvitations))[0].email, 'joined@example.test');
+  const [invitation] = await postgres.db.select().from(workspaceInvitations);
+  assert.equal(new URL(invitationLink).pathname, `/accept-invitation/${invitation.id}`);
+  assert.equal(invitation.email, 'joined@example.test'); assert.equal(invitation.status, 'pending');
+  assert.equal(mail.sent.at(-1).to, 'joined@example.test', 'the invitee is emailed');
   await dialog.getByRole('button', { name: 'Done', exact: true }).click();
   await postgres.reopen();
   await owner.reload();
@@ -121,18 +111,30 @@ try {
   await owner.getByRole('option', { name: 'Member', exact: true }).click();
   await owner.getByText('Cannot remove, deactivate or demote the last active workspace owner', { exact: true }).waitFor();
   assert.equal((await postgres.db.select().from(organizationMembers).where(eq(organizationMembers.userId, people.Owner.id)))[0].role, 'owner');
+  // The invited person has no account: the link sends them to sign in, they create an account with a
+  // magic link, land back on the invitation and join as a member.
   const joined = await pageFor();
   await joined.goto(invitationLink);
-  await joined.getByRole('heading', { name: 'Join your workspace' }).waitFor();
-  await joined.getByRole('button', { name: 'Continue with GitHub' }).click();
-  await joined.waitForURL('**/dashboard?auth=success**');
-  await joined.getByText('Joined Person', { exact: true }).waitFor();
+  await joined.waitForURL(`**/login?redirect=${encodeURIComponent(`/accept-invitation/${invitation.id}`)}`);
+  await joined.getByRole('heading', { name: 'Sign in' }).waitFor();
+  assert.equal(await joined.getByRole('button', { name: 'Continue with GitHub' }).count(), 1, 'GitHub stays available');
+  await joined.getByRole('link', { name: 'Create an account' }).click();
+  await joined.getByRole('heading', { name: 'Create your account' }).waitFor();
+  await joined.getByLabel('Full name').fill('Joined Person');
+  await joined.getByLabel('Email').fill('joined@example.test');
+  await joined.getByRole('button', { name: 'Continue with a sign-in link' }).click();
+  await joined.getByText(/Check .* for a sign-in link/).waitFor();
+  await joined.goto(lastMailLink());
+  await joined.waitForURL(`**/accept-invitation/${invitation.id}`);
+  await joined.getByRole('button', { name: 'Accept invitation', exact: true }).click();
+  await joined.waitForURL(`${url}/`);
+  await joined.getByText('Joined Person', { exact: true }).first().waitFor();
   assert.equal(await joined.getByRole('button', { name: 'Invite User', exact: true }).count(), 0);
   assert.equal(await joined.getByLabel('Role for Owner').count(), 0);
-  let [member] = await postgres.db.select().from(users).where(eq(users.githubId, '900001'));
-  assert(member);
+  let [member] = await postgres.db.select().from(users).where(eq(users.email, 'joined@example.test'));
+  assert(member); assert.equal(member.name, 'Joined Person');
   let [accepted] = await postgres.db.select().from(workspaceInvitations);
-  assert(accepted.acceptedAt); assert.equal(accepted.acceptedById, member.id);
+  assert.equal(accepted.status, 'accepted');
   await postgres.reopen();
   await joined.reload();
   await joined.getByText('Joined Person', { exact: true }).waitFor();
@@ -147,7 +149,7 @@ try {
   await owner.getByRole('button', { name: 'Invite User', exact: true }).first().click();
   dialog = owner.getByRole('dialog', { name: 'Invite User', exact: true });
   await dialog.getByLabel('Work email', { exact: true }).fill('revoke@example.test');
-  await dialog.getByRole('button', { name: 'Create invitation link', exact: true }).click();
+  await dialog.getByRole('button', { name: 'Send invitation', exact: true }).click();
   await dialog.getByLabel('Invitation link', { exact: true }).waitFor();
   await dialog.getByRole('button', { name: 'Done', exact: true }).click();
   await owner.getByRole('button', { name: 'Revoke invitation for revoke@example.test' }).click();
@@ -303,7 +305,8 @@ try {
     await owner.screenshot({ path: `/tmp/reka-workspace-invite-${theme}-${width}.png` });
     await owner.keyboard.press('Escape');
   }
-  assert(requests.includes('POST /api/workspace/invitations'));
+  assert(requests.includes('POST /api/auth/organization/invite-member'));
+  assert(requests.includes('POST /api/auth/organization/accept-invitation'));
   assert(requests.some(value => value.startsWith('PATCH /api/users/')));
   assert.deepEqual(errors, []);
   const failedApi = networkFailures.filter(path => path.startsWith('/api/'));
