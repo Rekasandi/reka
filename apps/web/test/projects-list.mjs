@@ -190,9 +190,9 @@ try {
   await page.keyboard.press('Escape');
   await page.getByRole('button', { name: 'New project in Planned', exact: true }).click();
   await dialog.waitFor();
-  assert.match(await dialog.getByRole('combobox', { name: 'Team', exact: true }).innerText(), /Test Team/);
-  await dialog.getByRole('combobox', { name: 'Team', exact: true }).click();
-  assert.equal(await page.getByRole('option', { name: 'Read-only Team', exact: true }).count(), 0);
+  assert.match(await dialog.getByRole('button', { name: /^Team:/ }).innerText(), /Test Team/);
+  await dialog.getByRole('button', { name: /^Team:/ }).click();
+  assert.equal(await page.getByRole('menuitemradio', { name: 'Read-only Team', exact: true }).count(), 0);
   await page.keyboard.press('Escape');
   await dialog.getByRole('textbox', { name: 'Project Name', exact: true }).fill('Created from planned group');
   await dialog.getByRole('button', { name: 'Create Project', exact: true }).click();
@@ -218,7 +218,7 @@ try {
   await page.getByRole('link', { name: 'Open project Outside team scope' }).waitFor();
   await page.getByRole('button', { name: 'New project', exact: true }).click();
   await dialog.waitFor();
-  assert.match(await dialog.getByRole('combobox', { name: 'Team', exact: true }).innerText(), /Test Team/);
+  assert.match(await dialog.getByRole('button', { name: /^Team:/ }).innerText(), /Test Team/);
   await page.keyboard.press('Escape');
 
   fail = true;

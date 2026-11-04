@@ -93,7 +93,7 @@ try {
   assert.equal(await page.getByRole('button', { name: 'New Cycle', exact: true }).count(), 0, 'No manual New Cycle button, cycles are driven by automated schedule cadence');
   await page.getByRole('button', { name: 'Schedule settings', exact: true }).click();
   const designSchedule = page.getByRole('dialog', { name: 'Cycle schedule', exact: true });
-  assert.match(await designSchedule.getByRole('combobox', { name: 'Cycle schedule team', exact: true }).innerText(), /Design/);
+  assert.match(await designSchedule.getByRole('button', { name: /^Cycle schedule team:/ }).innerText(), /Design/);
   await designSchedule.getByRole('button', { name: 'Cancel', exact: true }).click();
   await page.locator('a[href="/cycles?teamId=t1"]').click();
   await page.getByLabel('Progress for Cycle 75', { exact: true }).waitFor();

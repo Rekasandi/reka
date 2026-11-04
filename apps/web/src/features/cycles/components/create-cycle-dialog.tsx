@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { TeamPicker } from '../../issues/components/team-picker';
 import { useForm } from '@tanstack/react-form';
 import {
   Dialog,
@@ -96,10 +97,7 @@ export function CreateCycleDialog({ open, onOpenChange, defaultTeamId }: CreateC
               children={(field) => (
                 <Field>
                   <FieldLabel htmlFor={field.name}>Team</FieldLabel>
-                  <Select name={field.name} value={field.state.value} onValueChange={field.handleChange}>
-                    <SelectTrigger id={field.name}><SelectValue placeholder="Select team" /></SelectTrigger>
-                    <SelectContent><SelectGroup>{teams.map((team) => <SelectItem key={team.id} value={team.id}>{team.name}</SelectItem>)}</SelectGroup></SelectContent>
-                  </Select>
+                  <TeamPicker id={field.name} teams={teams} teamId={field.state.value} onTeamChange={field.handleChange} className="h-9 w-full justify-start" />
                 </Field>
               )}
             />

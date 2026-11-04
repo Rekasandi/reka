@@ -129,7 +129,8 @@ try {
   }
   await panel.getByRole('button', { name: 'Accept', exact: true }).click();
   const accept = page.getByRole('dialog', { name: 'Accept ENG-1', exact: true });
-  await selectOption(page, accept.getByRole('combobox', { name: 'Route to team' }), /Finance/);
+  await accept.getByRole('button', { name: /^Route to team:/ }).click();
+  await page.getByRole('menuitemradio', { name: /Finance/ }).click();
   await accept.getByRole('combobox', { name: 'Route assignee' }).click();
   await page.getByRole('option', { name: /Ayu Wulandari/ }).waitFor();
   assert.equal(await page.getByRole('option', { name: /Dimas Pratama/ }).count(), 0, 'Private destination requires explicit membership');

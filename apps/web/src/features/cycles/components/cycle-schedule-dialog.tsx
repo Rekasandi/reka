@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { TeamPicker } from '../../issues/components/team-picker';
 import { useForm } from '@tanstack/react-form';
 import { Alert, AlertDescription, Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Input, Field, FieldLabel, FieldError, Checkbox, DatePicker, parseDateOnly, toDateOnly, Spinner } from '@reka/ui';
 import { RefreshCw } from 'lucide-react';
@@ -22,13 +23,13 @@ export function CycleScheduleDialog({ open, onOpenChange, defaultTeamId }: { ope
   const form = useForm({
     defaultValues: {
       timezone: settings?.timezone ?? localTimezone(), durationDays: String(settings?.durationDays ?? 14), cooldownDays: String(settings?.cooldownDays ?? 0),
-      nextStartDate: settings?.nextStartDate ?? localToday(), autoCreate: settings?.autoCreate ?? false, autoAddStarted: settings?.autoAddStarted ?? false,
+      nextStartDate: settings?.nextStartDate ?? localToday(), autoCreate: settings?.autoCreate ?? false, autoAddStarted: settings?.autoAddStarted ?? false, autoRollover: settings?.autoRollover ?? false,
     },
     onSubmit: async ({ value }) => {
       setError('');
       const duration = Number(value.durationDays); const cooldown = Number(value.cooldownDays);
       try {
-        await save.mutateAsync({ timezone: value.timezone.trim(), durationDays: duration, cooldownDays: cooldown, nextStartDate: value.nextStartDate, autoCreate: value.autoCreate, autoAddStarted: value.autoAddStarted });
+        await save.mutateAsync({ timezone: value.timezone.trim(), durationDays: duration, cooldownDays: cooldown, nextStartDate: value.nextStartDate, autoCreate: value.autoCreate, autoAddStarted: value.autoAddStarted, autoRollover: value.autoRollover });
         onOpenChange(false);
       } catch (cause) { setError((cause as Error).message); }
     },
@@ -46,7 +47,7 @@ export function CycleScheduleDialog({ open, onOpenChange, defaultTeamId }: { ope
   return <Dialog open={open} onOpenChange={onOpenChange}><DialogContent className="sm:max-w-lg"><form onSubmit={e => { e.preventDefault(); e.stopPropagation(); void form.handleSubmit(); }} className="flex flex-col gap-4">
     <DialogHeader><DialogTitle>Cycle schedule</DialogTitle><DialogDescription>Configure team timezone, cycle length and cooldown. Automatic cycles are created by the worker; overlapping dates are rejected.</DialogDescription></DialogHeader>
     {teamsError ? <Alert variant="destructive"><AlertDescription>Could not load teams. <Button type="button" variant="link" className="h-auto p-0" onClick={() => void refetchTeams()}>Retry</Button></AlertDescription></Alert> : <>
-      <Field><FieldLabel htmlFor="cycle-schedule-team" className="text-xs text-muted-foreground">Team</FieldLabel><SelectField id="cycle-schedule-team" aria-label="Cycle schedule team" value={teamId} onValueChange={setTeamId} disabled={teamsLoading} placeholder={teamsLoading ? 'Loading teams…' : 'Choose a team'} options={teams.map(team => ({ value: team.id, label: team.name }))} /></Field>
+      <Field><FieldLabel htmlFor="cycle-schedule-team" className="text-xs text-muted-foreground">Team</FieldLabel><TeamPicker id="cycle-schedule-team" label="Cycle schedule team" teams={teams} teamId={teamId} onTeamChange={setTeamId} disabled={teamsLoading} placeholder={teamsLoading ? 'Loading teams…' : 'Choose a team'} className="h-8 w-full justify-start" /></Field>
       {isLoading && <div className="text-sm text-muted-foreground"><Spinner aria-label="Loading cycle schedule" /> Loading saved schedule…</div>}
       {isError && <Alert variant="destructive"><AlertDescription>Could not load this team schedule. <Button type="button" variant="link" className="h-auto p-0" onClick={() => void refetch()}>Retry</Button></AlertDescription></Alert>}
       {!isLoading && !isError && !!teamId && <>
@@ -58,6 +59,7 @@ export function CycleScheduleDialog({ open, onOpenChange, defaultTeamId }: { ope
         <form.Field name="nextStartDate" validators={{ onChange: ({ value }) => (!value ? 'Choose the next cycle start date.' : undefined) }} children={field => <Field data-invalid={!field.state.meta.isValid}><FieldLabel className="text-xs text-muted-foreground">Next cycle start</FieldLabel><DatePicker aria-label="Next cycle start date" date={parseDateOnly(field.state.value)} onDateChange={date => field.handleChange(toDateOnly(date))} />{!field.state.meta.isValid && <FieldError errors={field.state.meta.errors} />}</Field>} />
         <form.Field name="autoCreate" children={field => <Field orientation="horizontal" className="items-start gap-2 text-sm"><Checkbox id="cycle-auto-create" aria-label="Automatically create cycles" checked={field.state.value} onCheckedChange={checked => field.handleChange(checked === true)} className="mt-0.5" /><FieldLabel htmlFor="cycle-auto-create" className="flex flex-col items-start gap-0"><span className="font-medium">Automatically create cycles</span><span className="mt-0.5 block text-xs font-normal text-muted-foreground">Requires the worker to be running; each planned start is created once.</span></FieldLabel></Field>} />
         <form.Field name="autoAddStarted" children={field => <Field orientation="horizontal" className="items-start gap-2 text-sm"><Checkbox id="cycle-auto-add-started" aria-label="Auto-add started issues" checked={field.state.value} onCheckedChange={checked => field.handleChange(checked === true)} className="mt-0.5" /><FieldLabel htmlFor="cycle-auto-add-started" className="flex flex-col items-start gap-0"><span className="font-medium">Auto-add started issues</span><span className="mt-0.5 block text-xs font-normal text-muted-foreground">Issues moved to a Started status join the current cycle if they have no cycle yet.</span></FieldLabel></Field>} />
+        <form.Field name="autoRollover" children={field => <Field orientation="horizontal" className="items-start gap-2 text-sm"><Checkbox id="cycle-auto-rollover" aria-label="Auto-close ended cycles" checked={field.state.value} onCheckedChange={checked => field.handleChange(checked === true)} className="mt-0.5" /><FieldLabel htmlFor="cycle-auto-rollover" className="flex flex-col items-start gap-0"><span className="font-medium">Auto-close ended cycles</span><span className="mt-0.5 block text-xs font-normal text-muted-foreground">When a cycle ends, close it and move unfinished issues to the next open cycle. A cycle with unfinished work stays open until a later cycle exists. Requires the worker.</span></FieldLabel></Field>} />
       </>}
     </>}
     {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}

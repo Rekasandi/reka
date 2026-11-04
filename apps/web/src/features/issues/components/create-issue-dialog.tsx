@@ -2,6 +2,12 @@ import * as React from 'react';
 import type { IssueType } from '@reka/types';
 import { useForm } from '@tanstack/react-form';
 import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
   Dialog,
   DialogContent,
   DialogHeader,
@@ -11,12 +17,6 @@ import {
   Button,
   Input,
   Textarea,
-  Select,
-  SelectTrigger,
-  SelectValue,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
   Field,
   FieldLabel,
   FieldError,
@@ -24,6 +24,7 @@ import {
 } from '@reka/ui';
 import { useCreateIssue } from '../hooks/use-issues';
 import { ProjectPicker } from './project-picker';
+import { TeamPicker } from './team-picker';
 import { CyclePicker } from './cycle-picker';
 import { EstimatePicker } from './estimate-picker';
 import { TeamFeatureGate } from '../../teams/components/team-feature-gate';
@@ -94,9 +95,13 @@ export function CreateIssueDialog({ open, onOpenChange, defaultProjectId, defaul
     },
   });
 
+  // The team's configured default status (Team settings → Status automation), else Todo.
+  const teamDefaultStatus = (teamId: string) => teams.find(team => team.id === teamId)?.defaultStatus ?? 'todo';
   React.useEffect(() => {
     if (defaultStatus) {
       form.setFieldValue('status', defaultStatus);
+    } else if (!form.getFieldMeta('status')?.isTouched) {
+      form.setFieldValue('status', teamDefaultStatus(defaultTeamId || form.state.values.teamId || teams[0]?.id || ''), { dontUpdateMeta: true });
     }
     if (defaultProjectId) {
       form.setFieldValue('projectId', defaultProjectId);
@@ -191,27 +196,8 @@ export function CreateIssueDialog({ open, onOpenChange, defaultProjectId, defaul
                 children={(field) => (
                   <Field>
                     <FieldLabel htmlFor={field.name} className="text-muted-foreground">Team</FieldLabel>
-                    <Select
-                      name={field.name}
-                      value={field.state.value}
-                      onValueChange={teamId => {
-                        if (teamId !== field.state.value) { form.setFieldValue('cycleId', 'none'); form.setFieldValue('estimate', ''); }
-                        field.handleChange(teamId);
-                      }}
-                    >
-                      <SelectTrigger id={field.name} size="compact" className="w-full">
-                        <SelectValue placeholder="Team" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectGroup>
-                          {teams.map((t) => (
-                            <SelectItem key={t.id} value={t.id}>
-                              {t.name} ({t.key})
-                            </SelectItem>
-                          ))}
-                        </SelectGroup>
-                      </SelectContent>
-                    </Select>
+                    <TeamPicker id={field.name} teams={teams} teamId={field.state.value} className="h-8 w-full justify-start"
+                      onTeamChange={teamId => { form.setFieldValue('cycleId', 'none'); form.setFieldValue('estimate', ''); if (!form.getFieldMeta('status')?.isTouched) form.setFieldValue('status', teamDefaultStatus(teamId), { dontUpdateMeta: true }); field.handleChange(teamId); }} />
                   </Field>
                 )}
               />

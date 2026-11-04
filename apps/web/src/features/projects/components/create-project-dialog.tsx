@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { TeamPicker } from '../../issues/components/team-picker';
 import { useForm } from '@tanstack/react-form';
 import {
   Dialog,
@@ -150,10 +151,7 @@ export function CreateProjectDialog({ open, onOpenChange, defaultTeamId, default
                 children={(field) => (
                   <Field>
                     <FieldLabel htmlFor={field.name} className="text-muted-foreground">Team</FieldLabel>
-                    <Select name={field.name} value={field.state.value} onValueChange={field.handleChange}>
-                      <SelectTrigger id={field.name} size="compact" className="w-full"><SelectValue placeholder="Select team" /></SelectTrigger>
-                      <SelectContent><SelectGroup>{teams.filter(team => team.canWrite).map((team) => <SelectItem key={team.id} value={team.id}>{team.name}</SelectItem>)}</SelectGroup></SelectContent>
-                    </Select>
+                    <TeamPicker id={field.name} teams={teams.filter(team => team.canWrite)} teamId={field.state.value} onTeamChange={field.handleChange} className="h-8 w-full justify-start" />
                   </Field>
                 )}
               />

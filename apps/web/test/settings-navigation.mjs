@@ -90,7 +90,7 @@ try {
     if (section === 'labels') {
       await page.getByRole('button', { name: 'Manage labels', exact: true }).first().click();
       await page.getByRole('dialog', { name: 'Manage labels' }).waitFor();
-      assert.match(await page.getByRole('combobox', { name: 'Label team' }).innerText(), /ENG · Engineering/);
+      assert.match(await page.getByRole('button', { name: /^Label team:/ }).innerText(), /ENG\s*Engineering/);
       await page.getByRole('button', { name: 'New label color', exact: true }).click();
       await page.getByLabel('New label color hex value', { exact: true }).fill('#22aa88');
       await page.getByRole('dialog', { name: 'Manage labels' }).getByRole('button', { name: 'Close', exact: true }).first().click();

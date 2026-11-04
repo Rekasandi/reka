@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { TeamPicker } from './team-picker';
 import { useSearchParams } from 'react-router-dom';
 import { useForm, useStore } from '@tanstack/react-form';
 import { SelectField } from '../../../components/common/select-field';
@@ -189,7 +190,7 @@ function IntakeForm({ onOpenChange, templates, teams, submitTemplate }: {
         <Field data-invalid={field.state.meta.isTouched && !field.state.meta.isValid}><FieldLabel className="text-xs font-medium">Form</FieldLabel><SelectField aria-label="Intake form" required value={field.state.value} onValueChange={value => { field.handleChange(value); form.setFieldValue('answers', {}); }} className="w-full" options={templates.map(item => ({ value: item.id, label: item.name }))} />{field.state.meta.isTouched && !field.state.meta.isValid && <FieldError errors={field.state.meta.errors} />}</Field>
       )} />
       {template && !template.teamId && <form.Field name="teamId" validators={{ onChange: ({ value }) => (!value ? 'Choose a team' : undefined) }} children={field => (
-        <Field data-invalid={field.state.meta.isTouched && !field.state.meta.isValid}><FieldLabel className="text-xs font-medium">Team</FieldLabel><SelectField aria-label="Intake team" required value={field.state.value} onValueChange={field.handleChange} className="w-full" options={[{ value: '', label: 'Choose team' }, ...validTeams.map(team => ({ value: team.id, label: `${team.name} (${team.key})` }))]} />{field.state.meta.isTouched && !field.state.meta.isValid && <FieldError errors={field.state.meta.errors} />}</Field>
+        <Field data-invalid={field.state.meta.isTouched && !field.state.meta.isValid}><FieldLabel className="text-xs font-medium">Team</FieldLabel><TeamPicker label="Intake team" teams={validTeams} teamId={field.state.value} onTeamChange={field.handleChange} className="h-9 w-full justify-start" />{field.state.meta.isTouched && !field.state.meta.isValid && <FieldError errors={field.state.meta.errors} />}</Field>
       )} />}
       <form.Field name="title" validators={{ onChange: ({ value }) => (!value.trim() ? 'Issue title is required' : undefined) }} children={field => (
         <Field data-invalid={field.state.meta.isTouched && !field.state.meta.isValid}><FieldLabel htmlFor="intake-title" className="text-xs font-medium">Issue title</FieldLabel><Input id="intake-title" aria-label="Intake title" required maxLength={255} value={field.state.value} onBlur={field.handleBlur} onChange={event => field.handleChange(event.target.value)} />{field.state.meta.isTouched && !field.state.meta.isValid && <FieldError errors={field.state.meta.errors} />}</Field>
@@ -245,7 +246,7 @@ function ReviewDialog({ issue, mode, open, onOpenChange, onResolved, teams, acti
     <form onSubmit={event => { event.preventDefault(); event.stopPropagation(); void form.handleSubmit(); }} className="flex flex-col gap-4">
       <p className="break-words text-sm font-medium">{issue.title}</p>
       {mode === 'accept' && <FieldGroup>
-        <form.Field name="teamId" children={field => <Field><FieldLabel htmlFor="triage-route-team">Route to team</FieldLabel><SelectField id="triage-route-team" aria-label="Route to team" value={field.state.value} disabled={action.isPending} onValueChange={value => { field.handleChange(value); form.setFieldValue('status', ''); }} className="w-full" options={teams.map(team => ({ value: team.id, label: `${team.name} (${team.key})` }))} /></Field>} />
+        <form.Field name="teamId" children={field => <Field><FieldLabel htmlFor="triage-route-team">Route to team</FieldLabel><TeamPicker id="triage-route-team" label="Route to team" teams={teams} teamId={field.state.value} disabled={action.isPending} onTeamChange={value => { field.handleChange(value); form.setFieldValue('status', ''); }} className="h-9 w-full justify-start" /></Field>} />
         <form.Field name="status" children={field => <Field><FieldLabel htmlFor="triage-route-status">Accepted status</FieldLabel><SelectField id="triage-route-status" aria-label="Accepted status" value={field.state.value} disabled={action.isPending || workflow.isPending || workflow.isError} onValueChange={field.handleChange} className="w-full" options={workStates.map(state => ({ value: state.key, label: state.name }))} /></Field>} />
         {workflow.isError && <Alert variant="destructive"><AlertDescription>Could not load destination workflow.<Button type="button" variant="outline" size="sm" onClick={() => void workflow.refetch()}>Retry workflow</Button></AlertDescription></Alert>}
         {!workflow.isPending && !workflow.isError && !workStates.length && <p className="text-xs text-muted-foreground">Configure an active work state for this team before accepting intake.</p>}

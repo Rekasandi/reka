@@ -258,14 +258,14 @@ try {
     await page.keyboard.press('ArrowDown');
     await page.keyboard.press('Enter');
     await dialog.locator('#teamId').click();
-    await page.getByRole('option', { name: 'Design (DES)', exact: true }).click();
+    await page.getByRole('menuitemradio', { name: 'Design', exact: true }).click();
     assert.equal(await dialog.locator('#cycleId').getAttribute('aria-label'), 'Change cycle: No cycle', 'Changing team clears a cycle belonging to the previous team');
     await dialog.locator('#cycleId').click();
     await page.getByRole('textbox', { name: 'Search cycles', exact: true }).fill('october');
     await page.getByText('No cycles found.', { exact: true }).waitFor();
     await page.keyboard.press('Escape');
     await dialog.locator('#teamId').click();
-    await page.getByRole('option', { name: 'Engineering (ENG)', exact: true }).click();
+    await page.getByRole('menuitemradio', { name: 'Engineering', exact: true }).click();
     await dialog.locator('#cycleId').click();
     await page.getByRole('textbox', { name: 'Search cycles', exact: true }).fill('october');
     await page.getByRole('menuitemradio', { name: /October delivery/ }).click();
