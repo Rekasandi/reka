@@ -1,29 +1,25 @@
-import type { JSONContent } from '@tiptap/react';
+// Keep structured descriptions compatible; converts legacy JSON or plain text into clean string.
+function extractText(node: Record<string, unknown>): string {
+  if (node.type === 'text') return (node.text as string) || '';
+  if (node.type === 'hardBreak') return '\n';
+  const content = Array.isArray(node.content) ? (node.content as Record<string, unknown>[]) : [];
+  const separator = node.type === 'doc' || (typeof node.type === 'string' && node.type.endsWith('List')) ? '\n' : '';
+  return content.map(extractText).join(separator);
+}
 
-// Keep structured descriptions in the existing text field; old plain text stays compatible.
-export function parseProjectDescription(value?: string | null): JSONContent {
-  if (value) {
-    try {
-      const doc = JSON.parse(value);
-      if (doc?.type === 'doc' && Array.isArray(doc.content)) return doc;
-    } catch {
-      // Legacy descriptions are literal text, never interpreted as HTML.
+export function parseProjectDescription(value?: string | null): string {
+  if (!value) return '';
+  try {
+    const doc = JSON.parse(value);
+    if (doc?.type === 'doc' && Array.isArray(doc.content)) {
+      return extractText(doc).trim();
     }
+  } catch {
+    // Plain text / Markdown
   }
-  return {
-    type: 'doc',
-    content: (value || '').split(/\r?\n/).map((text) => ({
-      type: 'paragraph',
-      ...(text ? { content: [{ type: 'text', text }] } : {}),
-    })),
-  };
+  return value;
 }
 
 export function projectDescriptionText(value?: string | null): string {
-  function text(node: JSONContent): string {
-    if (node.type === 'text') return node.text || '';
-    if (node.type === 'hardBreak') return '\n';
-    return (node.content || []).map(text).join(node.type === 'doc' || node.type?.endsWith('List') ? '\n' : '');
-  }
-  return text(parseProjectDescription(value)).trim();
+  return parseProjectDescription(value).trim();
 }

@@ -390,8 +390,9 @@ pre code {
 }
 
 .project-side-panel {
-  background: var(--secondary);
-  --card-spacing: 20px;
+  background: var(--card);
+  --card-spacing: 16px;
+  border-color: color-mix(in srgb, var(--border) 70%, transparent);
 }
 
 .project-snapshot {
@@ -400,28 +401,40 @@ pre code {
 }
 
 .project-property-row {
-  display: grid;
-  grid-template-columns: 76px minmax(0, 1fr);
+  display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 12px;
+  min-height: 32px;
 }
 
 .project-property-row dt {
   color: var(--muted-foreground);
+  font-size: 12px;
+  font-weight: 500;
+  flex-shrink: 0;
 }
 
 .project-property-row dd {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
   min-width: 0;
 }
 
 .project-property-select {
-  max-width: 100%;
-  border-color: transparent;
+  height: 28px;
+  padding: 0 8px;
+  font-size: 12px;
+  border-radius: 6px;
+  border: 1px solid transparent;
   background: transparent;
+  transition: all 0.15s ease;
 }
 
 .project-property-select:hover {
-  background: var(--accent);
+  background: var(--muted);
+  border-color: color-mix(in srgb, var(--border) 60%, transparent);
 }
 
 .project-overview .project-description-editor .ProseMirror {
@@ -599,9 +612,5 @@ pre code {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
-  }
-  [class*="block-editor"] {
-    animation: none !important;
-    transition: none !important;
   }
 }
