@@ -23,3 +23,8 @@ Delivery is best-effort: failures are logged without secrets, and never fail the
 ## Verifying
 
 `pnpm test:email` exercises both flows against an in-memory transport (no network, no real email). To check the live server without sending anything, call `MailService.verify()` (connects and authenticates only).
+
+## Self-signed mail server certificates
+
+`SMTP_IGNORE_TLS=true` skips certificate verification (and STARTTLS enforcement) so a server with a self-signed certificate can still send. The SMTP password can then be intercepted, and the API logs a warning at the first send. Prefer installing a valid certificate on the mail server or using a managed provider such as Resend (`SMTP_HOST=smtp.resend.com`, `SMTP_USER=resend`, `SMTP_PASS=<API key>`).
+

@@ -23,10 +23,19 @@ export class MailService {
     if (!this.transporter) {
       const port = Number(process.env.SMTP_PORT) || 587;
       const secure = process.env.SMTP_SECURE ? process.env.SMTP_SECURE === 'true' : port === 465;
+      const ignoreTls = process.env.SMTP_IGNORE_TLS === 'true';
+      // Escape hatch for a mail server with a self-signed certificate; the SMTP password is then exposed to interception.
+      if (ignoreTls) this.logger.warn('SMTP_IGNORE_TLS=true: TLS certificates are not verified. Use only temporarily; fix the mail server certificate or use a managed SMTP provider.');
       this.transporter = nodemailer.createTransport({
-        host: process.env.SMTP_HOST, port, secure, requireTLS: !secure,
+        host: process.env.SMTP_HOST,
+        port,
+        secure,
+        requireTLS: !secure && !ignoreTls,
+        tls: ignoreTls ? { rejectUnauthorized: false } : undefined,
         auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
-        connectionTimeout: 10_000, greetingTimeout: 10_000, socketTimeout: 20_000,
+        connectionTimeout: 10_000,
+        greetingTimeout: 10_000,
+        socketTimeout: 20_000,
       });
     }
     return this.transporter;
