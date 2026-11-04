@@ -1,7 +1,7 @@
 // Run against pnpm dev:web; project APIs are mocked and no live data is changed.
 import assert from 'node:assert/strict';
 import { fileURLToPath } from 'node:url';
-const css = fileURLToPath(new URL('../../../packages/ui/src/components/block-editor/style.css', import.meta.url));
+const ui = fileURLToPath(new URL('../../../packages/ui/src/index.ts', import.meta.url));
 const { chromium } = await import(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const browser = await chromium.launch({ ...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE } : {}) });
 try {
@@ -41,10 +41,9 @@ try {
       import { MemoryRouter, Routes, Route } from '/node_modules/.vite/deps/react-router-dom.js${version}';
       import { AppLayout } from '/src/components/layout/app-layout.tsx';
       import { ThemeProvider } from '/src/components/theme/theme-provider.tsx';
-      import { TooltipProvider } from '/@fs${css.replace('/components/block-editor/style.css', '/index.ts')}';
+      import { TooltipProvider } from '/@fs${ui}';
       import { ProjectDetailPage } from '/src/features/projects/components/project-detail-page.tsx';
       import '/src/styles/globals.css';
-      import '/@fs${css}';
       ReactDOM.createRoot(document.getElementById('root')).render(
         React.createElement(TooltipProvider, null, React.createElement(ThemeProvider, { defaultTheme: 'dark' },
           React.createElement(QueryClientProvider, { client: (window.__testQueryClient ??= (qc => (qc.setQueryData(['auth', 'me'], null), qc))(new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } }))) },
@@ -103,8 +102,8 @@ try {
   await page.getByRole('button', { name: 'Close', exact: true }).first().click();
 
   // Keep the description editor mounted when switching views so drafts aren't discarded.
-  await editor.locator('p').first().click();
-  await page.keyboard.type('Draft ');
+  await editor.click();
+  await editor.fill('Draft ' + await editor.inputValue());
   await page.getByText('Unsaved changes', { exact: true }).waitFor();
   await page.getByRole('tab', { name: 'Issues', exact: true }).click();
   await page.getByRole('heading', { name: 'Project issues', exact: true }).waitFor();
@@ -116,9 +115,9 @@ try {
   await page.getByRole('link', { name: 'reka/authentication', exact: true }).waitFor();
   await page.getByRole('tab', { name: 'Overview', exact: true }).click();
   await editor.waitFor();
-  assert.match(await editor.innerText(), /Draft /);
+  assert.match(await editor.inputValue(), /Draft /);
   await page.getByRole('button', { name: 'Cancel', exact: true }).click();
-  assert.equal(await editor.innerText().then(text => text.includes('Draft ')), false);
+  assert.equal(await editor.inputValue().then(text => text.includes('Draft ')), false);
   await page.getByRole('button', { name: 'Toggle project properties' }).click();
   assert.equal(await aside.count(), 0);
   await page.getByRole('button', { name: 'Toggle project properties' }).click();

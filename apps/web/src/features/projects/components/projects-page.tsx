@@ -17,11 +17,11 @@ import { CreateProjectDialog } from './create-project-dialog';
 import type { Project } from '../api/projects.api';
 
 const PROJECT_STATUSES = [
-  { key: 'in_progress', label: 'In progress', icon: CircleDot, color: 'text-foreground' },
-  { key: 'planned', label: 'Planned', icon: Circle, color: 'text-muted-foreground' },
-  { key: 'paused', label: 'Paused', icon: CirclePause, color: 'text-muted-foreground' },
-  { key: 'completed', label: 'Completed', icon: CheckCircle2, color: 'text-success' },
-  { key: 'canceled', label: 'Canceled', icon: CircleX, color: 'text-muted-foreground' },
+  { key: 'in_progress', label: 'In progress', icon: CircleDot, color: 'text-blue-500 dark:text-blue-400' },
+  { key: 'planned', label: 'Planned', icon: Circle, color: 'text-purple-500 dark:text-purple-400' },
+  { key: 'paused', label: 'Paused', icon: CirclePause, color: 'text-amber-500 dark:text-amber-400' },
+  { key: 'completed', label: 'Completed', icon: CheckCircle2, color: 'text-emerald-500 dark:text-emerald-400' },
+  { key: 'canceled', label: 'Canceled', icon: CircleX, color: 'text-zinc-400' },
 ] as const;
 const PROJECT_HEALTH = [
   { key: 'on_track', label: 'On track', icon: CheckCircle2, color: 'text-success' },
@@ -33,7 +33,17 @@ function ProjectHealth({ health }: { health: Project['health'] }) {
   const option = PROJECT_HEALTH.find(item => item.key === health);
   if (!option) return <span className="text-muted-foreground">—</span>;
   const Icon = option.icon;
-  return <span className={cn('inline-flex items-center gap-1.5 whitespace-nowrap', option.color)}><Icon className="size-3.5 shrink-0" />{option.label}</span>;
+  const colorClass = health === 'on_track'
+    ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-500'
+    : health === 'at_risk'
+      ? 'border-amber-500/30 bg-amber-500/10 text-amber-500'
+      : 'border-rose-500/30 bg-rose-500/10 text-rose-500';
+  return (
+    <span className={cn('inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] font-medium whitespace-nowrap', colorClass)}>
+      <Icon className="size-3 shrink-0" />
+      <span>{option.label}</span>
+    </span>
+  );
 }
 
 function ProjectPriority({ priority, 'aria-label': label }: { priority: Project['priority']; 'aria-label'?: string }) {

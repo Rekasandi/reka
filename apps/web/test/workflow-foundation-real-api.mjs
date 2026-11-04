@@ -164,8 +164,8 @@ try {
   await page.getByRole('menuitemradio', { name: 'High' }).click();
   await dialog.getByRole('button', { name: 'Change issue type: Task' }).click();
   await page.getByRole('menuitemradio', { name: /Bug/ }).click();
-  await dialog.getByLabel('Assignee', { exact: true }).click();
-  await page.getByRole('option', { name: 'Unassigned' }).click();
+  await dialog.getByRole('button', { name: /^(Assigned to |Assign member)/ }).click();
+  await page.getByRole('menuitem', { name: /Unassigned/ }).click();
   await dialog.getByRole('button', { name: 'Change status: Todo' }).click();
   await page.getByRole('menuitemradio', { name: /Quality check/ }).click();
   await dialog.getByRole('button', { name: 'Issue labels' }).click();
@@ -378,10 +378,10 @@ try {
   await page.getByRole('option', { name: 'At Risk' }).click();
   assert.equal((await healthSave).status(), 200);
   const startDateSave = page.waitForResponse(response => response.request().method() === 'PATCH' && new URL(response.url()).pathname === `/api/projects/${project.id}`);
-  await pickDate(page, page.getByText('Set start date', { exact: true }), '2026-10-20');
+  await pickDate(page, page.getByLabel('Start date', { exact: true }), '2026-10-20');
   assert.equal((await startDateSave).status(), 200);
   const targetDateSave = page.waitForResponse(response => response.request().method() === 'PATCH' && new URL(response.url()).pathname === `/api/projects/${project.id}`);
-  await pickDate(page, page.getByText('Set target date', { exact: true }), '2026-10-29');
+  await pickDate(page, page.getByLabel('Target date', { exact: true }), '2026-10-29');
   assert.equal((await targetDateSave).status(), 200);
   const startDay = await page.evaluate(() => new Date(2026, 9, 20).toLocaleDateString());
   const targetDay = await page.evaluate(() => new Date(2026, 9, 29).toLocaleDateString());

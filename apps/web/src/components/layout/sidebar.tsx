@@ -28,7 +28,6 @@ const workspaceNav: NavItem[] = [
   { label: 'Projects', to: '/projects', icon: Box },
 ];
 const moreNav: NavItem[] = [
-  { label: 'Dashboard', to: '/dashboard', icon: LayoutDashboard },
   { label: 'All Issues', to: '/issues', icon: PanelsTopLeft },
   { label: 'Triage', to: '/triage', icon: CircleArrowRight },
   { label: 'Documents', to: '/documents', icon: FileText },
@@ -114,6 +113,7 @@ export function AppSidebar() {
     <SidebarContent className="reka-sidebar-nav">
       <SidebarGroup aria-label="Personal">
         <SidebarGroupContent><SidebarMenu>
+          {navItem({ label: 'Dashboard', to: '/dashboard', icon: LayoutDashboard })}
           {navItem({ label: 'Inbox', to: '/inbox', icon: Inbox, count: unreadData?.count })}
           {navItem({ label: 'My issues', to: '/my-issues', icon: Focus })}
         </SidebarMenu></SidebarGroupContent>

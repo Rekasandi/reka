@@ -2,12 +2,6 @@ import * as React from 'react';
 import type { IssueType } from '@reka/types';
 import { useForm } from '@tanstack/react-form';
 import {
-  Select,
-  SelectTrigger,
-  SelectValue,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
   Dialog,
   DialogContent,
   DialogHeader,
@@ -27,6 +21,7 @@ import { ProjectPicker } from './project-picker';
 import { TeamPicker } from './team-picker';
 import { CyclePicker } from './cycle-picker';
 import { EstimatePicker } from './estimate-picker';
+import { AssigneePicker } from './assignee-picker';
 import { TeamFeatureGate } from '../../teams/components/team-feature-gate';
 import { StatusPicker } from './status-picker';
 import { PriorityPicker } from './priority-picker';
@@ -34,7 +29,6 @@ import { IssueTypePicker } from './issue-type-picker';
 import { IssueLabelsPicker } from './issue-labels-picker';
 
 import { useTeams } from '../../teams/hooks/use-teams';
-import { useUsers } from '../../users/hooks/use-users';
 
 interface CreateIssueDialogProps {
   open: boolean;
@@ -49,7 +43,6 @@ interface CreateIssueDialogProps {
 
 export function CreateIssueDialog({ open, onOpenChange, defaultProjectId, defaultCycleId, defaultTeamId, defaultStatus, defaultParentId, defaultParentIdentifier }: CreateIssueDialogProps) {
   const { data: teams = [] } = useTeams();
-  const { data: users = [] } = useUsers();
   const createMutation = useCreateIssue();
 
   const form = useForm({
@@ -266,25 +259,13 @@ export function CreateIssueDialog({ open, onOpenChange, defaultProjectId, defaul
                 children={(field) => (
                   <Field>
                     <FieldLabel htmlFor={field.name} className="text-muted-foreground">Assignee</FieldLabel>
-                    <Select
-                      name={field.name}
-                      value={field.state.value}
-                      onValueChange={field.handleChange}
-                    >
-                      <SelectTrigger id={field.name} size="compact" className="w-full">
-                        <SelectValue placeholder="Assignee" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectGroup>
-                          <SelectItem value="none">Unassigned</SelectItem>
-                          {users.map((u) => (
-                            <SelectItem key={u.id} value={u.id}>
-                              {u.name} ({u.role})
-                            </SelectItem>
-                          ))}
-                        </SelectGroup>
-                      </SelectContent>
-                    </Select>
+                    <AssigneePicker
+                      id={field.name}
+                      assigneeId={field.state.value === 'none' || !field.state.value ? null : field.state.value}
+                      appearance="badge"
+                      className="h-8 w-full justify-start"
+                      onAssigneeChange={(userId) => field.handleChange(userId ?? 'none')}
+                    />
                   </Field>
                 )}
               />

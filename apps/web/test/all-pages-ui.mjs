@@ -4,7 +4,6 @@ import assert from 'node:assert/strict';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 const ui = fileURLToPath(new URL('../../../packages/ui/src/index.ts', import.meta.url));
-const css = fileURLToPath(new URL('../../../packages/ui/src/components/block-editor/style.css', import.meta.url));
 const { chromium } = await import(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const browser = await chromium.launch({ ...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE } : {}) });
 const phase = process.env.AUDIT_PHASE || 'after';
@@ -87,7 +86,6 @@ try {
       import { AppLayout } from '/src/components/layout/app-layout.tsx';
             ${components.map(([name, feature, file]) => `import { ${name} } from '/src/features/${feature}/components/${file || name.replace(/Page$/, '').replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase()}-page.tsx';`).join('\n')}
       import '/src/styles/globals.css';
-      import '/@fs${css}';
       import { buildBurndownData } from '/src/features/cycles/components/burndown-chart.tsx';
       window.__auditBurndown = buildBurndownData([{ snapshotAt: '2026-10-13T08:00:00Z', remainingIssueCount: 4, remainingEstimate: 8 }], 'issues');
       const params = new URLSearchParams(window.location.search);
@@ -410,7 +408,7 @@ try {
   await sidebar.getByRole('button', { name: 'More workspace pages', exact: true }).focus();
   await page.keyboard.press('Enter');
   const moreMenu = page.getByRole('menu');
-  assert.equal(await moreMenu.getByRole('menuitem').count(), 10);
+  assert.equal(await moreMenu.getByRole('menuitem').count(), 9, 'Dashboard moved out of More into the main nav');
   await page.keyboard.press('Escape');
   assert.equal(await page.getByRole('menu').count(), 0);
   await page.evaluate(() => window.__auditSetIdentity({ role: 'guest' }));

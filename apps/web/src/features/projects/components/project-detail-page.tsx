@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { useParams, Link, useLocation, useNavigate } from 'react-router-dom';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, Badge, Button, Skeleton, Select, SelectTrigger, SelectValue, SelectContent, SelectGroup, SelectItem, DatePicker, Tabs, TabsList, TabsTrigger, TabsContent, Avatar, AvatarImage, AvatarFallback, toast, cn, Label, Progress, Spinner } from '@reka/ui';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, Badge, Button, Skeleton, Select, SelectTrigger, SelectContent, SelectGroup, SelectItem, DatePicker, Tabs, TabsList, TabsTrigger, TabsContent, Avatar, AvatarImage, AvatarFallback, toast, cn, Progress, Spinner } from '@reka/ui';
 import {
   Plus, CheckCircle2, AlertTriangle, AlertCircle, Trash2, RefreshCw,
   GitBranch, Lock, Globe, ExternalLink, Users, Circle, CircleDot,
@@ -47,22 +47,145 @@ const HEALTH_OPTIONS = [
   { value: 'off_track', label: 'Off Track', icon: AlertCircle },
 ];
 
-function PropertySelect({ label, value, options, onChange }: {
+const STATUS_COLORS: Record<string, string> = {
+  in_progress: 'border-blue-500/30 bg-blue-500/10 text-blue-500 dark:text-blue-400 hover:bg-blue-500/20',
+  planned: 'border-purple-500/30 bg-purple-500/10 text-purple-500 dark:text-purple-400 hover:bg-purple-500/20',
+  paused: 'border-amber-500/30 bg-amber-500/10 text-amber-500 dark:text-amber-400 hover:bg-amber-500/20',
+  completed: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-500 dark:text-emerald-400 hover:bg-emerald-500/20',
+  canceled: 'border-zinc-500/30 bg-zinc-500/10 text-zinc-400 hover:bg-zinc-500/20',
+};
+
+const STATUS_ICON_COLORS: Record<string, string> = {
+  in_progress: 'text-blue-500 dark:text-blue-400',
+  planned: 'text-purple-500 dark:text-purple-400',
+  paused: 'text-amber-500 dark:text-amber-400',
+  completed: 'text-emerald-500 dark:text-emerald-400',
+  canceled: 'text-zinc-400',
+};
+
+const PRIORITY_COLORS: Record<string, string> = {
+  urgent: 'border-rose-500/30 bg-rose-500/10 text-rose-500 dark:text-rose-400 hover:bg-rose-500/20',
+  high: 'border-amber-500/30 bg-amber-500/10 text-amber-500 dark:text-amber-400 hover:bg-amber-500/20',
+  medium: 'border-blue-500/30 bg-blue-500/10 text-blue-500 dark:text-blue-400 hover:bg-blue-500/20',
+  low: 'border-sky-500/30 bg-sky-500/10 text-sky-500 dark:text-sky-400 hover:bg-sky-500/20',
+  no_priority: 'border-border/70 bg-muted/40 text-muted-foreground hover:bg-muted/70',
+};
+
+const PRIORITY_ICON_COLORS: Record<string, string> = {
+  urgent: 'text-rose-500 dark:text-rose-400',
+  high: 'text-amber-500 dark:text-amber-400',
+  medium: 'text-blue-500 dark:text-blue-400',
+  low: 'text-sky-500 dark:text-sky-400',
+  no_priority: 'text-muted-foreground/40',
+};
+
+const HEALTH_COLORS: Record<string, string> = {
+  on_track: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-500 dark:text-emerald-400 hover:bg-emerald-500/20',
+  at_risk: 'border-amber-500/30 bg-amber-500/10 text-amber-500 dark:text-amber-400 hover:bg-amber-500/20',
+  off_track: 'border-rose-500/30 bg-rose-500/10 text-rose-500 dark:text-rose-400 hover:bg-rose-500/20',
+};
+
+const HEALTH_ICON_COLORS: Record<string, string> = {
+  on_track: 'text-emerald-500 dark:text-emerald-400',
+  at_risk: 'text-amber-500 dark:text-amber-400',
+  off_track: 'text-rose-500 dark:text-rose-400',
+};
+
+function PropertyBadgeSelect({
+  label,
+  value,
+  options,
+  colorMap,
+  iconColorMap,
+  onChange,
+}: {
   label: string;
   value: string;
-  options: typeof STATUS_OPTIONS;
+  options: readonly { readonly value: string; readonly label: string; readonly icon: React.ComponentType<{ className?: string }> }[];
+  colorMap: Record<string, string>;
+  iconColorMap?: Record<string, string>;
   onChange: (value: string) => void;
 }) {
+  const current = options.find((opt) => opt.value === value) || options[0];
+  const CurrentIcon = current.icon;
+  const colorClass = colorMap[value] || 'border-border text-foreground hover:bg-muted';
+  const iconColor = iconColorMap?.[value];
+
   return (
     <Select value={value} onValueChange={onChange}>
-      <SelectTrigger aria-label={label} size="sm" className="project-property-select">
-        <SelectValue />
+      <SelectTrigger
+        aria-label={label}
+        className={cn(
+          'h-6.5 w-auto rounded-full border px-2.5 py-0 text-xs font-medium gap-1.5 transition-all select-none',
+          colorClass
+        )}
+      >
+        <span data-slot="select-value" className="flex items-center gap-1.5 font-medium">
+          <CurrentIcon className={cn('size-3.5 shrink-0', iconColor)} />
+          <span>{current.label}</span>
+        </span>
       </SelectTrigger>
-      <SelectContent><SelectGroup>
-        {options.map(({ value, label, icon: Icon }) => (
-          <SelectItem key={value} value={value}><Icon />{label}</SelectItem>
-        ))}
-      </SelectGroup></SelectContent>
+      <SelectContent position="popper" align="start">
+        <SelectGroup>
+          {options.map(({ value: optVal, label: optLabel, icon: Icon }) => {
+            const itemIconColor = iconColorMap?.[optVal] || 'text-muted-foreground';
+            return (
+              <SelectItem key={optVal} value={optVal} className="gap-2 text-xs">
+                <Icon className={cn('size-3.5 shrink-0', itemIconColor)} />
+                <span className="font-medium">{optLabel}</span>
+              </SelectItem>
+            );
+          })}
+        </SelectGroup>
+      </SelectContent>
+    </Select>
+  );
+}
+
+function LeadBadgePicker({
+  leadId,
+  users,
+  onChange,
+}: {
+  leadId: string;
+  users: Array<{ id: string; name: string; avatarUrl?: string | null }>;
+  onChange: (leadId: string) => void;
+}) {
+  const current = users.find((u) => u.id === leadId);
+  return (
+    <Select value={leadId} onValueChange={onChange}>
+      <SelectTrigger
+        aria-label="Project lead"
+        className="h-6.5 w-auto rounded-full border border-border/80 bg-muted/40 hover:bg-muted/80 text-foreground px-2.5 py-0 text-xs font-medium gap-1.5 transition-all select-none"
+      >
+        <span data-slot="select-value" className="flex items-center gap-1.5 font-medium">
+          {current ? (
+            <>
+              <Avatar className="size-4 rounded-full">
+                {current.avatarUrl && <AvatarImage src={current.avatarUrl} />}
+                <AvatarFallback className="text-[9px] font-bold">
+                  {current.name.slice(0, 2).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+              <span className="truncate max-w-[120px]">{current.name}</span>
+            </>
+          ) : (
+            <>
+              <Users className="size-3.5 text-muted-foreground" />
+              <span className="text-muted-foreground">Select lead</span>
+            </>
+          )}
+        </span>
+      </SelectTrigger>
+      <SelectContent>
+        <SelectGroup>
+          {users.map((u) => (
+            <SelectItem key={u.id} value={u.id}>
+              {u.name}
+            </SelectItem>
+          ))}
+        </SelectGroup>
+      </SelectContent>
     </Select>
   );
 }
@@ -121,15 +244,10 @@ export function ProjectDetailPage() {
     </div>
   );
 
-  const lead = users.find((user) => user.id === project.ownerId);
   const team = teams.find((team) => team.id === project.teamId);
   const status = STATUS_OPTIONS.find((option) => option.value === project.status) || STATUS_OPTIONS[0];
-  const StatusIcon = status.icon;
-  const priority = PRIORITY_OPTIONS.find((option) => option.value === project.priority) || PRIORITY_OPTIONS[0];
-  const PriorityIcon = priority.icon;
   const formatDate = (value: string) => new Date(value).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
-  const descriptionDoc = parseProjectDescription(project.description);
-  const summary = descriptionDoc.content?.find((node) => node.type === 'paragraph' && node.content?.length)?.content?.map((node) => node.text || '').join('');
+  const summary = parseProjectDescription(project.description).split('\n')[0] || '';
   const groups = new Map<string, { name: string; total: number; completed: number }>();
   for (const issue of progressIssues) {
     const items = progressGrouping === 'labels'
@@ -176,24 +294,114 @@ export function ProjectDetailPage() {
             <header className="flex flex-col items-start gap-4 px-1 pt-6 sm:px-6 sm:pt-12 xl:pt-16">
               <h1 className="max-w-full break-words text-2xl font-semibold leading-tight tracking-[-0.025em] sm:text-3xl">{project.name}</h1>
               {summary && <p className="max-w-[70ch] text-base leading-7 text-foreground/80">{summary}</p>}
-              <dl className="mt-4 flex flex-col gap-4 text-sm">
-                <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
-                  <dt className="w-20 text-muted-foreground">Properties</dt>
-                  <dd className="flex items-center gap-2"><StatusIcon className="size-4 text-muted-foreground" />{status.label}</dd>
-                  <dd className="flex items-center gap-2"><PriorityIcon className="size-4 text-muted-foreground" />{priority.label}</dd>
-                  {lead && <dd className="flex items-center gap-2"><Avatar className="size-5"><AvatarImage src={lead.avatarUrl || undefined} /><AvatarFallback>{lead.name.slice(0, 2)}</AvatarFallback></Avatar>{lead.name}</dd>}
-                  {project.targetDate && <dd className="text-muted-foreground">Due {formatDate(project.targetDate)}</dd>}
+
+              {/* Interactive Colored Property Badges */}
+              <div className="mt-2 flex flex-col gap-3 w-full">
+                <div className="flex flex-wrap items-center gap-2">
+                  <PropertyBadgeSelect
+                    label="Project status"
+                    value={project.status}
+                    options={STATUS_OPTIONS}
+                    colorMap={STATUS_COLORS}
+                    iconColorMap={STATUS_ICON_COLORS}
+                    onChange={(status) => updateMutation.mutate({ id: project.id, data: { status } })}
+                  />
+                  <PropertyBadgeSelect
+                    label="Project priority"
+                    value={project.priority}
+                    options={PRIORITY_OPTIONS}
+                    colorMap={PRIORITY_COLORS}
+                    iconColorMap={PRIORITY_ICON_COLORS}
+                    onChange={(priority) => updateMutation.mutate({ id: project.id, data: { priority } })}
+                  />
+                  <PropertyBadgeSelect
+                    label="Project health"
+                    value={project.health}
+                    options={HEALTH_OPTIONS}
+                    colorMap={HEALTH_COLORS}
+                    iconColorMap={HEALTH_ICON_COLORS}
+                    onChange={(health) => updateMutation.mutate({ id: project.id, data: { health } })}
+                  />
+                  <LeadBadgePicker
+                    leadId={project.ownerId}
+                    users={users}
+                    onChange={(ownerId) => updateMutation.mutate({ id: project.id, data: { ownerId } })}
+                  />
+                  <DatePicker
+                    date={project.startDate ? new Date(project.startDate) : undefined}
+                    placeholder="Set start date"
+                    aria-label="Start date"
+                    className="h-6.5 w-auto rounded-full border-border/80 bg-muted/40 hover:bg-muted/80 text-foreground px-2.5 text-xs font-medium"
+                    onDateChange={(date) => updateMutation.mutate({ id: project.id, data: { startDate: date?.toISOString() ?? null } })}
+                  />
+                  <DatePicker
+                    date={project.targetDate ? new Date(project.targetDate) : undefined}
+                    placeholder="Set target date"
+                    aria-label="Target date"
+                    className="h-6.5 w-auto rounded-full border-border/80 bg-muted/40 hover:bg-muted/80 text-foreground px-2.5 text-xs font-medium"
+                    onDateChange={(date) => updateMutation.mutate({ id: project.id, data: { targetDate: date?.toISOString() ?? null } })}
+                  />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsMembersOpen(true)}
+                    className="h-6.5 rounded-full border-border/80 bg-muted/40 hover:bg-muted/80 text-foreground px-2.5 text-xs font-medium gap-1.5"
+                  >
+                    <Users className="size-3.5 text-muted-foreground" />
+                    <span>Manage members</span>
+                  </Button>
                 </div>
-                {team && <div className="flex flex-wrap items-center gap-x-5 gap-y-3"><dt className="w-20 text-muted-foreground">Team</dt><dd><Link to={`/teams/${team.id}`} className="inline-flex items-center gap-2 hover:underline"><span aria-hidden="true" className="inline-flex size-5 shrink-0 items-center justify-center rounded border border-border bg-muted px-0.5 text-[9px] font-semibold text-muted-foreground">{team.key}</span>{team.name}</Link></dd></div>}
-                <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
-                  <dt className="w-20 text-muted-foreground">Resources</dt>
-                  <dd className="flex flex-wrap items-center gap-3">
-                    {projectRepos.slice(0, 2).map((repo) => <a key={repo.id} href={`https://github.com/${repo.fullName}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 hover:underline"><GithubIcon className="size-4 text-muted-foreground" />{repo.name}</a>)}
-                    {!projectRepos.length && <span className="text-muted-foreground">{isReposLoading ? 'Loading repositories…' : isReposError ? 'Repositories unavailable' : 'No repositories connected'}</span>}
-                    <Button variant="ghost" size="icon-sm" aria-label="Connect repository" onClick={() => setIsLinkRepoOpen(true)}><Plus /></Button>
-                  </dd>
+
+                {/* Team & Resources sub-bar */}
+                <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs pt-0.5">
+                  {team && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-muted-foreground font-medium">Team</span>
+                      <Link
+                        to={`/teams/${team.id}`}
+                        className="inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-muted/30 px-2.5 py-0.5 text-xs hover:bg-muted transition-colors font-medium text-foreground"
+                      >
+                        <span aria-hidden="true" className="inline-flex size-4 shrink-0 items-center justify-center rounded border border-border bg-background text-[8px] font-semibold text-muted-foreground">
+                          {team.key}
+                        </span>
+                        <span>{team.name}</span>
+                      </Link>
+                    </div>
+                  )}
+
+                  <div className="flex items-center gap-2">
+                    <span className="text-muted-foreground font-medium">Resources</span>
+                    <div className="flex flex-wrap items-center gap-2">
+                      {projectRepos.slice(0, 2).map((repo) => (
+                        <a
+                          key={repo.id}
+                          href={`https://github.com/${repo.fullName}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-muted/30 px-2.5 py-0.5 text-xs hover:underline text-foreground transition-colors"
+                        >
+                          <GithubIcon className="size-3 text-muted-foreground" />
+                          <span>{repo.name}</span>
+                        </a>
+                      ))}
+                      {!projectRepos.length && (
+                        <span className="text-muted-foreground text-xs">
+                          {isReposLoading ? 'Loading…' : isReposError ? 'Unavailable' : 'No repo connected'}
+                        </span>
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="icon-xs"
+                        aria-label="Connect repository"
+                        className="size-5 rounded-full"
+                        onClick={() => setIsLinkRepoOpen(true)}
+                      >
+                        <Plus className="size-3" />
+                      </Button>
+                    </div>
+                  </div>
                 </div>
-              </dl>
+              </div>
             </header>
 
             <Card className="project-snapshot mx-1 mt-8 gap-4 sm:mx-4">
@@ -253,30 +461,61 @@ export function ProjectDetailPage() {
         </div>
 
         {showProperties && <aside id="project-properties" aria-label="Project properties" className="flex min-w-0 flex-col gap-3 xl:sticky xl:top-20 xl:self-start xl:max-h-[calc(100svh-148px)] xl:overflow-y-auto xl:overscroll-contain">
-          <Card className="project-side-panel gap-4">
-            <CardHeader><CardTitle className="text-sm font-medium text-muted-foreground">Properties</CardTitle></CardHeader>
-            <CardContent>
-              <dl className="flex flex-col gap-4 text-sm">
-                <div className="project-property-row"><dt>Status</dt><dd><PropertySelect label="Project status" value={project.status} options={STATUS_OPTIONS} onChange={(status) => updateMutation.mutate({ id: project.id, data: { status } })} /></dd></div>
-                <div className="project-property-row"><dt>Priority</dt><dd><PropertySelect label="Project priority" value={project.priority} options={PRIORITY_OPTIONS} onChange={(priority) => updateMutation.mutate({ id: project.id, data: { priority } })} /></dd></div>
-                <div className="project-property-row"><dt>Health</dt><dd><PropertySelect label="Project health" value={project.health} options={HEALTH_OPTIONS} onChange={(health) => updateMutation.mutate({ id: project.id, data: { health } })} /></dd></div>
-                <div className="project-property-row"><dt>Lead</dt><dd><Select value={project.ownerId} onValueChange={(ownerId) => updateMutation.mutate({ id: project.id, data: { ownerId } })}><SelectTrigger aria-label="Project lead" size="sm" className="project-property-select"><SelectValue placeholder="Select lead" /></SelectTrigger><SelectContent><SelectGroup>{users.map((candidate) => <SelectItem key={candidate.id} value={candidate.id}>{candidate.name}</SelectItem>)}</SelectGroup></SelectContent></Select></dd></div>
-                <div className="project-property-row"><dt>Members</dt><dd><Button variant="ghost" size="sm" onClick={() => setIsMembersOpen(true)}><Users data-icon="inline-start" />Manage members</Button></dd></div>
-                <div className="project-property-row"><dt>Dates</dt><dd className="flex min-w-0 flex-col gap-2"><Label className="flex flex-col gap-1 text-[11px] text-muted-foreground">Start date<DatePicker date={project.startDate ? new Date(project.startDate) : undefined} placeholder="Set start date" onDateChange={(date) => updateMutation.mutate({ id: project.id, data: { startDate: date?.toISOString() ?? null } })} /></Label><Label className="flex flex-col gap-1 text-[11px] text-muted-foreground">Target date<DatePicker date={project.targetDate ? new Date(project.targetDate) : undefined} placeholder="Set target date" onDateChange={(date) => updateMutation.mutate({ id: project.id, data: { targetDate: date?.toISOString() ?? null } })} /></Label></dd></div>
-                <div className="project-property-row"><dt>Team</dt><dd className="py-1">{team ? <Link to={`/teams/${team.id}`} className="flex items-center gap-2 hover:underline"><span aria-hidden="true" className="inline-flex size-5 shrink-0 items-center justify-center rounded border border-border bg-muted px-0.5 text-[9px] font-semibold text-muted-foreground">{team.key}</span><span className="truncate">{team.name}</span></Link> : <span className="text-muted-foreground">No team</span>}</dd></div>
-              </dl>
-            </CardContent>
-          </Card>
-
-          <Card className="project-side-panel gap-4">
-            <CardHeader><CardTitle className="text-sm font-medium text-muted-foreground">Progress</CardTitle></CardHeader>
-            <CardContent className="flex flex-col gap-5">
+          <Card className="project-side-panel gap-3.5">
+            <CardHeader className="flex flex-row items-center justify-between pb-0">
+              <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Progress</CardTitle>
+              <Badge variant="outline" className="font-mono text-xs font-semibold">{progressPercent}%</Badge>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-4">
               {isIssuesLoading ? <Skeleton className="h-24 w-full" /> : isIssuesError ? <p className="text-sm text-muted-foreground">Progress unavailable</p> : <>
-                <dl className="grid grid-cols-2 gap-4 text-sm"><div className="flex flex-col gap-1"><dt className="text-muted-foreground">Scope</dt><dd className="text-lg tabular-nums">{projectIssues.length}</dd></div><div className="flex flex-col gap-1"><dt className="text-muted-foreground">Completed</dt><dd className="text-lg tabular-nums">{completedCount}</dd></div></dl>
-                <div className="flex flex-col gap-2"><div className="flex justify-between text-xs text-muted-foreground"><span>Completion</span><span className="tabular-nums">{progressPercent}%</span></div><Progress aria-label="Project completion" value={progressPercent} className="h-1.5 bg-secondary" /></div>
-                <div className="flex flex-wrap gap-1" aria-label="Group project progress">{['assignees', 'labels', 'teams'].map((group) => <Button key={group} variant="category" size="sm" aria-pressed={progressGrouping === group} onClick={() => setProgressGrouping(group)}>{group === 'assignees' ? 'Assignees' : group === 'labels' ? 'Labels' : 'Teams'}</Button>)}</div>
-                <ul className="flex flex-col gap-3">{Array.from(groups, ([id, group]) => <li key={id} className="flex items-center justify-between gap-3 text-sm"><span className="flex min-w-0 items-center gap-2">{progressGrouping === 'labels' ? <Tag className="size-4 shrink-0 text-muted-foreground" /> : <Users className="size-4 shrink-0 text-muted-foreground" />}<span className="truncate">{group.name}</span></span><span className="shrink-0 text-xs tabular-nums text-muted-foreground">{group.completed} / {group.total}</span></li>)}</ul>
-                {!projectIssues.length && <p className="text-sm text-muted-foreground">No issues in this project yet.</p>}
+                <Progress aria-label="Project completion" value={progressPercent} className="h-2 rounded-full bg-secondary" />
+                <div className="grid grid-cols-2 gap-2.5 rounded-lg border border-border/60 bg-muted/20 p-2.5">
+                  <div className="flex flex-col">
+                    <span className="text-[11px] text-muted-foreground">Scope</span>
+                    <span className="font-mono text-base font-semibold tabular-nums text-foreground">{projectIssues.length}</span>
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-[11px] text-muted-foreground">Completed</span>
+                    <span className="font-mono text-base font-semibold tabular-nums text-foreground">{completedCount}</span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1 rounded-lg border border-border/60 bg-muted/30 p-0.5" aria-label="Group project progress">
+                  {['assignees', 'labels', 'teams'].map((group) => (
+                    <Button
+                      key={group}
+                      type="button"
+                      variant={progressGrouping === group ? 'secondary' : 'ghost'}
+                      size="xs"
+                      className="flex-1 h-6 text-xs font-medium"
+                      aria-pressed={progressGrouping === group}
+                      onClick={() => setProgressGrouping(group)}
+                    >
+                      {group === 'assignees' ? 'Assignees' : group === 'labels' ? 'Labels' : 'Teams'}
+                    </Button>
+                  ))}
+                </div>
+                <ul className="flex flex-col gap-2.5">
+                  {Array.from(groups, ([id, group]) => {
+                    const pct = group.total > 0 ? Math.round((group.completed / group.total) * 100) : 0;
+                    return (
+                      <li key={id} className="flex flex-col gap-1 text-xs">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="flex min-w-0 items-center gap-1.5 text-foreground font-medium">
+                            {progressGrouping === 'labels' ? <Tag className="size-3 text-muted-foreground shrink-0" /> : <Users className="size-3 text-muted-foreground shrink-0" />}
+                            <span className="truncate max-w-[170px]">{group.name}</span>
+                          </span>
+                          <span className="shrink-0 font-mono text-[11px] tabular-nums text-muted-foreground">
+                            {group.completed}/{group.total}
+                          </span>
+                        </div>
+                        <div className="h-1 w-full overflow-hidden rounded-full bg-secondary">
+                          <div className="h-full bg-primary/70 transition-all duration-300" style={{ width: `${pct}%` }} />
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+                {!projectIssues.length && <p className="text-xs text-muted-foreground">No issues in this project yet.</p>}
               </>}
             </CardContent>
           </Card>

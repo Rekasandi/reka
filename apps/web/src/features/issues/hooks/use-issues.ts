@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getIssueById, getIssues, createIssue, updateIssue, updateIssues, deleteIssue, archiveIssue, moveIssueToTop, getSubtasks, type CreateIssueInput, type IssuePatch, type BulkIssueUpdate } from '../api/issues.api';
 import type { Issue, Label } from '@reka/types';
 import { toast } from '@reka/ui';
+import { formatStatusLabel } from '../components/status-picker';
 
 export const ISSUES_QUERY_KEY = ['issues'];
 
@@ -102,8 +103,14 @@ export function useUpdateIssue() {
         queryClient.invalidateQueries({ queryKey: ['cycles'] });
         queryClient.invalidateQueries({ queryKey: ['cycle'] });
       }
+      const description = data.status !== undefined
+        ? `Status: ${formatStatusLabel(updated.status)}`
+        : data.priority !== undefined
+          ? `Priority: ${data.priority === 'no_priority' ? 'None' : data.priority.charAt(0).toUpperCase() + data.priority.slice(1)}`
+          : undefined;
+
       toast.info(`Updated ${updated.identifier}`, {
-        description: `Status: ${updated.status}`,
+        description,
       });
     },
     onError: (err) => {

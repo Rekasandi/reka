@@ -115,6 +115,15 @@ export const STATUS_CONFIG: Record<
   },
 };
 
+export function formatStatusLabel(status?: string | null): string {
+  if (!status) return '';
+  if (STATUS_CONFIG[status]) return STATUS_CONFIG[status].label;
+  return status
+    .split('_')
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+}
+
 /** Linear-style workflow icon: the category decides the shape, the state's own colour tints it. */
 export function renderStateIcon(category: string, color?: string | null) {
   const style = { color: color || CATEGORY_DEFAULT_COLOR[category] || '#8f8f8f' };

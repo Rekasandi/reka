@@ -57,7 +57,7 @@ export function CommandPalette() {
           <CommandItem onSelect={() => handleSelect(() => navigate('/issues?create=1'))}><PlusCircle /><span>Create new issue</span><CommandShortcut>C</CommandShortcut></CommandItem>
         </CommandGroup>
         <CommandGroup heading="Navigation">
-          <CommandItem onSelect={() => handleSelect(() => navigate('/dashboard'))}><LayoutDashboard /><span>Go to Dashboard</span></CommandItem>
+          <CommandItem onSelect={() => handleSelect(() => navigate('/dashboard'))}><LayoutDashboard /><span>Go to Dashboard</span><CommandShortcut>G H</CommandShortcut></CommandItem>
           <CommandItem onSelect={() => handleSelect(() => navigate('/issues'))}><CheckSquare /><span>Go to All Issues</span></CommandItem>
           <CommandItem onSelect={() => handleSelect(() => navigate('/inbox'))}><Inbox /><span>Go to Inbox</span></CommandItem>
           <CommandItem onSelect={() => handleSelect(() => navigate('/my-issues'))}><CheckSquare /><span>Go to My Issues</span><CommandShortcut>G I</CommandShortcut></CommandItem>

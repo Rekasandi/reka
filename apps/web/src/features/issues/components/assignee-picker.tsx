@@ -1,5 +1,7 @@
 import * as React from 'react';
 import {
+  Badge,
+  cn,
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
@@ -12,7 +14,7 @@ import {
   Input,
   Button,
 } from '@reka/ui';
-import { User, Check, Search, UserCheck, X } from 'lucide-react';
+import { User, Check, Search, X } from 'lucide-react';
 import { useUsers } from '../../users/hooks/use-users';
 import { useAuth } from '../../auth/hooks/use-auth';
 
@@ -22,6 +24,7 @@ interface AssigneePickerProps {
   onAssigneeChange: (assigneeId: string | null) => void;
   className?: string;
   size?: 'sm' | 'default' | 'icon';
+  appearance?: 'icon' | 'badge' | 'compact' | 'default';
 }
 
 export function AssigneePicker({
@@ -30,6 +33,7 @@ export function AssigneePicker({
   onAssigneeChange,
   className,
   size = 'default',
+  appearance,
 }: AssigneePickerProps) {
   const [open, setOpen] = React.useState(false);
   const [searchQuery, setSearchQuery] = React.useState('');
@@ -68,7 +72,51 @@ export function AssigneePicker({
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-        {size === 'icon' ? (
+        {appearance === 'badge' ? (
+          <Badge
+            asChild
+            variant={assignedUser ? 'secondary' : 'outline'}
+            className={cn(
+              'h-8 w-full justify-start gap-1.5 px-2 hover:bg-secondary/70 transition-all cursor-pointer font-normal text-xs rounded-4xl border select-none',
+              assignedUser
+                ? 'border-indigo-500/30 bg-indigo-500/10 text-indigo-400 dark:text-indigo-300 hover:bg-indigo-500/20'
+                : 'border-border/80 text-muted-foreground',
+              className
+            )}
+          >
+            <Button
+              variant="plain"
+              size="auto"
+              type="button"
+              id={id}
+              aria-label={assignedUser ? `Assigned to ${assignedUser.name}` : 'Assign member'}
+              title={assignedUser ? `Assigned to ${assignedUser.name}` : 'Assign member'}
+            >
+              {assignedUser ? (
+                <>
+                  <Avatar className="size-4.5 rounded-full border border-indigo-500/30">
+                    {assignedUser.avatarUrl && (
+                      <AvatarImage src={assignedUser.avatarUrl} alt={assignedUser.name} />
+                    )}
+                    <AvatarFallback className="text-[9px] font-bold bg-indigo-500/20 text-indigo-300">
+                      {initial}
+                    </AvatarFallback>
+                  </Avatar>
+                  <span className="truncate text-xs font-medium text-foreground">
+                    {assignedUser.name}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <div className="size-4 rounded-full border border-dashed border-border flex items-center justify-center text-muted-foreground">
+                    <User className="size-2.5" />
+                  </div>
+                  <span className="text-xs text-muted-foreground">Unassigned</span>
+                </>
+              )}
+            </Button>
+          </Badge>
+        ) : size === 'icon' ? (
           <Button variant="ghost" size="icon-xs" id={id}
             type="button"
             className={`flex size-6 items-center justify-center rounded-full hover:ring-1 hover:ring-border transition-colors outline-hidden ${className || ''}`}
