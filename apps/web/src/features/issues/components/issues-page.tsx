@@ -36,7 +36,7 @@ export function IssuesPage({ teamId }: IssuesPageProps) {
   const [isDetailOpen, setIsDetailOpen] = React.useState(false);
   const [viewMode, setViewMode] = React.useState<'grouped' | 'list' | 'board'>('grouped');
   const [groupBy, setGroupBy] = React.useState<'status' | 'none'>('status');
-  const [sortBy, setSortBy] = React.useState<'manual' | 'updated' | 'priority' | 'dueDate'>('manual');
+  const [sortBy, setSortBy] = React.useState<'manual' | 'updated' | 'priority' | 'dueDate' | 'sla'>('manual');
   const [createStatus, setCreateStatus] = React.useState<string | undefined>(undefined);
   const [filterTab, setFilterTab] = React.useState('all');
   const [filters, setFilters] = React.useState<IssueFilters>(EMPTY_ISSUE_FILTERS);
@@ -140,6 +140,11 @@ export function IssuesPage({ teamId }: IssuesPageProps) {
     if (sortBy === 'priority') {
       const order: Record<string, number> = { urgent: 0, high: 1, medium: 2, low: 3, no_priority: 4 };
       return result.sort((a, b) => (order[a.priority] ?? 99) - (order[b.priority] ?? 99));
+    }
+    // Soonest SLA deadline first (breached ones lead); issues without an SLA go last.
+    if (sortBy === 'sla') {
+      const deadline = (issue: Issue) => issue.slaBreachesAt ? new Date(issue.slaBreachesAt).getTime() : Number.MAX_SAFE_INTEGER;
+      return result.sort((a, b) => deadline(a) - deadline(b));
     }
     if (sortBy === 'dueDate') return result.sort((a, b) => a.dueDate && b.dueDate ? new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime() : a.dueDate ? -1 : b.dueDate ? 1 : 0);
     return result;
@@ -292,6 +297,7 @@ export function IssuesPage({ teamId }: IssuesPageProps) {
                       { value: 'updated', label: 'Recently updated' },
                       { value: 'priority', label: 'Priority' },
                       { value: 'dueDate', label: 'Due date' },
+                      { value: 'sla', label: 'SLA (soonest first)' },
                     ]}
                     className="w-36 h-7.5 text-xs"
                   />

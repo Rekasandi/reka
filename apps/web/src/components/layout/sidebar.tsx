@@ -63,7 +63,8 @@ export function AppSidebar() {
   const { data: teams = [], isLoading: teamsLoading, isError: teamsError, refetch: retryTeams } = useTeams();
   // The workspace-wide Cycles page is only useful while at least one team still has cycles switched on.
   const showCycles = teams.length === 0 || teams.some(team => team.cyclesEnabled !== false);
-  const visibleMoreNav = moreNav.filter(item => item.to !== '/cycles' || showCycles);
+  const showTriage = teams.length === 0 || teams.some(team => team.triageEnabled !== false);
+  const visibleMoreNav = moreNav.filter(item => (item.to !== '/cycles' || showCycles) && (item.to !== '/triage' || showTriage));
   const { data: unreadData } = useUnreadCount();
   const { data: workspace } = useQuery({ queryKey: WORKSPACE_QUERY_KEY, queryFn: getWorkspace });
   const { data: favorites = [], isLoading: favoritesLoading, isError: favoritesError, refetch: retryFavorites } = useFavorites();

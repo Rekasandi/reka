@@ -5,7 +5,7 @@ import type { Redis } from 'ioredis';
 import { RedisService } from '../common/redis/redis.service';
 import { DatabaseService } from '../common/database/database.service';
 import { DEFAULT_NOTIFICATION_PREFERENCES, notificationPreferences, notifications, users, type NotificationPreferenceValues } from '@reka/database';
-import { and, desc, eq, gt, isNull, lte, min, or, sql, type SQL } from 'drizzle-orm';
+import { and, desc, eq, gt, inArray, isNull, lte, min, or, sql, type SQL } from 'drizzle-orm';
 import { CreateNotificationDto, UpdateNotificationPreferencesDto } from './dto/notification.dto';
 import { MailService } from '../mail/mail.service';
 import { notificationEmail } from '../mail/mail-templates';
@@ -161,7 +161,8 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
     const updated = await this.database.db
       .update(notifications)
       .set({ read: true })
-      .where(and(notificationScope(this.database.db, actor), eq(notifications.read, false)))
+      // Snoozed rows are hidden from the Inbox, so bulk actions leave them alone until they return.
+      .where(and(notificationScope(this.database.db, actor), eq(notifications.read, false), notSnoozed()))
       .returning({ id: notifications.id });
     if (updated.length) this.changed(userId);
     return { success: true, count: updated.length };
@@ -171,9 +172,17 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
     const actor = await requireWorkspace(this.database.db, userId);
     const deleted = await this.database.db
       .delete(notifications)
-      .where(and(notificationScope(this.database.db, actor), eq(notifications.read, true)))
+      .where(and(notificationScope(this.database.db, actor), eq(notifications.read, true), notSnoozed()))
       .returning({ id: notifications.id });
     return { success: true, count: deleted.length };
+  }
+
+  /** Removes notifications about deleted issues so the Inbox never links to missing work; refreshes recipients' counts. */
+  async deleteForIssues(issueIds: string[]) {
+    if (!issueIds.length) return;
+    const removed = await this.database.db.delete(notifications)
+      .where(inArray(sql`${notifications.metadata}->>'issueId'`, issueIds)).returning({ userId: notifications.userId });
+    for (const userId of new Set(removed.map((row) => row.userId))) this.changed(userId);
   }
 
   async delete(id: string, userId: string) {

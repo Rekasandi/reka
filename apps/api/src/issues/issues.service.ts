@@ -813,6 +813,7 @@ ${issue.description || 'No description provided.'}
     const subtree = await this.issueSubtreeIds(issue.teamId, id, actor);
     const deleted = await this.database.db.delete(issues).where(and(inArray(issues.id, subtree), issueScope(this.database.db, actor))).returning({ id: issues.id });
     if (!deleted.length) throw new NotFoundException('Issue not found');
+    await this.notificationsService.deleteForIssues(deleted.map((row) => row.id));
     return { success: true, deletedIssueCount: deleted.length };
   }
 }

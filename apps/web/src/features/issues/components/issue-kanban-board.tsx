@@ -8,6 +8,7 @@ import { PriorityPicker } from './priority-picker';
 import { IssueTypePicker } from './issue-type-picker';
 import { AssigneePicker } from './assignee-picker';
 import { CyclePicker } from './cycle-picker';
+import { SlaBadge } from './sla-badge';
 import { ConfirmDeleteDialog } from '../../../components/common/confirm-delete-dialog';
 
 interface IssueKanbanBoardProps {
@@ -130,6 +131,7 @@ export function IssueKanbanBoard({ issues, onSelectIssue }: IssueKanbanBoardProp
                   <div className="flex items-center justify-between pt-1 border-t border-border/40" onClick={(e) => e.stopPropagation()}>
                     <div className="flex items-center gap-1.5">
                       <IssueTypePicker type={issue.type} identifier={issue.identifier} onTypeChange={(type) => updateMutation.mutate({ id: issue.id, data: { type } })} />
+                      <SlaBadge issue={issue} />
 
                       <AssigneePicker
                         size="icon"

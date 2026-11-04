@@ -44,3 +44,28 @@ test('snoozed notifications hide from the inbox and unread count until unsnoozed
     await postgres.close();
   }
 });
+
+test('bulk read/clear leave snoozed notifications alone', { timeout: 90_000 }, async () => {
+  const postgres = await createPersistentPostgres();
+  const marker = randomUUID().replaceAll('-', '').slice(0, 10);
+  try {
+    const db = postgres.db;
+    const [org] = await db.insert(organizations).values({ name: `Bulk ${marker}`, slug: `bulk-${marker}` }).returning();
+    const [owner] = await db.insert(users).values({ email: `bulk-${marker}@example.test`, name: 'Owner' }).returning();
+    await db.insert(organizationMembers).values({ organizationId: org.id, userId: owner.id, role: 'owner' });
+    const [visible, snoozed, readSnoozed] = await db.insert(notifications).values([
+      { userId: owner.id, type: 'mention', title: 'Visible', body: 'b' },
+      { userId: owner.id, type: 'mention', title: 'Snoozed', body: 'b', snoozedUntil: new Date(Date.now() + 3_600_000) },
+      { userId: owner.id, type: 'mention', title: 'Read snoozed', body: 'b', read: true, snoozedUntil: new Date(Date.now() + 3_600_000) },
+    ]).returning();
+    const inbox = new NotificationsService({ db });
+    equal((await inbox.markAllAsRead(owner.id)).count, 1, 'only the visible notification is marked read');
+    const rows = await db.select().from(notifications);
+    equal(rows.find((r) => r.id === snoozed.id).read, false, 'snoozed stays unread for when it returns');
+    equal((await inbox.clearRead(owner.id)).count, 1, 'clear read removes only the visible read row');
+    deepEqual((await db.select().from(notifications)).map((r) => r.id).sort(), [snoozed.id, readSnoozed.id].sort());
+    equal(visible.read, false);
+  } finally {
+    await postgres.close();
+  }
+});

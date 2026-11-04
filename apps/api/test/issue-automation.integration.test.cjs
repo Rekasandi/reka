@@ -314,3 +314,15 @@ test('issue writes push a live "issues" event to teammates over the SSE stream',
     ok(text.includes(f.team.id), 'event names the changed team');
   } finally { controller.abort(); await f.close(); }
 });
+
+test('deleting an issue removes notifications that point at it', { timeout: 60000 }, async () => {
+  const f = await fixture();
+  try {
+    const { notifications } = require('@reka/database');
+    const parent = await f.create(); const child = await f.create({ parentId: parent.id }); const other = await f.create();
+    await f.postgres.db.insert(notifications).values([parent, child, other].map((issue) => ({ userId: f.member.id, type: 'assignment', title: issue.identifier, body: 'b', metadata: { issueId: issue.id, issueIdentifier: issue.identifier } })));
+    equal((await f.request(f.owner, `/issues/${parent.id}`, 'DELETE')).status, 200);
+    const left = await f.postgres.db.select().from(notifications).where(eq(notifications.userId, f.member.id));
+    deepEqual(left.map((row) => row.metadata.issueId), [other.id], 'parent and sub-issue notifications are gone');
+  } finally { await f.close(); }
+});
