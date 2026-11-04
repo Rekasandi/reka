@@ -1,11 +1,16 @@
 {
+  "$schema": "https://openapi.vercel.sh/vercel.json",
   "installCommand": "pnpm install --frozen-lockfile",
-  "buildCommand": "pnpm --filter @reka/web build",
+  "buildCommand": "pnpm turbo run build --filter=@reka/web",
   "outputDirectory": "apps/web/dist",
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://YOUR-RENDER-API.onrender.com/api/:path*"
+      "destination": "https://YOUR-API-DOMAIN/api/:path*"
+    },
+    {
+      "source": "/((?!api/).*)",
+      "destination": "/index.html"
     }
   ]
 }

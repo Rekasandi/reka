@@ -1,0 +1,5 @@
+# HTTPS for the API (certificates are issued automatically). Caddy streams text/event-stream
+# responses without buffering, so the live unread-count SSE works through it.
+{$API_DOMAIN} {
+	reverse_proxy api:3000
+}

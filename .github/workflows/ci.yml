@@ -32,3 +32,8 @@ jobs:
 
       - name: Build
         run: pnpm build
+
+      # API + worker integration tests against an in-process Postgres (PGlite). Tests that need a real
+      # database or provider skip themselves unless their opt-in env vars are set, so nothing external is touched.
+      - name: Integration tests
+        run: pnpm test

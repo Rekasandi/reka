@@ -1,12 +1,61 @@
+# Local development:  docker compose up -d            -> Redis only (run web/api/worker with pnpm dev:all)
+# Server deployment:  docker compose --profile app up -d --build
+#                     -> Redis + API + worker + Caddy (automatic HTTPS for API_DOMAIN). The web app runs on Vercel.
+# The server needs a .env next to this file (see DEPLOYMENT.md). Database migrations are never run automatically.
 services:
   redis:
     image: redis:7-alpine
     container_name: reka-redis
+    # BullMQ needs keys kept, and the append-only file keeps queued jobs across restarts.
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory-policy", "noeviction"]
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     volumes:
       - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  api:
+    profiles: [app]
+    build: { context: ., target: api }
+    env_file: .env
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      redis: { condition: service_healthy }
+    restart: unless-stopped
+
+  worker:
+    profiles: [app]
+    build: { context: ., target: worker }
+    env_file: .env
+    environment:
+      NODE_ENV: production
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      redis: { condition: service_healthy }
+    restart: unless-stopped
+
+  caddy:
+    profiles: [app]
+    image: caddy:2-alpine
+    environment:
+      API_DOMAIN: ${API_DOMAIN:-localhost} # set in the server .env, e.g. api.example.com
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+    depends_on: [api]
     restart: unless-stopped
 
 volumes:
   redis_data:
+  caddy_data:
