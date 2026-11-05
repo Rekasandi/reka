@@ -4,15 +4,13 @@ FROM node:22-alpine AS build
 RUN corepack enable
 WORKDIR /app
 COPY . .
-RUN pnpm install --frozen-lockfile
-RUN pnpm turbo run build --filter=@reka/api... --filter=@reka/worker...
-# Keep only production dependencies; workspace packages keep their built dist/.
-RUN CI=true pnpm install --frozen-lockfile --prod --ignore-scripts
+RUN pnpm --filter @reka/api... --filter @reka/worker... install --frozen-lockfile \
+    && pnpm -r --filter @reka/api... --filter @reka/worker... run build \
+    && CI=true pnpm --filter @reka/api... --filter @reka/worker... install --frozen-lockfile --prod --ignore-scripts \
+    && rm -rf /root/.local/share/pnpm /root/.cache /tmp/* apps/web packages/ui
 
-FROM node:22-alpine AS runtime
+FROM build AS runtime
 ENV NODE_ENV=production
-WORKDIR /app
-COPY --from=build /app /app
 USER node
 
 FROM runtime AS api
