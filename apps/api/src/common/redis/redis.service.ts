@@ -6,20 +6,22 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
   private client!: Redis;
 
   onModuleInit() {
-    this.client = process.env.REDIS_URL
-      ? new Redis(process.env.REDIS_URL, { lazyConnect: true, maxRetriesPerRequest: 1 })
-      : new Redis({
-          host: process.env.REDIS_HOST || 'localhost',
-          port: Number(process.env.REDIS_PORT) || 6379,
-          password: process.env.REDIS_PASSWORD || undefined,
-          lazyConnect: true,
-          maxRetriesPerRequest: 1,
-        });
-    this.client.on('error', () => {
-      // Graceful error handling: prevent unhandled exceptions when Redis is unreachable
-    });
-    // Connect up front (ioredis then reconnects on its own) so the *Safe helpers can skip Redis instantly while it is down.
-    this.client.connect().catch(() => undefined);
+    if (!this.client) {
+      this.client = process.env.REDIS_URL
+        ? new Redis(process.env.REDIS_URL, { lazyConnect: true, maxRetriesPerRequest: 1 })
+        : new Redis({
+            host: process.env.REDIS_HOST || 'localhost',
+            port: Number(process.env.REDIS_PORT) || 6379,
+            password: process.env.REDIS_PASSWORD || undefined,
+            lazyConnect: true,
+            maxRetriesPerRequest: 1,
+          });
+      this.client.on('error', () => {
+        // Graceful error handling: prevent unhandled exceptions when Redis is unreachable
+      });
+      // Connect up front (ioredis then reconnects on its own) so the *Safe helpers can skip Redis instantly while it is down.
+      this.client.connect().catch(() => undefined);
+    }
   }
 
   /** Cache helpers never wait on a connection: when Redis is not ready they behave like a cache miss. */
@@ -63,6 +65,7 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
   }
 
   getClient(): Redis {
+    this.onModuleInit();
     return this.client;
   }
 }
