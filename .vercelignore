@@ -1,0 +1,14 @@
+.agents
+.codex
+.impeccable
+.neon
+.pi
+.turbo
+**/test
+docs
+deploy
+claude-context.md
+*.md
+Dockerfile
+docker-compose*
+render.yaml

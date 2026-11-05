@@ -12,7 +12,7 @@ RUN CI=true pnpm install --frozen-lockfile --prod --ignore-scripts
 FROM node:22-alpine AS runtime
 ENV NODE_ENV=production
 WORKDIR /app
-COPY --from=build --chown=node:node /app /app
+COPY --from=build /app /app
 USER node
 
 FROM runtime AS api
