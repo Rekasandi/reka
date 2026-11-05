@@ -1,7 +1,7 @@
 import { Injectable, Logger, NotFoundException, BadRequestException, ConflictException, ServiceUnavailableException } from '@nestjs/common';
 import { createHash, randomBytes } from 'node:crypto';
 import { DatabaseService } from '../../common/database/database.service';
-import { githubInstallations, githubRepositories, oauthLoginAttempts, webhookEvents } from '@reka/database';
+import { accounts, githubInstallations, githubRepositories, oauthLoginAttempts, webhookEvents } from '@reka/database';
 import { and, desc, eq, gt, inArray, lt, sql } from 'drizzle-orm';
 import { requireAdmin, requireResourceId, type WorkspaceActor } from '../../common/access/workspace-access';
 import { createGithubAppJwt, listInstallationRepositories } from '../github-app-token';
@@ -31,8 +31,13 @@ export class GithubInstallationsService {
   }
 
   async findAll(actor: WorkspaceActor) {
-    const list = await this.database.db.select().from(githubInstallations)
+    let list = await this.database.db.select().from(githubInstallations)
       .where(eq(githubInstallations.organizationId, actor.organizationId));
+    if (!list.length && (actor.role === 'owner' || actor.role === 'admin')) {
+      await this.discoverExistingInstallations(actor);
+      list = await this.database.db.select().from(githubInstallations)
+        .where(eq(githubInstallations.organizationId, actor.organizationId));
+    }
     const allRepos = list.length
       ? await this.database.db.select().from(githubRepositories)
         .where(inArray(githubRepositories.installationId, list.map(({ id }) => id)))
@@ -41,6 +46,54 @@ export class GithubInstallationsService {
       const repositories = allRepos.filter((repo) => repo.installationId === inst.id);
       return { ...inst, repositories, repositoryCount: repositories.length };
     });
+  }
+
+  async discoverExistingInstallations(actor: WorkspaceActor) {
+    if (!process.env.GITHUB_APP_ID || !process.env.GITHUB_PRIVATE_KEY) return;
+    const [account] = await this.database.db.select({ accessToken: accounts.accessToken })
+      .from(accounts).where(and(eq(accounts.userId, actor.userId), eq(accounts.providerId, 'github'))).limit(1);
+    if (!account?.accessToken) return;
+    try {
+      const headers = { Authorization: `Bearer ${account.accessToken}`, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28', 'User-Agent': 'REKA-Platform-App' };
+      const [userRes, orgsRes] = await Promise.all([
+        fetch('https://api.github.com/user', { headers, signal: AbortSignal.timeout(10000) }),
+        fetch('https://api.github.com/user/orgs?per_page=100', { headers, signal: AbortSignal.timeout(10000) }),
+      ]);
+      const allowedLogins = new Set<string>();
+      if (userRes.ok) {
+        const u = (await userRes.json()) as { login?: string };
+        if (u.login) allowedLogins.add(u.login.toLowerCase());
+      }
+      if (orgsRes.ok) {
+        const orgs = (await orgsRes.json()) as Array<{ login?: string }>;
+        if (Array.isArray(orgs)) for (const o of orgs) if (o.login) allowedLogins.add(o.login.toLowerCase());
+      }
+      if (!allowedLogins.size) return;
+
+      const { appId, jwt } = createGithubAppJwt();
+      const appInstRes = await fetch('https://api.github.com/app/installations?per_page=100', {
+        headers: { Authorization: `Bearer ${jwt}`, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28', 'User-Agent': 'REKA-Platform-App' },
+        signal: AbortSignal.timeout(10000),
+      });
+      if (!appInstRes.ok) return;
+      const appInstallations = (await appInstRes.json()) as Array<{ id?: number; app_id?: number; account?: { login?: string; type?: string } }>;
+      if (!Array.isArray(appInstallations)) return;
+      for (const inst of appInstallations) {
+        if (!inst.id || String(inst.app_id) !== appId || !inst.account?.login) continue;
+        if (!allowedLogins.has(inst.account.login.toLowerCase())) continue;
+        const [existing] = await this.database.db.select().from(githubInstallations).where(eq(githubInstallations.installationId, inst.id));
+        if (existing) continue;
+        const [created] = await this.database.db.insert(githubInstallations).values({
+          organizationId: actor.organizationId,
+          installationId: inst.id,
+          accountLogin: inst.account.login,
+          accountType: inst.account.type === 'User' ? 'User' : 'Organization',
+        }).returning();
+        if (created) await this.syncInstallationRepositories(created);
+      }
+    } catch {
+      // Best-effort discovery when the app was already installed on GitHub.
+    }
   }
 
   async webhookDeliveries(actor: WorkspaceActor) {
