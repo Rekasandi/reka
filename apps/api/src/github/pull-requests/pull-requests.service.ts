@@ -1,10 +1,11 @@
 import { Injectable, NotFoundException, ServiceUnavailableException, BadRequestException } from '@nestjs/common';
 import { and, eq } from 'drizzle-orm';
-import { activities, githubBranches, githubPullRequests, githubRepositories, issueSubscriptions, issues, projectRepositories, teamWorkflowStates } from '@reka/database';
+import { activities, githubBranches, githubInstallations, githubPullRequests, githubRepositories, issueSubscriptions, issues, projectRepositories, teamWorkflowStates } from '@reka/database';
 import { DatabaseService } from '../../common/database/database.service';
 import { NotificationsService } from '../../notifications/notifications.service';
 import { githubTokenFor } from '../../auth/github-token';
 import { repositoryScope, requireIssue, requireIssueWrite, type WorkspaceActor } from '../../common/access/workspace-access';
+import { installationTokenFor } from '../github-app-token';
 import type { CreateOrLinkPRDto } from './dto/pull-request.dto';
 
 @Injectable()
@@ -73,8 +74,13 @@ export class GithubPullRequestsService {
     const repo = allowedRepositories.find(candidate => candidate.id === dto.repositoryId);
     if (!repo) throw new NotFoundException('Repository is not linked to this issue or is not accessible');
 
-    const token = await githubTokenFor(this.database.db, actor.userId);
-    if (!token) throw new ServiceUnavailableException('Sign in with GitHub (or set GITHUB_TOKEN) to verify pull requests');
+    let token = await githubTokenFor(this.database.db, actor.userId);
+    if (!token) {
+      const [inst] = await this.database.db.select({ installationId: githubInstallations.installationId })
+        .from(githubInstallations).where(eq(githubInstallations.id, repo.installationId)).limit(1);
+      if (inst) token = (await installationTokenFor(inst.installationId)) ?? undefined;
+    }
+    if (!token) throw new ServiceUnavailableException('GitHub App installation token is unavailable to verify pull requests');
     let response: Response;
     try {
       response = await fetch(`https://api.github.com/repos/${encodeURIComponent(repo.owner)}/${encodeURIComponent(repo.name)}/pulls/${dto.prNumber}`, {

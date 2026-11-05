@@ -46,22 +46,27 @@ export class GithubInstallationsController {
     const cookieName = process.env.NODE_ENV === 'production' ? '__Host-reka_github_install_state' : 'reka_github_install_state';
     const expected = req.cookies?.[cookieName];
     res.clearCookie(cookieName, authCookieOptions());
-    if (typeof state !== 'string' || !/^[a-fA-F0-9]{64}$/.test(state) || typeof expected !== 'string' ||
-        !/^[a-fA-F0-9]{64}$/.test(expected) || state.length !== expected.length ||
-        !timingSafeEqual(Buffer.from(state), Buffer.from(expected))) {
-      throw new BadRequestException('GitHub installation state expired or invalid');
+    if (state !== undefined || expected !== undefined) {
+      if (typeof state !== 'string' || !/^[a-fA-F0-9]{64}$/.test(state) || typeof expected !== 'string' ||
+          !/^[a-fA-F0-9]{64}$/.test(expected) || state.length !== expected.length ||
+          !timingSafeEqual(Buffer.from(state), Buffer.from(expected))) {
+        throw new BadRequestException('GitHub installation state expired or invalid');
+      }
+      await this.service.consumeInstallState(state);
     }
-    await this.service.consumeInstallState(state);
     const parsedId = /^\d{1,16}$/.test(installationId || '') ? Number(installationId) : NaN;
     const webUrl = process.env.WEB_URL || 'http://localhost:5173';
-    if (!Number.isSafeInteger(parsedId) || parsedId <= 0) return res.redirect(`${webUrl}/settings?github=verification_failed`);
+    const sendRedirect = (result: 'installed' | 'verification_failed') =>
+      res.status(302).setHeader('Location', `${webUrl}/settings?github=${result}`).end();
+    if (!Number.isSafeInteger(parsedId) || parsedId <= 0) return sendRedirect('verification_failed');
     try {
-      await this.service.recordInstallation(parsedId, req.workspace);
-      return res.redirect(`${webUrl}/settings?github=installed`);
+      const installation = await this.service.recordInstallation(parsedId, req.workspace);
+      await this.service.syncInstallationRepositories(installation);
+      return sendRedirect('installed');
     } catch {
       // Keep credential/provider detail out of the browser redirect and report a
       // truthful, actionable generic error in Settings.
-      return res.redirect(`${webUrl}/settings?github=verification_failed`);
+      return sendRedirect('verification_failed');
     }
   }
 }

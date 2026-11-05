@@ -1,9 +1,10 @@
 import { Injectable, Logger, NotFoundException, BadRequestException, ConflictException, ServiceUnavailableException } from '@nestjs/common';
-import { createHash, randomBytes, sign } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import { DatabaseService } from '../../common/database/database.service';
 import { githubInstallations, githubRepositories, oauthLoginAttempts, webhookEvents } from '@reka/database';
 import { and, desc, eq, gt, inArray, lt, sql } from 'drizzle-orm';
 import { requireAdmin, requireResourceId, type WorkspaceActor } from '../../common/access/workspace-access';
+import { createGithubAppJwt, listInstallationRepositories } from '../github-app-token';
 
 @Injectable()
 export class GithubInstallationsService {
@@ -82,15 +83,36 @@ export class GithubInstallationsService {
     return created;
   }
 
+  async syncInstallationRepositories(installation: typeof githubInstallations.$inferSelect) {
+    const remoteRepos = await listInstallationRepositories(installation.installationId);
+    // Automatically connect repositories for focused installations (<= 25 repos); larger accounts can pick in Add Repo.
+    if (!remoteRepos.length || remoteRepos.length > 25) return;
+    for (const repo of remoteRepos) {
+      if (!Number.isSafeInteger(repo.id) || repo.id <= 0 || !repo.owner?.login || !repo.name || !repo.full_name) continue;
+      await this.database.db.insert(githubRepositories).values({
+        installationId: installation.id,
+        repoId: repo.id,
+        owner: repo.owner.login,
+        name: repo.name,
+        fullName: repo.full_name,
+        isPrivate: Boolean(repo.private),
+        defaultBranch: repo.default_branch || 'main',
+      }).onConflictDoUpdate({
+        target: githubRepositories.repoId,
+        set: {
+          installationId: installation.id,
+          owner: repo.owner.login,
+          name: repo.name,
+          fullName: repo.full_name,
+          isPrivate: Boolean(repo.private),
+          defaultBranch: repo.default_branch || 'main',
+        },
+      });
+    }
+  }
+
   private async verifyInstallation(installationId: number): Promise<{ accountLogin: string; accountType: 'User' | 'Organization' }> {
-    const appId = process.env.GITHUB_APP_ID;
-    const rawPrivateKey = process.env.GITHUB_PRIVATE_KEY;
-    if (!appId || !rawPrivateKey) throw new ServiceUnavailableException('GitHub App credentials are not configured');
-    const privateKey = rawPrivateKey.replace(/\\n/g, '\n');
-    const encode = (value: object) => Buffer.from(JSON.stringify(value)).toString('base64url');
-    const issuedAt = Math.floor(Date.now() / 1000);
-    const unsigned = `${encode({ alg: 'RS256', typ: 'JWT' })}.${encode({ iat: issuedAt - 60, exp: issuedAt + 540, iss: appId })}`;
-    const jwt = `${unsigned}.${sign('RSA-SHA256', Buffer.from(unsigned), privateKey).toString('base64url')}`;
+    const { appId, jwt } = createGithubAppJwt();
     let response: Response;
     try {
       response = await fetch(`https://api.github.com/app/installations/${installationId}`, {
