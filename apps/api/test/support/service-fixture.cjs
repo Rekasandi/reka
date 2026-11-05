@@ -14,12 +14,17 @@ async function createServiceFixture() {
     const db = postgres.db;
     const [org] = await db.insert(organizations).values({ name: 'Internal test company', slug: 'test-company' }).returning();
     const [actor, assignee, reporter, mentioned] = await db.insert(users).values([
-      { email: 'actor@example.test', name: 'Actor', role: 'owner' },
-      { email: 'assignee@example.test', name: 'Assignee', role: 'member' },
-      { email: 'reporter@example.test', name: 'Reporter', role: 'member' },
-      { email: 'pat@example.test', name: 'Pat Person', role: 'member', githubUsername: 'pat-dev' },
+      { email: 'actor@example.test', name: 'Actor' },
+      { email: 'assignee@example.test', name: 'Assignee' },
+      { email: 'reporter@example.test', name: 'Reporter' },
+      { email: 'pat@example.test', name: 'Pat Person', githubUsername: 'pat-dev' },
     ]).returning();
-    await db.insert(organizationMembers).values([actor, assignee, reporter, mentioned].map(user => ({ organizationId: org.id, userId: user.id, role: user.role })));
+    await db.insert(organizationMembers).values([
+      { organizationId: org.id, userId: actor.id, role: 'owner' },
+      { organizationId: org.id, userId: assignee.id, role: 'member' },
+      { organizationId: org.id, userId: reporter.id, role: 'member' },
+      { organizationId: org.id, userId: mentioned.id, role: 'member' },
+    ]);
     const [team] = await db.insert(teams).values({ organizationId: org.id, name: 'Engineering', key: 'ENG' }).returning();
     await db.insert(teamMembers).values({ teamId: team.id, userId: actor.id, role: 'lead' });
     const [project] = await db.insert(projects).values({ organizationId: org.id, teamId: team.id, ownerId: actor.id, name: 'Workspace', slug: 'workspace' }).returning();

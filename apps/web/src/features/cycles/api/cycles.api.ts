@@ -34,14 +34,6 @@ export interface CreateCycleInput {
   capacity?: number | null;
 }
 
-export interface UpdateCycleInput {
-  name?: string;
-  description?: string;
-  startDate?: string;
-  endDate?: string;
-  capacity?: number | null;
-}
-
 export interface CompleteCycleInput {
   incompleteIssuesAction: 'backlog' | 'next_cycle';
   nextCycleId?: string;
@@ -76,16 +68,6 @@ export async function createCycle(input: CreateCycleInput): Promise<Cycle> {
     body: JSON.stringify(input),
   });
   if (!res.ok) throw new Error('Failed to create cycle');
-  return res.json();
-}
-
-export async function updateCycle(id: string, input: UpdateCycleInput): Promise<Cycle> {
-  const res = await fetch(`/api/cycles/${id}`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(input),
-  });
-  if (!res.ok) throw new Error('Failed to update cycle');
   return res.json();
 }
 

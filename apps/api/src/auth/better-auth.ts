@@ -10,7 +10,7 @@ import {
   accounts, organizationMembers, organizations, sessions, users, verifications, workspaceInvitations, type DbClient,
 } from '@reka/database';
 import type { EmailContent } from '../mail/mail-templates';
-import { invitationEmail, magicLinkEmail, resetPasswordEmail, verificationEmail } from '../mail/mail-templates';
+import { changeEmailEmail, invitationEmail, magicLinkEmail, resetPasswordEmail, verificationEmail } from '../mail/mail-templates';
 
 export interface AuthMailer { isConfigured(): boolean; send(to: string, content: EmailContent): Promise<{ sent: boolean; error?: string }> }
 
@@ -37,7 +37,7 @@ export function createAuth(db: DbClient, mail?: AuthMailer) {
     const result = await mail.send(to, content);
     if (!result.sent) logger.warn(`Could not send ${what} email to ${to}: ${result.error}`);
   };
-  const secret = process.env.BETTER_AUTH_SECRET || process.env.SESSION_SECRET;
+  const secret = process.env.BETTER_AUTH_SECRET;
   if (!secret && process.env.NODE_ENV === 'production') throw new Error('BETTER_AUTH_SECRET is required in production');
 
   return betterAuth({
@@ -57,6 +57,11 @@ export function createAuth(db: DbClient, mail?: AuthMailer) {
       additionalFields: {
         githubUsername: { type: 'string', required: false, input: false },
         githubId: { type: 'string', required: false, input: false },
+      },
+      // The current address must confirm the change; the new one is then verified like a sign-up.
+      changeEmail: {
+        enabled: true,
+        sendChangeEmailConfirmation: async ({ user, newEmail, url }) => deliver(user.email, changeEmailEmail({ newEmail, url }), url, 'email change'),
       },
     },
     // No cookie cache: the active workspace must be current on every request after a switch or a join.
@@ -117,6 +122,8 @@ export function createAuth(db: DbClient, mail?: AuthMailer) {
         // Linking a GitHub account (first sign-in or re-link) records the GitHub identity on the user.
         create: { after: async (account) => syncGithubIdentity(db, account, logger) },
         update: { after: async (account) => syncGithubIdentity(db, account, logger) },
+        // Unlinking GitHub (Settings → Connected accounts) clears the identity again.
+        delete: { after: async (account) => { if (account.providerId === 'github') await db.update(users).set({ githubId: null, githubUsername: null, updatedAt: new Date() }).where(eq(users.id, account.userId)); } },
       },
       session: {
         create: {

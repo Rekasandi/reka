@@ -43,11 +43,13 @@ export async function seedDemo({ apiUrl, token, sql, owner, manifestFile }) {
   // New teams start with cycles/estimates off; the demo shows both.
   for (const key of Object.keys(teams)) if (!teams[key].cyclesEnabled || !teams[key].estimatesEnabled) await api(`/teams/${teams[key].id}`, 'PATCH', { cyclesEnabled: true, estimatesEnabled: true });
 
+  // Demo people are inactive members: listed in the directory, unable to sign in; invite them to activate.
   for (const [key, name, role] of [['developer', 'Dina Developer', 'member'], ['designer', 'Bima Designer', 'member'], ['admin', 'Ari Admin Pending', 'admin'], ['guest', 'Gita Read-only Pending', 'guest'], ['client', 'Citra Client Pending', 'client']]) {
-    await ensure('users', key, '/users?includeInactive=true', { name: prefix + name, email: `reka.demo.${key}@example.test`, role });
+    if (manifest.records.users?.[key]) continue;
+    const [user] = await sql`INSERT INTO users (email, name) VALUES (${`reka.demo.${key}@example.test`}, ${prefix + name}) ON CONFLICT (email) DO UPDATE SET name = EXCLUDED.name RETURNING id, name, email`;
+    await sql`INSERT INTO organization_members (organization_id, user_id, role, is_active) VALUES (${owner.organizationId}::uuid, ${user.id}::uuid, ${role}, false) ON CONFLICT DO NOTHING`;
+    record('users', key, user);
   }
-  // Profiles are created through /users and remain pending/inactive. They cannot
-  // sign in, masquerade as verified GitHub users, or bypass invitation acceptance.
 
   const clients = [];
   for (const [i, name, industry] of [[0, 'Nusantara Retail', 'Retail'], [1, 'Lintas Logistik', 'Logistics'], [2, 'Sehat Bersama', 'Healthcare'], [3, 'Aruna Finance', 'Finance']]) {

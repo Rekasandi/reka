@@ -8,20 +8,12 @@ export interface User {
   githubUsername?: string | null;
   role: 'owner' | 'admin' | 'member' | 'guest' | 'client';
   isActive?: boolean;
-  admission?: 'legacy' | 'pending' | 'invited';
   assignedIssuesCount?: number;
   teamsCount?: number;
   teams?: Array<{ id: string; key: string; name: string }>;
   assignedIssues?: Issue[];
   createdAt: string;
   updatedAt: string;
-}
-
-export interface CreateUserInput {
-  name: string;
-  email: string;
-  role?: string;
-  avatarUrl?: string;
 }
 
 export interface UpdateUserInput {
@@ -34,25 +26,6 @@ export interface UpdateUserInput {
 export async function getUsers(includeInactive = false): Promise<User[]> {
   const res = await fetch(includeInactive ? '/api/users?includeInactive=true' : '/api/users');
   if (!res.ok) throw new Error('Failed to fetch users');
-  return res.json();
-}
-
-export async function getUserById(id: string): Promise<User> {
-  const res = await fetch(`/api/users/${id}`);
-  if (!res.ok) throw new Error('Failed to fetch user');
-  return res.json();
-}
-
-export async function createUser(input: CreateUserInput): Promise<User> {
-  const res = await fetch('/api/users', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(input),
-  });
-  if (!res.ok) {
-    const errorData = await res.json().catch(() => null);
-    throw new Error(errorData?.message || 'Failed to create user');
-  }
   return res.json();
 }
 

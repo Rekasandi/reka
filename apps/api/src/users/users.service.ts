@@ -1,11 +1,10 @@
-import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
-import { randomUUID } from 'node:crypto';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from '../common/database/database.service';
 import { issues, teamMembers, teams } from '@reka/database';
-import { and, eq, inArray, sql } from 'drizzle-orm';
-import { CreateUserDto, UpdateUserDto } from './dto/user.dto';
+import { and, eq, inArray } from 'drizzle-orm';
+import { UpdateUserDto } from './dto/user.dto';
 import { WorkspaceService } from '../workspace/workspace.service';
-import { requireAdmin, requireResourceId, requireWorkspace, membershipScope, issueScope, visibleTeamIds } from '../common/access/workspace-access';
+import { requireAdmin, requireResourceId, requireWorkspace, issueScope, visibleTeamIds } from '../common/access/workspace-access';
 
 @Injectable()
 export class UsersService {
@@ -52,33 +51,6 @@ export class UsersService {
     if (!user) throw new NotFoundException('Workspace user not found');
     const assignedIssues = await this.database.db.select().from(issues).where(and(eq(issues.assigneeId, id), issueScope(this.database.db, actor)));
     return { ...user, assignedIssues };
-  }
-
-  async create(actorId: string, dto: CreateUserDto) {
-    const actor = await requireWorkspace(this.database.db, actorId);
-    requireAdmin(actor);
-    if (!dto.name?.trim()) throw new BadRequestException('Name cannot be empty');
-    if (dto.role === 'owner') throw new BadRequestException('Assign ownership after the user has joined through an invitation');
-    const id = randomUUID(), email = dto.email.trim().toLowerCase(), role = dto.role ?? 'member';
-    try {
-      // Preserve manual profile creation, but never turn it into an invitation
-      // bypass. Profile + pending inactive membership are one atomic statement.
-      await this.database.db.execute(sql`
-        WITH profile AS (
-          INSERT INTO users (id, email, name, avatar_url, role)
-          SELECT ${id}::uuid, ${email}, ${dto.name.trim()}, ${dto.avatarUrl?.trim() || null}, ${role}
-          WHERE ${membershipScope(this.database.db, actor)} RETURNING id
-        ) INSERT INTO organization_members (organization_id, user_id, role, is_active, admission)
-          SELECT ${actor.organizationId}::uuid, id, ${role}, false, 'pending' FROM profile
-      `);
-    } catch (error) {
-      const failure = error as { constraint?: string; cause?: { constraint?: string } };
-      if (failure.constraint === 'users_email_unique' || failure.cause?.constraint === 'users_email_unique') {
-        throw new ConflictException('This email already belongs to an account');
-      }
-      throw error;
-    }
-    return this.findById(actorId, id);
   }
 
   async update(actorId: string, id: string, dto: UpdateUserDto) {

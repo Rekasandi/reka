@@ -1,7 +1,7 @@
 // Isolated embedded Postgres only: never reads .env or connects to DATABASE_URL.
 const { equal, deepEqual, rejects, ok } = require('node:assert/strict');
 const { test } = require('node:test');
-const { randomUUID, createHash } = require('node:crypto');
+const { randomUUID } = require('node:crypto');
 const { mkdtempSync, mkdirSync, copyFileSync, readFileSync, writeFileSync, rmSync } = require('node:fs');
 const { tmpdir } = require('node:os');
 const { join, resolve } = require('node:path');
@@ -23,7 +23,7 @@ function legacyMigrations() {
 async function seedLegacy(db) {
   const ids = { org: randomUUID(), owner: randomUUID(), member: randomUUID(), team: randomUUID(), project: randomUUID(), milestone: randomUUID(), issue: randomUUID() };
   await db.execute(sql`INSERT INTO organizations (id, name, slug) VALUES (${ids.org}, 'Internal company', 'company')`);
-  await db.execute(sql`INSERT INTO users (id, email, name, role) VALUES (${ids.owner}, 'owner@example.test', 'Owner', 'owner'), (${ids.member}, 'member@example.test', 'Member', 'member')`);
+  await db.execute(sql`INSERT INTO users (id, email, name) VALUES (${ids.owner}, 'owner@example.test', 'Owner'), (${ids.member}, 'member@example.test', 'Member')`);
   await db.execute(sql`INSERT INTO organization_members (organization_id, user_id, role) VALUES (${ids.org}, ${ids.owner}, 'owner')`);
   await db.execute(sql`INSERT INTO teams (id, organization_id, name, key, icon) VALUES (${ids.team}, ${ids.org}, 'Engineering', 'ENG', 'Building2')`);
   await db.execute(sql`INSERT INTO projects (id, organization_id, team_id, name, slug, owner_id, icon) VALUES (${ids.project}, ${ids.org}, ${ids.team}, 'Existing project', 'existing', ${ids.owner}, 'Building2')`);
@@ -129,19 +129,16 @@ test('invitation schema stores hashes, normalized email and bounded roles across
     const org = randomUUID();
     const owner = randomUUID();
     await postgres.db.execute(sql`INSERT INTO organizations (id, name, slug) VALUES (${org}, 'Company', 'company')`);
-    await postgres.db.execute(sql`INSERT INTO users (id, email, name, role) VALUES (${owner}, 'owner@example.test', 'Owner', 'owner')`);
-    const token = 'isolated-test-only-token';
-    const tokenHash = createHash('sha256').update(token).digest('hex');
-    const [invite] = await postgres.db.insert(workspaceInvitations).values({ organizationId: org, invitedById: owner, email: 'member@example.test', tokenHash, expiresAt: new Date(Date.now() + 86400000) }).returning();
-    await rejects(postgres.db.insert(workspaceInvitations).values({ organizationId: org, invitedById: owner, email: 'member@example.test', tokenHash: 'a'.repeat(64), expiresAt: new Date(), role: 'owner' }));
-    await rejects(postgres.db.insert(workspaceInvitations).values({ organizationId: org, invitedById: owner, email: ' Member@example.test ', tokenHash: 'b'.repeat(64), expiresAt: new Date() }));
+    await postgres.db.execute(sql`INSERT INTO users (id, email, name) VALUES (${owner}, 'owner@example.test', 'Owner')`);
+    const [invite] = await postgres.db.insert(workspaceInvitations).values({ organizationId: org, invitedById: owner, email: 'member@example.test', expiresAt: new Date(Date.now() + 86400000) }).returning();
+    await rejects(postgres.db.insert(workspaceInvitations).values({ organizationId: org, invitedById: owner, email: 'member@example.test', expiresAt: new Date(), role: 'owner' }));
+    await rejects(postgres.db.insert(workspaceInvitations).values({ organizationId: org, invitedById: owner, email: ' Member@example.test ', expiresAt: new Date() }));
     await postgres.reopen();
     const rows = await postgres.db.select().from(workspaceInvitations);
     equal(rows.length, 1);
     equal(rows[0].id, invite.id);
-    equal(rows[0].tokenHash, tokenHash);
-    equal(JSON.stringify(rows).includes(token), false);
-    equal(rows[0].acceptedAt, null);
+    equal(rows[0].email, 'member@example.test');
+    equal(rows[0].status, 'pending');
   } finally {
     await postgres.close();
   }

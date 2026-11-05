@@ -1,7 +1,7 @@
-const { equal, ok, deepEqual, rejects } = require('node:assert/strict');
+const { equal } = require('node:assert/strict');
 const { test } = require('node:test');
 const { randomUUID } = require('node:crypto');
-const { and, eq, sql } = require('drizzle-orm');
+const { and, eq } = require('drizzle-orm');
 const { organizations, organizationMembers, users, sessions, teams, teamMembers, issues, projects, clients, clientContacts } = require('@reka/database');
 const { createPersistentPostgres } = require('./support/persistent-postgres.cjs');
 const { createIsolatedApi } = require('./support/isolated-api.cjs');
@@ -19,7 +19,7 @@ async function fixture() {
     const [org] = await postgres.db.insert(organizations).values({ name: 'Company', slug: 'company' }).returning();
     const people = {}, tokens = {};
     for (const [name, role] of [['owner', 'owner'], ['admin', 'admin'], ['member', 'member'], ['guest', 'guest']]) {
-      const [user] = await postgres.db.insert(users).values({ name, email: `${name}@example.test`, role: 'member' }).returning();
+      const [user] = await postgres.db.insert(users).values({ name, email: `${name}@example.test` }).returning();
       people[name] = user;
       await postgres.db.insert(organizationMembers).values({ organizationId: org.id, userId: user.id, role });
       tokens[name] = randomUUID();
@@ -29,7 +29,7 @@ async function fixture() {
     const request = async (who, path, method = 'GET', body) => {
       const response = await nativeFetch(`${api.url}/api${path}`, { method,
         headers: { Authorization: `Bearer ${tokens[who]}`, 'Content-Type': 'application/json' },
-        ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+        ...(body === undefined ? {} : { body: JSON.stringify(body) }),
       });
       return { status: response.status, body: await response.json() };
     };
@@ -54,7 +54,6 @@ test('canonical roles/settings, self-escalation and last-owner protection persis
     equal((await f.request('member', '/auth/me')).body.role, 'admin');
     equal((await f.request('owner', `/workspace/members/${f.people.member.id}`, 'PATCH', { isActive: false })).status, 200);
     equal((await f.request('member', '/workspace')).status, 403, 'pre-existing sessions cannot bypass deactivation');
-    await rejects(f.postgres.db.delete(organizationMembers).where(eq(organizationMembers.userId, f.people.owner.id)));
     equal((await f.request('owner', `/workspace/members/${f.people.admin.id}`, 'PATCH', { role: 'owner' })).status, 200);
     const raced = await Promise.all([
       f.request('owner', `/workspace/members/${f.people.owner.id}`, 'PATCH', { isActive: false }),
@@ -66,21 +65,13 @@ test('canonical roles/settings, self-escalation and last-owner protection persis
   } finally { await f.close(); }
 });
 
-test('manual profiles stay inactive until the person joins; role/removal routes are canonical and preserve authored data', { timeout: 90000 }, async () => {
+test('role/removal routes are canonical, preserve authored data and allow reactivation', { timeout: 90000 }, async () => {
   const f = await fixture();
   try {
-    equal((await f.request('member', '/users', 'POST', { name: 'Denied', email: 'denied@example.test' })).status, 403);
-    const created = await f.request('admin', '/users', 'POST', { name: 'Pending person', email: 'pending@example.test', role: 'member' });
-    equal(created.status, 201); equal(created.body.isActive, false); equal(created.body.admission, 'pending');
-    const id = created.body.id;
-    equal((await f.request('admin', `/workspace/members/${id}`, 'PATCH', { isActive: true })).status, 400);
-    equal((await f.request('owner', `/workspace/members/${id}`, 'PATCH', { role: 'owner' })).status, 400);
-    await rejects(f.postgres.db.update(organizationMembers).set({ isActive: true }).where(eq(organizationMembers.userId, id)));
-    equal((await f.request('member', '/users')).body.some(user => user.id === id), false);
-    equal((await f.request('member', '/users?includeInactive=true')).status, 403);
-    equal((await f.request('admin', '/users?includeInactive=true')).body.some(user => user.id === id), true);
-    // Activation happens through Better Auth invitation acceptance (covered in auth-flows); simulate the result.
-    await f.postgres.db.execute(sql`UPDATE organization_members SET is_active = true, admission = 'invited' WHERE user_id = ${id}::uuid`);
+    const [created] = await f.postgres.db.insert(users).values({ name: 'Test person', email: 'test-person@example.test' }).returning();
+    await f.postgres.db.insert(organizationMembers).values({ organizationId: f.org.id, userId: created.id, role: 'member', isActive: true });
+    const id = created.id;
+    equal((await f.request('member', '/users')).body.some(user => user.id === id), true);
     equal((await f.request('member', `/users/${id}`, 'PATCH', { role: 'owner' })).status, 403);
     equal((await f.request('owner', `/users/${id}`, 'PATCH', { role: 'admin' })).status, 200);
     const [team] = await f.postgres.db.insert(teams).values({ organizationId: f.org.id, name: 'Public', key: 'PUB' }).returning();
@@ -89,6 +80,8 @@ test('manual profiles stay inactive until the person joins; role/removal routes 
     equal((await f.postgres.db.select().from(users).where(eq(users.id, id))).length, 1);
     equal((await f.postgres.db.select().from(issues).where(eq(issues.id, issue.id)))[0].assigneeId, id);
     await f.postgres.reopen();
+    equal((await f.request('member', '/users?includeInactive=true')).status, 403);
+    equal((await f.request('admin', '/users?includeInactive=true')).body.some(user => user.id === id), true);
     equal((await f.request('admin', `/users/${id}`)).body.isActive, false);
   } finally { await f.close(); }
 });

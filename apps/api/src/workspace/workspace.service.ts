@@ -30,11 +30,11 @@ export class WorkspaceService {
   async findMembers(actorId: string) {
     const actor = await requireWorkspace(this.database.db, actorId);
     const admin = actor.role === 'owner' || actor.role === 'admin';
-    const rows = await this.database.db.select({ user: users, role: organizationMembers.role, isActive: organizationMembers.isActive, admission: organizationMembers.admission })
+    const rows = await this.database.db.select({ user: users, role: organizationMembers.role, isActive: organizationMembers.isActive })
       .from(organizationMembers).innerJoin(users, eq(organizationMembers.userId, users.id))
       .where(and(eq(organizationMembers.organizationId, actor.organizationId), membershipScope(this.database.db, actor), admin ? undefined : eq(organizationMembers.isActive, true)))
       .orderBy(desc(users.createdAt));
-    return rows.map(({ user, role, isActive, admission }) => ({ ...user, role, isActive, admission }));
+    return rows.map(({ user, role, isActive }) => ({ ...user, role, isActive }));
   }
 
   async updateMember(actorId: string, id: string, dto: UpdateWorkspaceMemberDto, profile: UpdateUserDto = {}) {
@@ -42,15 +42,12 @@ export class WorkspaceService {
     const actor = await requireWorkspace(db, actorId);
     requireAdmin(actor);
     requireResourceId(id);
-    const [target] = await db.select({ user: users, role: organizationMembers.role, isActive: organizationMembers.isActive, admission: organizationMembers.admission })
+    const [target] = await db.select({ user: users, role: organizationMembers.role, isActive: organizationMembers.isActive })
       .from(organizationMembers).innerJoin(users, eq(users.id, organizationMembers.userId))
       .where(and(eq(organizationMembers.organizationId, actor.organizationId), eq(organizationMembers.userId, id)));
     if (!target) throw new NotFoundException('Workspace member not found');
     if ((target.role === 'owner' || dto.role === 'owner') && actor.role !== 'owner') {
       throw new ForbiddenException('Only an owner can manage owner accounts');
-    }
-    if (target.admission === 'pending' && (dto.isActive === true || dto.role === 'owner')) {
-      throw new BadRequestException('Pending profiles must join through a verified GitHub invitation before activation or owner assignment');
     }
     // An administrator must not take over a private member's unbound legacy
     // identity by editing their login email. Identity changes need verified relinking.
@@ -58,6 +55,20 @@ export class WorkspaceService {
       throw new BadRequestException('Login email changes require verified identity relinking');
     }
     if (profile.name !== undefined && !profile.name?.trim()) throw new BadRequestException('Name cannot be empty');
+    if (target.role === 'owner' && target.isActive && (dto.isActive === false || (dto.role !== undefined && dto.role !== 'owner'))) {
+      const otherOwners = await db.select({ id: organizationMembers.userId })
+        .from(organizationMembers)
+        .where(and(
+          eq(organizationMembers.organizationId, actor.organizationId),
+          eq(organizationMembers.role, 'owner'),
+          eq(organizationMembers.isActive, true),
+          sql`${organizationMembers.userId} <> ${id}`
+        ))
+        .limit(1);
+      if (!otherOwners.length) {
+        throw new BadRequestException('Cannot remove, deactivate or demote the last active workspace owner');
+      }
+    }
     const changed = db.$with('changed_member').as(db.update(organizationMembers)
       .set({ role: dto.role ?? target.role, isActive: dto.isActive ?? target.isActive })
       .where(and(eq(organizationMembers.organizationId, actor.organizationId), eq(organizationMembers.userId, id), membershipScope(db, actor)))
@@ -66,13 +77,12 @@ export class WorkspaceService {
       // A single PostgreSQL statement: profile and canonical role change together.
       // Works on Neon HTTP and PGlite; no interactive transaction assumption.
       const [updated] = await db.with(changed).update(users).set({
-        role: sql`(SELECT role FROM changed_member)`,
         name: profile.name?.trim(),
         avatarUrl: profile.avatarUrl !== undefined ? profile.avatarUrl?.trim() || null : undefined,
         updatedAt: new Date(),
       }).where(inArray(users.id, db.select({ id: changed.userId }).from(changed)))
         .returning({ id: users.id, email: users.email, name: users.name, avatarUrl: users.avatarUrl,
-          githubUsername: users.githubUsername, githubId: users.githubId, role: users.role,
+          githubUsername: users.githubUsername, githubId: users.githubId, role: sql<string>`(SELECT role FROM changed_member)`,
           createdAt: users.createdAt, updatedAt: users.updatedAt, isActive: sql<boolean>`(SELECT is_active FROM changed_member)` });
       if (!updated) throw new ForbiddenException('Workspace permission changed');
       await this.redis?.delSafe(`workspace_actor:${id}`);

@@ -11,8 +11,6 @@ export const users = pgTable('users', {
   avatarUrl: text('avatar_url'),
   githubUsername: varchar('github_username', { length: 255 }),
   githubId: varchar('github_id', { length: 64 }).unique(),
-  /** Legacy copy of a workspace role; membership rows are authoritative. */
-  role: varchar('role', { length: 32 }).notNull().default('member'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
@@ -60,6 +58,5 @@ export const verifications = pgTable('verifications', {
 /** One-use browser-bound nonces for the GitHub App installation handoff (not used for sign-in any more). */
 export const oauthLoginAttempts = pgTable('oauth_login_attempts', {
   stateHash: varchar('state_hash', { length: 64 }).primaryKey(),
-  invitationHash: varchar('invitation_hash', { length: 64 }),
   expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
 }, (t) => [index('oauth_login_attempts_expiry_idx').on(t.expiresAt)]);

@@ -10,7 +10,6 @@ const databaseRequire = require('node:module').createRequire(resolve(__dirname, 
 const { Pool, neonConfig } = databaseRequire('@neondatabase/serverless');
 const { drizzle } = require('drizzle-orm/neon-serverless');
 const { migrate } = require('drizzle-orm/neon-serverless/migrator');
-const { WorkspaceService, secretHash } = require('../dist/workspace/workspace.service');
 const schema = require('@reka/database');
 const enabled = process.env.REKA_RUN_NATIVE_INTEGRATION === '1';
 const quote = name => '"' + name.replaceAll('"', '""') + '"';
@@ -66,7 +65,7 @@ test('disposable Neon branch: legacy integrity, separate-session owner races and
     for (const isolation of ['READ COMMITTED', 'REPEATABLE READ', 'SERIALIZABLE']) {
       const org = randomUUID(), one = randomUUID(), two = randomUUID();
       await pool.query('INSERT INTO organizations(id,name,slug) VALUES($1,$2,$3)', [org, 'Native race fixture', `native-${org}`]);
-      await pool.query('INSERT INTO users(id,name,email,role) VALUES($1,$2,$3,$4),($5,$6,$7,$8)', [one, 'Native one', `${one}@example.test`, 'owner', two, 'Native two', `${two}@example.test`, 'owner']);
+      await pool.query('INSERT INTO users(id,name,email) VALUES($1,$2,$3),($4,$5,$6)', [one, 'Native one', `${one}@example.test`, two, 'Native two', `${two}@example.test`]);
       await pool.query("INSERT INTO organization_members(organization_id,user_id,role) VALUES($1,$2,'owner'),($1,$3,'owner')", [org, one, two]);
       await c1.query(`BEGIN ISOLATION LEVEL ${isolation}`); await c2.query(`BEGIN ISOLATION LEVEL ${isolation}`);
       await c1.query('SELECT count(*) FROM organization_members WHERE organization_id=$1', [org]);
@@ -85,33 +84,11 @@ test('disposable Neon branch: legacy integrity, separate-session owner races and
     }
     const org = randomUUID(), owner = randomUUID();
     await pool.query('INSERT INTO organizations(id,name,slug) VALUES($1,$2,$3)', [org, 'Native invite fixture', `native-${org}`]);
-    await pool.query("INSERT INTO users(id,name,email,role) VALUES($1,'Native inviter',$2,'owner')", [owner, `${owner}@example.test`]);
+    await pool.query("INSERT INTO users(id,name,email) VALUES($1,'Native inviter',$2)", [owner, `${owner}@example.test`]);
     await pool.query("INSERT INTO organization_members(organization_id,user_id,role) VALUES($1,$2,'owner')", [org, owner]);
-    const workspace = new WorkspaceService({ db });
-    const email = `${randomUUID()}@example.test`;
-    const invitation = await workspace.createInvitation(owner, { email, role: 'member' });
-    const hash = secretHash(new URL(invitation.url).searchParams.get('invite'));
-    await c1.query('BEGIN'); await c1.query('SELECT id FROM workspace_invitations WHERE token_hash=$1 FOR UPDATE', [hash]);
-    const identity = { id: String(Date.now()), login: 'native-test-person', name: 'Native invited fixture', avatarUrl: null, verifiedEmails: [email] };
-    const attempts = Promise.allSettled([workspace.acceptGithubInvitation(hash, identity), workspace.acceptGithubInvitation(hash, identity)]);
-    let blocked = false;
-    for (let i = 0; i < 50; i++) {
-      const result = await pool.query("SELECT count(*) FROM pg_stat_activity WHERE pid<>$1 AND wait_event_type='Lock' AND query LIKE '%WITH pending AS MATERIALIZED%'", [pid1]);
-      if (Number(result.rows[0].count) >= 2) { blocked = true; break; }
-      await delay(50);
-    }
-    ok(blocked, 'Both invitation callbacks overlap behind the same row lock');
-    await c1.query('COMMIT');
-    const outcomes = await attempts;
-    equal(outcomes.filter(value => value.status === 'fulfilled').length, 1);
-    equal(outcomes.filter(value => value.status === 'rejected').length, 1);
-    equal(Number((await pool.query('SELECT count(*) FROM users WHERE github_id=$1', [identity.id])).rows[0].count), 1);
-    equal(Number((await pool.query('SELECT count(*) FROM sessions s JOIN users u ON u.id=s.user_id WHERE u.github_id=$1', [identity.id])).rows[0].count), 1);
-    const accepted = await pool.query('SELECT accepted_at, accepted_by_id FROM workspace_invitations WHERE token_hash=$1', [hash]);
-    ok(accepted.rows[0].accepted_at); ok(accepted.rows[0].accepted_by_id);
     const team = randomUUID(), lead = randomUUID(), handoff = randomUUID();
     await pool.query('INSERT INTO teams(id,organization_id,name,key,is_private) VALUES($1,$2,$3,$4,true)', [team, org, 'Private native team', `T${team.replaceAll('-', '').slice(0, 8)}`]);
-    await pool.query("INSERT INTO users(id,name,email,role) VALUES($1,'Native team lead',$2,'member'),($3,'Native handoff lead',$4,'member')", [lead, `${lead}@example.test`, handoff, `${handoff}@example.test`]);
+    await pool.query("INSERT INTO users(id,name,email) VALUES($1,'Native team lead',$2),($3,'Native handoff lead',$4)", [lead, `${lead}@example.test`, handoff, `${handoff}@example.test`]);
     await pool.query("INSERT INTO organization_members(organization_id,user_id,role) VALUES($1,$2,'member'),($1,$3,'member')", [org, lead, handoff]);
     await pool.query("INSERT INTO team_members(team_id,user_id,role) VALUES($1,$2,'lead'),($1,$3,'lead')", [team, lead, handoff]);
     await c1.query('BEGIN'); await c1.query('UPDATE team_members SET role=\'member\' WHERE team_id=$1 AND user_id=$2', [team, lead]);

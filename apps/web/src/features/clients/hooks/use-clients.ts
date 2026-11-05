@@ -1,11 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   getClients,
-  getClientById,
   createClient,
   updateClient,
   deleteClient,
-  getClientContacts,
   addClientContact,
   deleteClientContact,
   type CreateClientInput,
@@ -22,13 +20,6 @@ export function useClients() {
   });
 }
 
-export function useClient(id?: string) {
-  return useQuery({
-    queryKey: ['client', id],
-    queryFn: () => (id ? getClientById(id) : null),
-    enabled: !!id,
-  });
-}
 
 export function useCreateClient() {
   const queryClient = useQueryClient();
@@ -83,13 +74,6 @@ export function useDeleteClient() {
   });
 }
 
-export function useClientContacts(clientId?: string) {
-  return useQuery({
-    queryKey: ['client-contacts', clientId],
-    queryFn: () => (clientId ? getClientContacts(clientId) : []),
-    enabled: !!clientId,
-  });
-}
 
 export function useAddClientContact(clientId?: string) {
   const queryClient = useQueryClient();

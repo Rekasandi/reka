@@ -2,7 +2,7 @@ import { Injectable, Logger, NotFoundException, BadRequestException, ConflictExc
 import { createHash, randomBytes, sign } from 'node:crypto';
 import { DatabaseService } from '../../common/database/database.service';
 import { githubInstallations, githubRepositories, oauthLoginAttempts, webhookEvents } from '@reka/database';
-import { and, desc, eq, gt, inArray, lt, isNull, sql } from 'drizzle-orm';
+import { and, desc, eq, gt, inArray, lt, sql } from 'drizzle-orm';
 import { requireAdmin, requireResourceId, type WorkspaceActor } from '../../common/access/workspace-access';
 
 @Injectable()
@@ -16,7 +16,6 @@ export class GithubInstallationsService {
     await this.database.db.delete(oauthLoginAttempts).where(lt(oauthLoginAttempts.expiresAt, new Date()));
     await this.database.db.insert(oauthLoginAttempts).values({
       stateHash: createHash('sha256').update(state).digest('hex'),
-      invitationHash: null,
       expiresAt: new Date(Date.now() + 10 * 60 * 1000),
     });
     return state;
@@ -25,7 +24,6 @@ export class GithubInstallationsService {
   async consumeInstallState(state: string) {
     const [attempt] = await this.database.db.delete(oauthLoginAttempts).where(and(
       eq(oauthLoginAttempts.stateHash, createHash('sha256').update(state).digest('hex')),
-      isNull(oauthLoginAttempts.invitationHash),
       gt(oauthLoginAttempts.expiresAt, new Date()),
     )).returning({ stateHash: oauthLoginAttempts.stateHash });
     if (!attempt) throw new BadRequestException('GitHub installation state expired or already used');

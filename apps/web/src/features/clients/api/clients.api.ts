@@ -27,14 +27,6 @@ export async function getClients(): Promise<Client[]> {
   return res.json();
 }
 
-export async function getClientById(id: string): Promise<Client> {
-  const res = await fetch(`/api/clients/${id}`);
-  if (!res.ok) {
-    throw new Error(`Failed to fetch client with id ${id}`);
-  }
-  return res.json();
-}
-
 export async function createClient(input: CreateClientInput): Promise<Client> {
   const res = await fetch('/api/clients', {
     method: 'POST',
@@ -65,14 +57,6 @@ export async function deleteClient(id: string): Promise<{ success: boolean }> {
   });
   if (!res.ok) {
     throw new Error('Failed to delete client');
-  }
-  return res.json();
-}
-
-export async function getClientContacts(clientId: string): Promise<ClientContact[]> {
-  const res = await fetch(`/api/clients/${clientId}/contacts`);
-  if (!res.ok) {
-    throw new Error('Failed to fetch client contacts');
   }
   return res.json();
 }

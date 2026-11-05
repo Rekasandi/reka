@@ -41,5 +41,5 @@ coverage/
 drizzle/meta/
 .neon
 
-# Local demo seed manifests (workspace IDs; not source code)
-.pi/demo-data*.json
+# Local agent state and demo seed manifests (not source code)
+.pi/

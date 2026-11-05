@@ -260,6 +260,13 @@
       "when": 1793800000000,
       "tag": "0036_better_auth_multi_workspace",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1793810000000,
+      "tag": "0037_auth_cleanup",
+      "breakpoints": true
     }
   ]
 }

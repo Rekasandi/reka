@@ -23,7 +23,7 @@ async function fixture() {
     const cookie = [...(jar.get(browser) ?? new Map()).entries()].map(([k, v]) => `${k}=${v}`).join('; ');
     const response = await nativeFetch(`${api.url}/api${path}`, { method, redirect: 'manual', headers: {
       'Content-Type': 'application/json', Origin: WEB, ...(cookie ? { Cookie: cookie } : {}), ...(bearer ? { Authorization: `Bearer ${bearer}` } : {}), ...headers,
-    }, ...(body !== undefined ? { body: JSON.stringify(body) } : {}) });
+    }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
     const store = jar.get(browser) ?? new Map(); jar.set(browser, store);
     for (const raw of response.headers.getSetCookie()) { const [pair, ...attrs] = raw.split(';'); const [name, value] = pair.split('='); if (attrs.some((a) => /max-age=0/i.test(a)) || !value) store.delete(name); else store.set(name, value); }
     const text = await response.text(); let json; try { json = JSON.parse(text); } catch { json = text; }
@@ -164,4 +164,51 @@ test('GitHub sign-in links by verified email, stores the OAuth token, and keeps 
       equal((await g.postgres.db.select().from(users)).length, 1, 'no duplicate user');
     } finally { await g.close(); }
   } finally { /* closed above */ }
+});
+
+test('account self-service: change password and email, edit the workspace, then delete workspace and account', { timeout: 90000 }, async () => {
+  const f = await fixture();
+  try {
+    const id = randomUUID().slice(0, 6);
+    const email = `zed-${id}@example.test`;
+    equal((await f.call('/auth/sign-up/email', { method: 'POST', body: { email, password: 'correct-horse-battery', name: 'Zed' } })).status, 200);
+    await f.follow(f.lastLink());
+    equal((await f.call('/auth/organization/create', { method: 'POST', body: { name: 'Zed Co', slug: 'zed-co' } })).status, 200);
+
+    const changed = await f.call('/auth/change-password', { method: 'POST', body: { currentPassword: 'correct-horse-battery', newPassword: 'another-strong-pass', revokeOtherSessions: false } });
+    equal(changed.status, 200, JSON.stringify(changed.body));
+
+    const newEmail = `zed-new-${id}@example.test`;
+    const changeEmail = await f.call('/auth/change-email', { method: 'POST', body: { newEmail, callbackURL: `${WEB}/settings/profile` } });
+    equal(changeEmail.status, 200, JSON.stringify(changeEmail.body));
+    equal(f.mail.sent.at(-1).to, email, 'the current address confirms the change');
+    match(f.mail.sent.at(-1).content.subject, /Confirm your new email/);
+    const confirmed = await f.follow(f.lastLink());
+    ok([200, 302].includes(confirmed.status), `confirmation link accepted (${confirmed.status})`);
+    if (f.mail.sent.at(-1)?.to === newEmail) {
+      const verified = await f.follow(f.lastLink());
+      ok([200, 302].includes(verified.status), `new email verification accepted (${verified.status})`);
+    }
+    equal((await f.call('/auth/me')).body.email, newEmail);
+
+    const updated = await f.call('/auth/organization/update', { method: 'POST', body: { data: { name: 'Zed Labs', slug: 'zed-labs', logo: 'https://example.test/logo.png' } } });
+    equal(updated.status, 200, JSON.stringify(updated.body));
+    const me = await f.call('/auth/me');
+    deepEqual([me.body.workspace.name, me.body.workspace.slug, me.body.workspace.logoUrl], ['Zed Labs', 'zed-labs', 'https://example.test/logo.png']);
+
+    const orgId = me.body.workspace.id;
+    equal((await f.call('/auth/organization/leave', { method: 'POST', body: { organizationId: orgId } })).status, 400, 'the last owner cannot leave');
+    const blocked = await f.call('/auth/account', { method: 'DELETE' });
+    equal(blocked.status, 400); match(blocked.body.message, /Transfer ownership/);
+
+    equal((await f.call('/auth/organization/delete', { method: 'POST', body: { organizationId: orgId } })).status, 200);
+    equal((await f.call('/auth/me')).body.workspace, null);
+    equal((await f.postgres.db.select().from(organizations)).length, 0);
+    equal((await f.call('/auth/account', { method: 'DELETE' })).status, 200);
+    equal((await f.call('/auth/me')).status, 401, 'every session is gone');
+    const [row] = await f.postgres.db.select().from(users);
+    equal(row.name, 'Deleted user'); ok(!row.email.includes('zed'), 'email anonymised'); equal(row.githubId, null);
+    equal((await f.postgres.db.select().from(accounts)).length, 0, 'no sign-in method left');
+    equal((await f.call('/auth/sign-in/email', { method: 'POST', body: { email: newEmail, password: 'another-strong-pass' } })).status, 401);
+  } finally { await f.close(); }
 });

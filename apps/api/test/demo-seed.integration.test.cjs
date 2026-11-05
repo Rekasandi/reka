@@ -38,7 +38,7 @@ test('demo seeding persists connected fixtures, preserves real work and does not
       const members = await postgres.db.select().from(schema.organizationMembers);
       const profiles = members.filter(row => row.userId !== owner.id);
       assert.equal(profiles.length, 5);
-      assert.ok(profiles.every(row => row.admission === 'pending' && !row.isActive));
+      assert.ok(profiles.every(row => !row.isActive), 'demo people are inactive members');
       const notifications = await postgres.db.select().from(schema.notifications);
       assert.equal(notifications.length, 5);
       assert.ok(notifications.every(row => row.userId === owner.id && row.metadata.demo === true && row.title.startsWith('[DEMO]')));

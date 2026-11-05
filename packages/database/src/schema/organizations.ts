@@ -26,15 +26,10 @@ export const organizationMembers = pgTable(
       .references(() => users.id, { onDelete: 'cascade' }),
     role: varchar('role', { length: 32 }).notNull().default('member'),
     isActive: boolean('is_active').notNull().default(true),
-    // Existing records are approved legacy accounts. New manually added
-    // profiles stay pending until verified invitation acceptance.
-    admission: varchar('admission', { length: 16 }).notNull().default('legacy'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
     primaryKey({ columns: [t.organizationId, t.userId] }),
-    check('organization_members_admission_check', sql`${t.admission} IN ('legacy', 'pending', 'invited')`),
-    check('organization_members_pending_check', sql`NOT (${t.admission} = 'pending' AND ${t.isActive})`),
   ],
 );
 
@@ -45,13 +40,8 @@ export const workspaceInvitations = pgTable('workspace_invitations', {
   role: varchar('role', { length: 32 }).notNull().default('member'),
   /** pending | accepted | rejected | canceled (Better Auth organization invitations). */
   status: varchar('status', { length: 16 }).notNull().default('pending'),
-  /** Legacy single-use link hash; Better Auth invitations are addressed by id instead. */
-  tokenHash: varchar('token_hash', { length: 64 }).unique(),
   invitedById: uuid('invited_by_id').notNull().references(() => users.id, { onDelete: 'restrict' }),
   expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
-  acceptedAt: timestamp('accepted_at', { withTimezone: true }),
-  acceptedById: uuid('accepted_by_id').references(() => users.id, { onDelete: 'set null' }),
-  revokedAt: timestamp('revoked_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [
   index('workspace_invitations_organization_email_idx').on(t.organizationId, t.email),

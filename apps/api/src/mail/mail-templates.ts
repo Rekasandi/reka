@@ -57,6 +57,13 @@ export function resetPasswordEmail(input: { url: string }): EmailContent {
     html: layout({ heading: 'Reset your password', paragraphs: lines, action: { label: 'Reset password', url: input.url }, footer }) };
 }
 
+export function changeEmailEmail(input: { newEmail: string; url: string }): EmailContent {
+  const lines = [`Confirm that you want to change the sign-in email of your REKA account to ${input.newEmail}.`, 'The link works once and expires in an hour.'];
+  const footer = 'If you did not ask for this, ignore this email; your email address stays the same.';
+  return { subject: 'Confirm your new email for REKA', text: `${lines.join('\n\n')}\n\nConfirm email change: ${input.url}\n\n${footer}`,
+    html: layout({ heading: 'Confirm your new email', paragraphs: lines, action: { label: 'Confirm email change', url: input.url }, footer }) };
+}
+
 export function magicLinkEmail(input: { url: string }): EmailContent {
   const lines = ['Use this link to sign in to REKA. No password needed.', 'The link works once and expires in 15 minutes.'];
   const footer = 'If you did not request this, you can ignore this email.';

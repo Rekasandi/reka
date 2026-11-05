@@ -18,10 +18,10 @@ test('real private creation/settings, role handoff, public join and last-lead me
       tokens[key] = randomUUID();
       await f.db.insert(sessions).values({ token: tokens[key], userId: person.id, expiresAt: new Date(Date.now() + 86400000) });
     }
-    async function request(who, path, method = 'GET', data) {
+    const request = async (who, path, method = 'GET', data) => {
       const response = await fetch(`${api.url}/api${path}`, { method, headers: { Authorization: `Bearer ${tokens[who]}`, 'Content-Type': 'application/json' }, ...(data ? { body: JSON.stringify(data) } : {}) });
       return { status: response.status, body: await response.json() };
-    }
+    };
     const created = await request('lead', '/teams', 'POST', { name: 'Private delivery', key: 'PRI', isPrivate: true });
     equal(created.status, 201); equal(created.body.isPrivate, true); equal(created.body.currentMemberRole, 'lead'); equal(created.body.canManage, true); equal(created.body.canDelete, false);
     const id = created.body.id;

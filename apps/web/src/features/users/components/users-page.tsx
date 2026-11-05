@@ -3,7 +3,6 @@ import { Badge, Button, Skeleton, Avatar, AvatarImage, AvatarFallback, Select, S
 import { UserPlus, Trash2, RefreshCw, ArrowDown, Contact } from 'lucide-react';
 import { format } from 'date-fns';
 import { useUsers, useUpdateUser, useDeleteUser } from '../hooks/use-users';
-import { CreateUserDialog } from './create-user-dialog';
 import { ConfirmDeleteDialog } from '../../../components/common/confirm-delete-dialog';
 import type { User } from '../api/users.api';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -42,7 +41,6 @@ function formatDateLabel(val?: string | null): string {
 export function UsersPage() {
   const { user: currentUser } = useAuth();
   const logout = useLogout();
-  const [isCreateOpen, setIsCreateOpen] = React.useState(false);
   const [isInviteOpen, setIsInviteOpen] = React.useState(false);
   const [deleteTargetUser, setDeleteTargetUser] = React.useState<User | null>(null);
   const [filterRole, setFilterRole] = React.useState('all');
@@ -94,7 +92,7 @@ export function UsersPage() {
           </p>
         </div>
 
-        {canManage && <div className="flex flex-wrap justify-end gap-2"><Button variant="outline" onClick={() => setIsCreateOpen(true)}>Add record</Button><Button onClick={() => setIsInviteOpen(true)}><UserPlus data-icon="inline-start" /><span>Invite User</span></Button></div>}
+        {canManage && <div className="flex flex-wrap justify-end gap-2"><Button onClick={() => setIsInviteOpen(true)}><UserPlus data-icon="inline-start" /><span>Invite User</span></Button></div>}
       </div>
 
       {/* Filter Tabs */}
@@ -216,7 +214,7 @@ export function UsersPage() {
                           </SelectTrigger>
                           <SelectContent>
                             <SelectGroup>
-                              {actorIsOwner && <SelectItem value="owner" disabled={u.admission === 'pending'}>Owner</SelectItem>}
+                              {actorIsOwner && <SelectItem value="owner">Owner</SelectItem>}
                               <SelectItem value="admin">Admin</SelectItem>
                               <SelectItem value="member">Member</SelectItem>
                               <SelectItem value="guest">Guest · read-only</SelectItem>
@@ -278,8 +276,7 @@ export function UsersPage() {
                             <Button
                               variant="outline"
                               size="xs"
-                              disabled={activate.isPending || u.admission === 'pending'}
-                              title={u.admission === 'pending' ? 'Send an invitation before granting access' : undefined}
+                              disabled={activate.isPending}
                               onClick={() => activate.mutate(u.id)}
                               className="h-6 text-[10px]"
                             >
@@ -316,8 +313,6 @@ export function UsersPage() {
       )}
 
       <InviteUserDialog open={isInviteOpen} onOpenChange={setIsInviteOpen} />
-      {/* Existing manual profile creation stays available, without granting access. */}
-      <CreateUserDialog open={isCreateOpen} onOpenChange={setIsCreateOpen} />
 
       {/* Delete User Confirmation Alert Dialog */}
       <ConfirmDeleteDialog

@@ -3,7 +3,6 @@ import {
   getCycles,
   getCycleById,
   createCycle,
-  updateCycle,
   completeCycle,
   deleteCycle,
   reopenCycle,
@@ -11,7 +10,6 @@ import {
   getTeamCycleSettings,
   saveTeamCycleSettings,
   type CreateCycleInput,
-  type UpdateCycleInput,
   type CompleteCycleInput,
   type TeamCycleSettings,
 } from '../api/cycles.api';
@@ -59,24 +57,6 @@ export function useCreateCycle() {
   });
 }
 
-export function useUpdateCycle() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: UpdateCycleInput }) =>
-      updateCycle(id, data),
-    onSuccess: (updated) => {
-      queryClient.invalidateQueries({ queryKey: CYCLES_QUERY_KEY });
-      queryClient.invalidateQueries({ queryKey: ['cycle', updated.id] });
-      toast.info(`Cycle "${updated.name}" updated`);
-    },
-    onError: (err) => {
-      toast.error('Failed to update cycle', {
-        description: (err as Error).message,
-      });
-    },
-  });
-}
 
 export function useCompleteCycle() {
   const queryClient = useQueryClient();

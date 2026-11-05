@@ -1,13 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import {
-  getUsers,
-  getUserById,
-  createUser,
-  updateUser,
-  deleteUser,
-  type CreateUserInput,
-  type UpdateUserInput,
-} from '../api/users.api';
+import { getUsers, updateUser, deleteUser, type UpdateUserInput } from '../api/users.api';
 import { toast } from '@reka/ui';
 import { useAuth, useUpdateAuthUser } from '../../auth/hooks/use-auth';
 
@@ -18,31 +10,6 @@ export function useUsers(includeInactive = false, enabled = true) {
     enabled,
     queryKey: includeInactive ? [...USERS_QUERY_KEY, 'including-inactive'] : USERS_QUERY_KEY,
     queryFn: () => getUsers(includeInactive),
-  });
-}
-
-export function useUser(id?: string) {
-  return useQuery({
-    queryKey: ['user', id],
-    queryFn: () => (id ? getUserById(id) : null),
-    enabled: !!id,
-  });
-}
-
-export function useCreateUser() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: (input: CreateUserInput) => createUser(input),
-    onSuccess: (newUser) => {
-      queryClient.invalidateQueries({ queryKey: USERS_QUERY_KEY });
-      toast.success(`Profile "${newUser.name}" saved. An invitation is required to join.`);
-    },
-    onError: (err) => {
-      toast.error('Failed to create user', {
-        description: (err as Error).message,
-      });
-    },
   });
 }
 
