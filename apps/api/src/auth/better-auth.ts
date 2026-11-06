@@ -26,6 +26,102 @@ export const workspaceRoles = {
 
 export const webUrl = () => process.env.WEB_URL || 'http://localhost:5173';
 
+const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '::1', '[::1]']);
+
+/** All trusted web/API origins, expanding loopback aliases so [::1], 127.0.0.1 and localhost work in dev. */
+export function getTrustedOrigins(): string[] {
+  const origins = new Set<string>();
+  const add = (raw?: string) => {
+    if (!raw) return;
+    try {
+      const u = new URL(raw);
+      origins.add(u.origin);
+      if (LOOPBACK_HOSTS.has(u.hostname)) {
+        const port = u.port ? `:${u.port}` : '';
+        origins.add(`${u.protocol}//localhost${port}`);
+        origins.add(`${u.protocol}//127.0.0.1${port}`);
+        origins.add(`${u.protocol}//[::1]${port}`);
+      }
+    } catch {
+      origins.add(raw);
+    }
+  };
+  add(webUrl());
+  add(process.env.API_URL || 'http://localhost:3000');
+  if (process.env.BETTER_AUTH_TRUSTED_ORIGINS) {
+    for (const o of process.env.BETTER_AUTH_TRUSTED_ORIGINS.split(',')) add(o.trim());
+  }
+  if (process.env.NODE_ENV !== 'production') {
+    origins.add('http://localhost:*');
+    origins.add('http://127.0.0.1:*');
+    origins.add('http://[::1]:*');
+  }
+  return [...origins];
+}
+
+/** Check whether an incoming request Origin is trusted (used by CSRF guards and link generators). */
+export function isTrustedOrigin(origin?: string | null): boolean {
+  if (!origin) return false;
+  try {
+    const u = new URL(origin);
+    if (!['http:', 'https:'].includes(u.protocol)) return false;
+    const web = new URL(webUrl());
+    if (u.origin === web.origin) return true;
+    if (u.origin === (process.env.API_URL || 'http://localhost:3000')) return true;
+    if (process.env.BETTER_AUTH_TRUSTED_ORIGINS) {
+      const extra = process.env.BETTER_AUTH_TRUSTED_ORIGINS.split(',').map((s) => s.trim());
+      if (extra.includes(u.origin)) return true;
+    }
+    const isLoopback = LOOPBACK_HOSTS.has(u.hostname);
+    if (isLoopback) {
+      if (process.env.NODE_ENV !== 'production') return true;
+      if (LOOPBACK_HOSTS.has(web.hostname) && (web.port || (web.protocol === 'https:' ? '443' : '80')) === (u.port || (u.protocol === 'https:' ? '443' : '80'))) {
+        return true;
+      }
+    }
+  } catch {
+    return false;
+  }
+  return false;
+}
+
+const resolveOrigin = (ctx?: unknown): string | null => {
+  if (!ctx || typeof ctx !== 'object') return null;
+  const anyCtx = ctx as {
+    request?: { headers?: Headers | { get?: (k: string) => string | null } };
+    headers?: Headers | { get?: (k: string) => string | null };
+  };
+  const get = (h?: { get?: (k: string) => string | null }) => (typeof h?.get === 'function' ? h.get('origin') : null);
+  return get(anyCtx.headers) || get(anyCtx.request?.headers) || null;
+};
+
+/** Ensure an emailed link uses the caller's active origin (e.g. [::1]:5173) so the session cookie matches. */
+export function resolveLinkUrl(link: string, origin?: string | null): string {
+  if (!origin || !isTrustedOrigin(origin)) return link;
+  try {
+    const u = new URL(link);
+    const o = new URL(origin);
+    u.protocol = o.protocol;
+    u.host = o.host;
+    for (const key of ['callbackURL', 'newUserCallbackURL', 'errorCallbackURL'] as const) {
+      const val = u.searchParams.get(key);
+      if (val) {
+        try {
+          const target = new URL(val, origin);
+          if (val.startsWith('/') || target.hostname === new URL(link).hostname) {
+            target.protocol = o.protocol;
+            target.host = o.host;
+            u.searchParams.set(key, target.toString());
+          }
+        } catch { /* keep original */ }
+      }
+    }
+    return u.toString();
+  } catch {
+    return link;
+  }
+}
+
 /**
  * Better Auth owns sign-up/sign-in (email + password with verification, magic links, GitHub), sessions and
  * workspace (organization) membership/invitations. It runs on REKA's existing tables through field mapping.
@@ -45,7 +141,7 @@ export function createAuth(db: DbClient, mail?: AuthMailer) {
     baseURL: webUrl(),
     basePath: '/api/auth',
     secret: secret || 'reka-development-secret-change-me-0123456789',
-    trustedOrigins: [webUrl(), process.env.API_URL || 'http://localhost:3000'],
+    trustedOrigins: getTrustedOrigins(),
     database: drizzleAdapter(db, {
       provider: 'pg', transaction: false,
       schema: { users, sessions, accounts, verifications, organizations, organization_members: organizationMembers, workspace_invitations: workspaceInvitations },
@@ -61,7 +157,10 @@ export function createAuth(db: DbClient, mail?: AuthMailer) {
       // The current address must confirm the change; the new one is then verified like a sign-up.
       changeEmail: {
         enabled: true,
-        sendChangeEmailConfirmation: async ({ user, newEmail, url }) => deliver(user.email, changeEmailEmail({ newEmail, url }), url, 'email change'),
+        sendChangeEmailConfirmation: async ({ user, newEmail, url }, ctx) => {
+          const effectiveUrl = resolveLinkUrl(url, resolveOrigin(ctx));
+          return deliver(user.email, changeEmailEmail({ newEmail, url: effectiveUrl }), effectiveUrl, 'email change');
+        },
       },
     },
     // No cookie cache: the active workspace must be current on every request after a switch or a join.
@@ -75,12 +174,18 @@ export function createAuth(db: DbClient, mail?: AuthMailer) {
     emailAndPassword: {
       enabled: true,
       requireEmailVerification: true,
-      sendResetPassword: async ({ user, url }) => deliver(user.email, resetPasswordEmail({ url }), url, 'password reset'),
+      sendResetPassword: async ({ user, url }, ctx) => {
+        const effectiveUrl = resolveLinkUrl(url, resolveOrigin(ctx));
+        return deliver(user.email, resetPasswordEmail({ url: effectiveUrl }), effectiveUrl, 'password reset');
+      },
     },
     emailVerification: {
       sendOnSignUp: true,
       autoSignInAfterVerification: true,
-      sendVerificationEmail: async ({ user, url }) => deliver(user.email, verificationEmail({ url }), url, 'email verification'),
+      sendVerificationEmail: async ({ user, url }, ctx) => {
+        const effectiveUrl = resolveLinkUrl(url, resolveOrigin(ctx));
+        return deliver(user.email, verificationEmail({ url: effectiveUrl }), effectiveUrl, 'email verification');
+      },
     },
     socialProviders: process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET ? {
       github: {
@@ -97,7 +202,10 @@ export function createAuth(db: DbClient, mail?: AuthMailer) {
       bearer(),
       magicLink({
         expiresIn: 15 * 60,
-        sendMagicLink: async ({ email, url }) => deliver(email, magicLinkEmail({ url }), url, 'magic link'),
+        sendMagicLink: async ({ email, url }, ctx) => {
+          const effectiveUrl = resolveLinkUrl(url, resolveOrigin(ctx));
+          return deliver(email, magicLinkEmail({ url: effectiveUrl }), effectiveUrl, 'magic link');
+        },
       }),
       organization({
         ac, roles: workspaceRoles,
@@ -111,13 +219,22 @@ export function createAuth(db: DbClient, mail?: AuthMailer) {
           member: { modelName: 'organization_members' },
           invitation: { modelName: 'workspace_invitations', fields: { inviterId: 'invitedById' } },
         },
-        sendInvitationEmail: async (data) => {
-          const url = `${webUrl()}/accept-invitation/${data.id}`;
+        sendInvitationEmail: async (data, ctx) => {
+          const base = resolveOrigin(ctx) || webUrl();
+          const url = `${base}/accept-invitation/${data.id}`;
           await deliver(data.email, invitationEmail({ inviterName: data.inviter.user.name, workspaceName: data.organization.name, role: data.role, url, expiresAt: new Date(Date.now() + 7 * 86400000) }), url, 'invitation');
         },
       }),
     ],
     databaseHooks: {
+      user: {
+        create: {
+          before: async (user) => {
+            const name = user.name?.trim() || user.email?.split('@')[0] || 'Member';
+            return { data: { ...user, name } };
+          },
+        },
+      },
       account: {
         // Linking a GitHub account (first sign-in or re-link) records the GitHub identity on the user.
         create: { after: async (account) => syncGithubIdentity(db, account, logger) },

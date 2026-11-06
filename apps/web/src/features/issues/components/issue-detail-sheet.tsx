@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { getIssueStatusCategory, type Issue } from '@reka/types';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Sheet, Popover, PopoverTrigger, PopoverContent, SheetContent, SheetTitle, SheetDescription, Collapsible, CollapsibleContent, CollapsibleTrigger, DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuSeparator, Input, Field, FieldLabel, FieldGroup, FieldSet, FieldError, Select, SelectTrigger, SelectValue, SelectContent, SelectGroup, SelectItem, Skeleton, Alert, AlertDescription, AvatarImage, Badge, Button, Textarea, Avatar, AvatarFallback, Tabs, TabsList, TabsTrigger, TabsContent, toast, cn, useIsMobile, Label, Command, CommandList, CommandGroup, CommandItem, Spinner } from '@reka/ui';
+import { Sheet, Popover, PopoverTrigger, PopoverContent, SheetContent, SheetTitle, SheetDescription, Collapsible, CollapsibleContent, CollapsibleTrigger, DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuSeparator, Input, Field, FieldLabel, FieldGroup, FieldSet, FieldError, Select, SelectTrigger, SelectValue, SelectContent, SelectGroup, SelectItem, Skeleton, Alert, AlertDescription, AvatarImage, Badge, Button, Textarea, Avatar, AvatarFallback, Tabs, TabsList, TabsTrigger, TabsContent, toast, cn, useIsMobile, Command, CommandList, CommandGroup, CommandItem, Spinner, DatePicker, parseDateOnly, toDateOnly } from '@reka/ui';
 import {
   GitBranch,
   MessageSquare,
@@ -38,7 +38,6 @@ import { PriorityIcon, PriorityPicker } from './priority-picker';
 import { SlaBadge } from './sla-badge';
 import { LazyNotionEditor } from '../../../components/editor/lazy-notion-editor';
 import { useLiveStream } from '../../notifications/hooks/use-notifications';
-import { IssueTypePicker } from './issue-type-picker';
 import { AssigneePicker } from './assignee-picker';
 import { ProjectPicker } from './project-picker';
 import { CyclePicker } from './cycle-picker';
@@ -381,8 +380,7 @@ export function IssueDetailContent({ issue, presentation = 'sheet', headerAction
     assignee: <AssigneePicker id="detail-assignee" size="sm" className="w-fit max-w-full rounded-full bg-muted/50" assigneeId={issue.assigneeId} onAssigneeChange={assigneeId => updateMutation.mutate({ id: issue.id, data: { assigneeId } })} />,
     project: <ProjectPicker id="detail-project" projectId={issue.projectId ?? null} identifier={issue.identifier} className="max-w-full" onProjectChange={projectId => updateMutation.mutate({ id: issue.id, data: { projectId } })} />,
     cycle: <CyclePicker id="detail-cycle" cycleId={issue.cycleId ?? null} teamId={issue.teamId} identifier={issue.identifier} className="max-w-full" onCycleChange={cycleId => updateMutation.mutate({ id: issue.id, data: { cycleId } })} />,
-    type: <IssueTypePicker id="detail-type" type={issue.type} identifier={issue.identifier} className="max-w-full" onTypeChange={type => updateMutation.mutate({ id: issue.id, data: { type } })} />,
-    labels: <IssueLabelsPicker appearance={presentation === 'triage' ? 'badge' : 'button'} teamId={issue.teamId} projectId={issue.projectId} value={(issue.labels || []).map(label => label.id)} onChange={labelIds => updateMutation.mutate({ id: issue.id, data: { labelIds } })} />,
+    labels: <IssueLabelsPicker id="detail-labels" appearance="badge" className="max-w-full" teamId={issue.teamId} projectId={issue.projectId} value={(issue.labels || []).map(label => label.id)} onChange={labelIds => updateMutation.mutate({ id: issue.id, data: { labelIds } })} />,
   };
 
   const renderPanel = () => (
@@ -458,7 +456,6 @@ export function IssueDetailContent({ issue, presentation = 'sheet', headerAction
                   <PopoverTrigger asChild><Button type="button" variant="outline" size="icon-xs" className="rounded-full" aria-label="More properties" title="More properties"><MoreHorizontal /></Button></PopoverTrigger>
                   <PopoverContent aria-label="Additional issue properties" className="w-64 max-w-[calc(100vw-2rem)] p-4">
                     <FieldSet disabled={readOnly} className="block"><FieldGroup>
-                      <Field><FieldLabel htmlFor="detail-type">Type</FieldLabel>{propertyPickers.type}</Field>
                       <InlineValueForm id="issue-due-date" label="Due date" ariaLabel="Issue due date" inputType="date" initialValue={dueDate} disabled={false} pending={updateMutation.isPending} submitLabel="Save due date" onSave={handleSaveDueDate} />
                     </FieldGroup></FieldSet>
                   </PopoverContent>
@@ -483,8 +480,8 @@ export function IssueDetailContent({ issue, presentation = 'sheet', headerAction
             {cyclesEnabled && <Field><FieldLabel htmlFor="detail-cycle">Cycle</FieldLabel>
               {propertyPickers.cycle}
             </Field>}
-            <Field><FieldLabel htmlFor="detail-type">Type</FieldLabel>
-              {propertyPickers.type}
+            <Field><FieldLabel htmlFor="detail-labels">Labels</FieldLabel>
+              {propertyPickers.labels}
             </Field>
             {estimatesEnabled && <Field><FieldLabel htmlFor="issue-estimate">Estimate</FieldLabel>
               {estimateValues
@@ -492,10 +489,19 @@ export function IssueDetailContent({ issue, presentation = 'sheet', headerAction
                 : <Input id="issue-estimate" type="number" min={0} max={100} step={1} value={estimate} onChange={event => setEstimate(event.target.value)} onBlur={() => handleSaveEstimate()} aria-label="Issue estimate" />}
             </Field>}
             <Field><FieldLabel htmlFor="issue-due-date">Due date</FieldLabel>
-              <Input id="issue-due-date" type="date" value={dueDate} onChange={event => setDueDate(event.target.value)} onBlur={() => handleSaveDueDate()} aria-label="Issue due date" />
+              <DatePicker
+                id="issue-due-date"
+                date={parseDateOnly(dueDate)}
+                onDateChange={(d) => {
+                  const next = toDateOnly(d);
+                  setDueDate(next);
+                  updateMutation.mutate({ id: issue.id, data: { dueDate: next || null } });
+                }}
+                placeholder="Due date"
+                className="h-8"
+              />
             </Field>
           </FieldGroup>
-          <div className="mt-4">{propertyPickers.labels}</div>
           </FieldSet>
           </aside>}
 

@@ -68,7 +68,9 @@ test('magic link signs up and signs in without a password; invitations join the 
   const f = await fixture();
   try {
     const owner = `owner-${randomUUID().slice(0, 6)}@example.test`;
-    equal((await f.call('/auth/sign-in/magic-link', { method: 'POST', body: { email: owner, name: 'Owner' } })).status, 200);
+    const ipv6Res = await f.call('/auth/sign-in/magic-link', { method: 'POST', body: { email: owner, name: 'Owner' }, headers: { Origin: 'http://[::1]:5173' } });
+    equal(ipv6Res.status, 200, 'magic link sign-in accepts IPv6 loopback origin');
+    match(f.lastLink(), /^http:\/\/\[::1\]:5173\//, 'magic link retains IPv6 loopback origin');
     match(f.mail.sent.at(-1).content.subject, /sign-in link/);
     await f.follow(f.lastLink());
     equal((await f.call('/auth/me')).body.email, owner, 'magic link created and signed in the account');

@@ -1,13 +1,14 @@
 import { Injectable, ConflictException, BadRequestException, NotFoundException } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { DatabaseService } from '../common/database/database.service';
-import { teams, users, teamMembers, issues, cycles, organizationMembers, teamWorkflowStates, issueRecurrences, issueTemplates, projects, projectTeams } from '@reka/database';
+import { teams, users, teamMembers, issues, cycles, organizationMembers, teamWorkflowStates, issueRecurrences, issueTemplates, projects, projectTeams, labels } from '@reka/database';
 import { requireWorkspace, requireAdmin, requireWrite, requireTeam, requireTeamManager, requireEligibleUser, teamScope, teamManagerScope, issueScope, userScope, visibleTeamIds, membershipScope, requireResourceId, type WorkspaceActor } from '../common/access/workspace-access';
 import { eq, desc, and, inArray, sql, asc, notInArray } from 'drizzle-orm';
 import { NotificationsService } from '../notifications/notifications.service';
 import { CreateTeamDto, UpdateTeamDto, AddTeamMemberDto, UpdateTeamMemberDto } from './dto/team.dto';
 import { UpdateTeamWorkflowStatesDto } from './dto/workflow-state.dto';
 import { DEFAULT_TEAM_WORKFLOW_STATES, TEAM_STATUS_REFERENCES } from './workflow-state-defaults';
+import { DEFAULT_TEAM_LABELS } from '../labels/label-defaults';
 
 @Injectable()
 export class TeamsService {
@@ -89,6 +90,13 @@ export class TeamsService {
         ) INSERT INTO team_members (team_id, user_id, role) SELECT id, ${actorId}::uuid, 'lead' FROM created
       `);
       await db.insert(teamWorkflowStates).values(DEFAULT_TEAM_WORKFLOW_STATES.map((state) => ({ teamId: id, ...state })));
+      await db.insert(labels).values(DEFAULT_TEAM_LABELS.map((label) => ({
+        organizationId: actor.organizationId,
+        teamId: id,
+        name: label.name,
+        color: label.color,
+        description: label.description,
+      })));
       return await this.findById(id, actorId);
     } catch (error) { return this.writeError(error); }
   }

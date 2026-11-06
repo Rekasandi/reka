@@ -1,15 +1,18 @@
 import * as React from 'react';
 import { Link, Navigate, useLocation } from 'react-router-dom';
+import { useMutation } from '@tanstack/react-query';
 import { Alert, AlertDescription, Avatar, AvatarFallback, AvatarImage, Button, Field, FieldGroup, FieldLabel, Select, SelectTrigger, SelectValue, SelectContent, SelectGroup, SelectItem } from '@reka/ui';
+import { authClient, authErrorMessage } from '../../../lib/auth-client';
 import { useAuth } from '../../auth/hooks/use-auth';
 import { useTheme } from '../../../components/theme/theme-provider';
 import { NotificationPreferencesDialog } from '../../notifications/components/notification-preferences-dialog';
 import { UsersPage } from '../../users/components/users-page';
-import { GithubSettings } from './github-settings';
+import { GithubIcon, GithubSettings } from './github-settings';
 import { AccountSecurity, GithubAccount } from './account-settings';
 import { WorkspaceSettings } from './workspace-settings';
 import { TeamsSettings } from './teams-settings';
 import { IssueSettings, ProjectSettings } from './settings-resource-pages';
+import { LabelsSettings } from './labels-settings';
 import { getSettingsSection, LEGACY_SETTINGS_SECTIONS, SETTINGS_GROUPS, SETTINGS_ITEMS } from '../lib/settings-navigation';
 
 function Preferences() {
@@ -28,9 +31,44 @@ function Preferences() {
 
 function Profile() {
   const user = useAuth().user;
+  const displayName = user?.name?.trim() || user?.email?.split('@')[0] || 'Member';
+  const displayInitial = (displayName[0] || 'M').toUpperCase();
+  const linkGithub = useMutation({
+    mutationFn: async () => {
+      const result = await authClient.linkSocial({ provider: 'github', callbackURL: '/settings/profile' });
+      if (result.error) throw new Error(authErrorMessage(result.error, 'Could not start the GitHub link.'));
+    },
+  });
+
   return <section className="flex flex-col gap-6">
-    <div className="flex items-center gap-4"><Avatar className="size-14"><AvatarImage src={user?.avatarUrl || undefined} alt={user?.name} /><AvatarFallback>{user?.name?.[0]?.toUpperCase() ?? '?'}</AvatarFallback></Avatar><p className="text-sm text-muted-foreground">Your name and avatar are edited by workspace admins under Members.</p></div>
-    <dl className="flex flex-col divide-y divide-border">{[['Full name', user?.name], ['Email address', user?.email], ['GitHub username', user?.githubUsername ? `@${user.githubUsername}` : null]].map(([label, value]) => <div key={label} className="grid gap-1 py-4 sm:grid-cols-[180px_minmax(0,1fr)]"><dt className="text-sm text-muted-foreground">{label}</dt><dd className="break-all text-sm">{value || 'Not available'}</dd></div>)}</dl>
+    <div className="flex items-center gap-4"><Avatar className="size-14"><AvatarImage src={user?.avatarUrl || undefined} alt={displayName} /><AvatarFallback>{displayInitial}</AvatarFallback></Avatar><p className="text-sm text-muted-foreground">Your name and avatar are edited by workspace admins under Members.</p></div>
+    <dl className="flex flex-col divide-y divide-border">
+      <div className="grid gap-1 py-4 sm:grid-cols-[180px_minmax(0,1fr)]">
+        <dt className="text-sm text-muted-foreground">Full name</dt>
+        <dd className="break-all text-sm font-medium">{displayName}</dd>
+      </div>
+      <div className="grid gap-1 py-4 sm:grid-cols-[180px_minmax(0,1fr)]">
+        <dt className="text-sm text-muted-foreground">Email address</dt>
+        <dd className="break-all text-sm">{user?.email || 'Not available'}</dd>
+      </div>
+      <div className="grid gap-1 py-4 sm:grid-cols-[180px_minmax(0,1fr)]">
+        <dt className="text-sm text-muted-foreground">GitHub username</dt>
+        <dd className="flex items-center justify-between gap-3 text-sm">
+          {user?.githubUsername ? (
+            <span className="font-mono">@{user.githubUsername}</span>
+          ) : (
+            <div className="flex items-center gap-3">
+              <span className="text-muted-foreground">Not available</span>
+              <Button size="xs" variant="outline" disabled={linkGithub.isPending} onClick={() => linkGithub.mutate()}>
+                <GithubIcon className="size-3.5" />
+                {linkGithub.isPending ? 'Connecting…' : 'Connect GitHub'}
+              </Button>
+            </div>
+          )}
+        </dd>
+      </div>
+    </dl>
+    {linkGithub.isError && <Alert variant="destructive"><AlertDescription>{linkGithub.error.message}</AlertDescription></Alert>}
     <AccountSecurity />
   </section>;
 }
@@ -60,7 +98,8 @@ export function SettingsPage() {
     {section === 'preferences' && <Preferences />}
     {section === 'profile' && <Profile />}
     {section === 'accounts' && <GithubAccount />}
-    {['workflows', 'labels'].includes(section) && <IssueSettings key={section} labels={section === 'labels'} />}
+    {section === 'workflows' && <IssueSettings key="workflows" labels={false} />}
+    {section === 'labels' && <LabelsSettings />}
     {section === 'projects' && <ProjectSettings />}
     {section === 'github' && <GithubSettings />}
     {section === 'workspace' && <div className="settings-sections"><WorkspaceSettings /></div>}

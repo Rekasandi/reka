@@ -105,13 +105,14 @@ export function TeamsPage() {
                     <TableCell className="py-2.5">
                       <div className="flex items-center -space-x-1.5">
                         {membersList.slice(0, 3).map((m) => {
-                          const initial = (m.user?.name?.[0] || 'U').toUpperCase();
+                          const displayName = m.user?.name?.trim() || m.user?.email?.split('@')[0] || '';
+                          const initial = (displayName[0] || 'U').toUpperCase();
                           return (
                             <Avatar
                               key={m.userId}
                               className="size-5 rounded-full border border-background ring-1 ring-border shrink-0"
                             >
-                              {m.user?.avatarUrl && <AvatarImage src={m.user.avatarUrl} alt={m.user.name} />}
+                              {m.user?.avatarUrl && <AvatarImage src={m.user.avatarUrl} alt={displayName} />}
                               <AvatarFallback className="text-[9px] font-bold bg-secondary text-foreground">
                                 {initial}
                               </AvatarFallback>

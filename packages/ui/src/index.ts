@@ -41,4 +41,5 @@ export * from './components/toggle';
 export * from './components/toggle-group';
 export * from './components/timeline';
 export * from './components/tooltip';
+export * from './components/hover-card';
 export * from './hooks/use-mobile';

@@ -1,10 +1,11 @@
 import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from '../common/database/database.service';
 import { and, eq } from 'drizzle-orm';
-import { labels } from '@reka/database';
-import { requireProject, requireResourceId, requireTeamManager, requireTeamWrite, requireWorkspace, labelScope } from '../common/access/workspace-access';
+import { labels, teams } from '@reka/database';
+import { requireProject, requireResourceId, requireTeamManager, requireTeamWrite, requireWorkspace, labelScope, teamScope } from '../common/access/workspace-access';
 import { CreateLabelDto } from './dto/create-label.dto';
 import { UpdateLabelDto } from './dto/update-label.dto';
+import { DEFAULT_TEAM_LABELS } from './label-defaults';
 
 @Injectable()
 export class LabelsService {
@@ -26,7 +27,26 @@ export class LabelsService {
 
   async findAll(actorId: string) {
     const actor = await requireWorkspace(this.database.db, actorId);
-    return this.database.db.select().from(labels).where(labelScope(this.database.db, actor));
+    let all = await this.database.db.select().from(labels).where(labelScope(this.database.db, actor));
+    if (all.length === 0) {
+      const visibleTeams = await this.database.db.select({ id: teams.id }).from(teams).where(teamScope(this.database.db, actor));
+      if (visibleTeams.length > 0) {
+        const toInsert = visibleTeams.flatMap((team) =>
+          DEFAULT_TEAM_LABELS.map((l) => ({
+            organizationId: actor.organizationId,
+            teamId: team.id,
+            name: l.name,
+            color: l.color,
+            description: l.description,
+          })),
+        );
+        if (toInsert.length > 0) {
+          await this.database.db.insert(labels).values(toInsert);
+          all = await this.database.db.select().from(labels).where(labelScope(this.database.db, actor));
+        }
+      }
+    }
+    return all;
   }
 
   async update(actorId: string, id: string, dto: UpdateLabelDto) {
@@ -63,7 +83,7 @@ export class LabelsService {
     if (dto.parentId) await this.validateParent(actor, { teamId: team.id, projectId: dto.projectId ?? null }, dto.parentId);
     const [label] = await this.database.db.insert(labels).values({
       organizationId: actor.organizationId, teamId: team.id, projectId: dto.projectId ?? null, parentId: dto.parentId ?? null,
-      name: dto.name.trim(), color: dto.color,
+      name: dto.name.trim(), color: dto.color, description: dto.description?.trim() || null,
     }).returning();
     return label;
   }

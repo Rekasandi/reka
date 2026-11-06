@@ -2,7 +2,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getIssueById, getIssues, createIssue, updateIssue, updateIssues, deleteIssue, archiveIssue, moveIssueToTop, getSubtasks, type CreateIssueInput, type IssuePatch, type BulkIssueUpdate } from '../api/issues.api';
 import type { Issue, Label } from '@reka/types';
 import { toast } from '@reka/ui';
-import { formatStatusLabel } from '../components/status-picker';
 
 export const ISSUES_QUERY_KEY = ['issues'];
 
@@ -95,7 +94,53 @@ export function useUpdateIssue() {
 
   return useMutation({
     mutationFn: ({ id, data }: { id: string; data: IssuePatch }) => updateIssue(id, data),
-    onSuccess: (updated, { data }) => {
+    onMutate: async ({ id, data }) => {
+      await queryClient.cancelQueries({ queryKey: ISSUES_QUERY_KEY });
+      const previousQueries = queryClient.getQueriesData<Issue[]>({ queryKey: ISSUES_QUERY_KEY });
+
+      queryClient.setQueriesData<Issue[]>({ queryKey: ISSUES_QUERY_KEY }, (old) => {
+        if (!Array.isArray(old)) return old;
+        return old.map((issue) => {
+          if (issue.id !== id) return issue;
+          return {
+            ...issue,
+            ...data,
+            status: (data.status as any) ?? issue.status,
+            priority: (data.priority as any) ?? issue.priority,
+            assigneeId: data.assigneeId !== undefined ? data.assigneeId : issue.assigneeId,
+            projectId: data.projectId !== undefined ? (data.projectId ?? null) : issue.projectId,
+            cycleId: data.cycleId !== undefined ? (data.cycleId ?? null) : issue.cycleId,
+          };
+        });
+      });
+
+      const previousDetail = queryClient.getQueryData<Issue>([...ISSUES_QUERY_KEY, 'detail', id]);
+      if (previousDetail) {
+        queryClient.setQueryData<Issue>([...ISSUES_QUERY_KEY, 'detail', id], {
+          ...previousDetail,
+          ...data,
+          status: (data.status as any) ?? previousDetail.status,
+          priority: (data.priority as any) ?? previousDetail.priority,
+          assigneeId: data.assigneeId !== undefined ? data.assigneeId : previousDetail.assigneeId,
+          projectId: data.projectId !== undefined ? (data.projectId ?? null) : previousDetail.projectId,
+          cycleId: data.cycleId !== undefined ? (data.cycleId ?? null) : previousDetail.cycleId,
+        });
+      }
+
+      return { previousQueries, previousDetail, id };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previousQueries) {
+        for (const [key, val] of context.previousQueries) {
+          queryClient.setQueryData(key, val);
+        }
+      }
+      if (context?.previousDetail) {
+        queryClient.setQueryData([...ISSUES_QUERY_KEY, 'detail', context.id], context.previousDetail);
+      }
+      toast.error('Failed to update issue');
+    },
+    onSettled: (_updated, _err, { data }) => {
       queryClient.invalidateQueries({ queryKey: ISSUES_QUERY_KEY });
       queryClient.invalidateQueries({ queryKey: ['triage'] });
       queryClient.invalidateQueries({ queryKey: ['subtasks'] });
@@ -103,20 +148,6 @@ export function useUpdateIssue() {
         queryClient.invalidateQueries({ queryKey: ['cycles'] });
         queryClient.invalidateQueries({ queryKey: ['cycle'] });
       }
-      const description = data.status !== undefined
-        ? `Status: ${formatStatusLabel(updated.status)}`
-        : data.priority !== undefined
-          ? `Priority: ${data.priority === 'no_priority' ? 'None' : data.priority.charAt(0).toUpperCase() + data.priority.slice(1)}`
-          : undefined;
-
-      toast.info(`Updated ${updated.identifier}`, {
-        description,
-      });
-    },
-    onError: (err) => {
-      toast.error('Failed to update issue', {
-        description: (err as Error).message,
-      });
     },
   });
 }

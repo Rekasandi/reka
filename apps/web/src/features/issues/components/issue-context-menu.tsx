@@ -4,13 +4,13 @@ import {
   ContextMenu, ContextMenuTrigger, ContextMenuContent, ContextMenuGroup,
   ContextMenuLabel, ContextMenuItem, ContextMenuSeparator, ContextMenuSub,
   ContextMenuSubTrigger, ContextMenuSubContent, ContextMenuRadioGroup,
-  ContextMenuRadioItem, toast,
+  ContextMenuRadioItem, ContextMenuCheckboxItem, toast,
 } from '@reka/ui';
 import { Archive, ArrowUpToLine, Copy, ExternalLink, GitBranchPlus, ListTodo, RotateCcw, SignalHigh, Tag, Trash2 } from 'lucide-react';
 import { STATUS_CONFIG, renderStateIcon } from './status-picker';
 import { PRIORITY_CONFIG, PriorityIcon } from './priority-picker';
-import { ISSUE_TYPES } from './issue-type-picker';
 import { useTeamWorkflowStates } from '../../teams/hooks/use-teams';
+import { useIssueLabels } from '../hooks/use-issues';
 
 export function IssueContextMenu({ issue, onOpen, onAddSubIssue, onUpdate, onDelete, onArchive, onMoveToTop, children }: {
   issue: Issue;
@@ -23,6 +23,11 @@ export function IssueContextMenu({ issue, onOpen, onAddSubIssue, onUpdate, onDel
   children: ReactElement;
 }) {
   const { data: workflowStates = [] } = useTeamWorkflowStates(issue.teamId);
+  const { data: allLabels = [] } = useIssueLabels();
+  const teamLabels = allLabels.filter(
+    (l) => (!l.teamId || l.teamId === issue.teamId) && (!l.projectId || l.projectId === issue.projectId),
+  );
+  const currentLabelIds = (issue.labels || []).map((l) => l.id);
   const statusOptions = workflowStates.length
     ? workflowStates.filter((state) => state.isActive).map((state) => ({ key: state.key, label: state.name, renderIcon: () => renderStateIcon(state.category, state.color) }))
     : Object.entries(STATUS_CONFIG).map(([key, config]) => ({ key, label: config.label, renderIcon: config.renderIcon }));
@@ -85,16 +90,34 @@ export function IssueContextMenu({ issue, onOpen, onAddSubIssue, onUpdate, onDel
             </ContextMenuSubContent>
           </ContextMenuSub>
           <ContextMenuSub>
-            <ContextMenuSubTrigger><Tag />Issue type</ContextMenuSubTrigger>
-            <ContextMenuSubContent className="w-56" onClick={event => event.stopPropagation()} onKeyDown={event => event.stopPropagation()}>
-              <ContextMenuRadioGroup value={issue.type} onValueChange={type => {
-                const item = ISSUE_TYPES.find(item => item.value === type);
-                if (item && item.value !== issue.type) onUpdate({ type: item.value });
-              }}>
-                {ISSUE_TYPES.map(item => (
-                  <ContextMenuRadioItem key={item.value} value={item.value}><span className={`size-1.5 shrink-0 rounded-full ${item.color}`} />{item.label}</ContextMenuRadioItem>
-                ))}
-              </ContextMenuRadioGroup>
+            <ContextMenuSubTrigger><Tag />Labels</ContextMenuSubTrigger>
+            <ContextMenuSubContent className="w-56 max-h-56 overflow-y-auto" onClick={event => event.stopPropagation()} onKeyDown={event => event.stopPropagation()}>
+              {teamLabels.length === 0 ? (
+                <div className="p-2 text-xs text-muted-foreground text-center">No labels available</div>
+              ) : (
+                teamLabels.map((label) => {
+                  const isChecked = currentLabelIds.includes(label.id);
+                  return (
+                    <ContextMenuCheckboxItem
+                      key={label.id}
+                      checked={isChecked}
+                      onCheckedChange={(checked) => {
+                        const next = checked
+                          ? [...currentLabelIds, label.id]
+                          : currentLabelIds.filter((id) => id !== label.id);
+                        onUpdate({ labelIds: next } as any);
+                      }}
+                    >
+                      <span
+                        aria-hidden="true"
+                        className="mr-2 size-2 shrink-0 rounded-full"
+                        style={{ backgroundColor: label.color }}
+                      />
+                      <span className="truncate">{label.name}</span>
+                    </ContextMenuCheckboxItem>
+                  );
+                })
+              )}
             </ContextMenuSubContent>
           </ContextMenuSub>
         </ContextMenuGroup>

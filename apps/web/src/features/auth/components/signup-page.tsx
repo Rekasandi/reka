@@ -4,6 +4,7 @@ import { Alert, AlertDescription, Button, Field, FieldDescription, FieldGroup, F
 import { Mail } from 'lucide-react';
 import { authClient, authErrorMessage } from '../../../lib/auth-client';
 import { AuthLayout, GithubIcon, safeRedirect } from './auth-layout';
+import { EmailSentView } from './email-sent-view';
 
 export function SignupPage() {
   const [searchParams] = useSearchParams();
@@ -26,7 +27,9 @@ export function SignupPage() {
   const sendMagicLink = async () => {
     if (!email.trim()) { setError('Enter your email to receive a sign-in link.'); return; }
     setPending('magic'); setError(null);
-    const { error } = await authClient.signIn.magicLink({ email: email.trim(), name: name.trim() || undefined, callbackURL: redirect, newUserCallbackURL: redirect.startsWith('/accept-invitation/') ? redirect : '/onboarding' });
+    const callbackURL = new URL(redirect, window.location.origin).toString();
+    const newUserCallbackURL = new URL(redirect.startsWith('/accept-invitation/') ? redirect : '/onboarding', window.location.origin).toString();
+    const { error } = await authClient.signIn.magicLink({ email: email.trim(), name: name.trim() || undefined, callbackURL, newUserCallbackURL });
     setPending(null);
     if (error) { setError(authErrorMessage(error)); return; }
     setSent('magic');
@@ -40,8 +43,27 @@ export function SignupPage() {
   return (
     <AuthLayout title="Create your account" description={<>Already have one? <Link to="/login" className="text-foreground underline underline-offset-4">Sign in</Link></>}>
       {error && <Alert variant="destructive" role="alert"><AlertDescription>{error}</AlertDescription></Alert>}
-      {sent === 'verify' && <Alert role="status"><AlertDescription>Almost there. We sent a verification link to <strong>{email.trim()}</strong>. Open it to activate your account; you will be signed in right away.</AlertDescription></Alert>}
-      {sent === 'magic' && <Alert role="status"><AlertDescription>Check <strong>{email.trim()}</strong> for a sign-in link. It works once and expires in 15 minutes.</AlertDescription></Alert>}
+      {sent === 'verify' && (
+        <EmailSentView
+          email={email.trim()}
+          title="Verify your email"
+          description="Almost there! We sent a verification link to activate your account:"
+          note="Click the link in the email to activate and sign in automatically."
+          onResend={() => authClient.sendVerificationEmail({ email: email.trim(), callbackURL: redirect })}
+          onBack={() => { setSent(null); setError(null); }}
+        />
+      )}
+      {sent === 'magic' && (
+        <EmailSentView
+          email={email.trim()}
+          title="Sign-in link sent"
+          description="We emailed a temporary sign-in link to:"
+          note="Click the link in the email to sign in instantly. It expires in 15 minutes."
+          resending={pending === 'magic'}
+          onResend={sendMagicLink}
+          onBack={() => { setSent(null); setError(null); }}
+        />
+      )}
       {!sent && (
         <>
           <form className="flex flex-col gap-4" onSubmit={signUp}>

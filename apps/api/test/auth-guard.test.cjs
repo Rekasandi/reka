@@ -19,6 +19,8 @@ test('guard: public routes, sign-in, workspace selection, CSRF origin and read-o
   equal(await guard.canActivate(context('/api/teams', { userId: 'u1', workspace })), true);
   await rejects(guard.canActivate(context('/api/teams', { method: 'POST', userId: 'u1', workspace, authViaCookie: true, headers: { origin: 'https://evil.example' } })), (error) => error.getStatus() === 403, 'cookie write from another origin');
   equal(await guard.canActivate(context('/api/teams', { method: 'POST', userId: 'u1', workspace, authViaCookie: true, headers: { origin: 'http://localhost:5173' } })), true);
+  equal(await guard.canActivate(context('/api/teams', { method: 'POST', userId: 'u1', workspace, authViaCookie: true, headers: { origin: 'http://[::1]:5173' } })), true, 'ipv6 loopback origin');
+  equal(await guard.canActivate(context('/api/teams', { method: 'POST', userId: 'u1', workspace, authViaCookie: true, headers: { origin: 'http://127.0.0.1:5173' } })), true, 'ipv4 loopback origin');
   equal(await guard.canActivate(context('/api/teams', { method: 'POST', userId: 'u1', workspace })), true, 'bearer writes need no origin');
   await rejects(guard.canActivate(context('/api/teams', { method: 'POST', userId: 'u1', workspace: { ...workspace, role: 'guest' } })), (error) => error.getStatus() === 403, 'read-only role cannot write');
   equal(await guard.canActivate(context('/api/notifications/n1/read', { method: 'PATCH', userId: 'u1', workspace: { ...workspace, role: 'guest' } })), true, 'own inbox stays writable');

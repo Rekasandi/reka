@@ -3,9 +3,10 @@ import { DropdownMenuContent, DropdownMenuLabel, Input } from '@reka/ui';
 import { Search } from 'lucide-react';
 
 // Shared surface only; each domain picker owns its options and mutations.
-export function IssuePickerMenu({ label, children, onKeyDown }: {
+export function IssuePickerMenu({ label, children, footer, onKeyDown }: {
   label: string;
   children: (search: string) => React.ReactNode;
+  footer?: React.ReactNode;
   onKeyDown?: React.KeyboardEventHandler<HTMLDivElement>;
 }) {
   const [search, setSearch] = React.useState('');
@@ -40,6 +41,7 @@ export function IssuePickerMenu({ label, children, onKeyDown }: {
           }} />
       </div>
       <div className="max-h-60 overflow-y-auto">{children(search.trim().toLowerCase())}</div>
+      {footer}
     </DropdownMenuContent>
   );
 }

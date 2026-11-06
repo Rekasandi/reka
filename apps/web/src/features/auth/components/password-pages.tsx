@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Alert, AlertDescription, Button, Field, FieldDescription, FieldGroup, FieldLabel, Input } from '@reka/ui';
 import { authClient, authErrorMessage } from '../../../lib/auth-client';
 import { AuthLayout } from './auth-layout';
+import { EmailSentView } from './email-sent-view';
 
 export function ForgotPasswordPage() {
   const [email, setEmail] = React.useState('');
@@ -19,7 +20,15 @@ export function ForgotPasswordPage() {
   return (
     <AuthLayout title="Reset your password" description={<>Remembered it? <Link to="/login" className="text-foreground underline underline-offset-4">Back to sign in</Link></>}>
       {error && <Alert variant="destructive" role="alert"><AlertDescription>{error}</AlertDescription></Alert>}
-      {sent ? <Alert role="status"><AlertDescription>If an account exists for <strong>{email.trim()}</strong>, a reset link is on its way. It expires in an hour.</AlertDescription></Alert> : (
+      {sent ? (
+        <EmailSentView
+          email={email.trim()}
+          title="Reset link sent"
+          description="If an account exists, we sent a password reset link to:"
+          note="Click the link in the email to choose a new password. It expires in 1 hour."
+          onBack={() => { setSent(false); setError(null); }}
+        />
+      ) : (
         <form className="flex flex-col gap-4" onSubmit={submit}>
           <FieldGroup><Field><FieldLabel htmlFor="forgot-email">Email</FieldLabel><Input id="forgot-email" type="email" autoComplete="email" required value={email} onChange={event => setEmail(event.target.value)} /></Field></FieldGroup>
           <Button type="submit" className="w-full" disabled={pending}>{pending ? 'Sending…' : 'Send reset link'}</Button>

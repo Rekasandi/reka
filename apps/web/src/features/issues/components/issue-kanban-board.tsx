@@ -5,7 +5,7 @@ import { useUpdateIssue, useDeleteIssue, useMoveIssueToTop } from '../hooks/use-
 import { ArrowUpToLine, Trash2 } from 'lucide-react';
 import { StatusPicker, StatusIconOnly } from './status-picker';
 import { PriorityPicker } from './priority-picker';
-import { IssueTypePicker } from './issue-type-picker';
+import { IssueLabelsPicker } from './issue-labels-picker';
 import { AssigneePicker } from './assignee-picker';
 import { CyclePicker } from './cycle-picker';
 import { SlaBadge } from './sla-badge';
@@ -130,7 +130,15 @@ export function IssueKanbanBoard({ issues, onSelectIssue }: IssueKanbanBoardProp
 
                   <div className="flex items-center justify-between pt-1 border-t border-border/40" onClick={(e) => e.stopPropagation()}>
                     <div className="flex items-center gap-1.5">
-                      <IssueTypePicker type={issue.type} identifier={issue.identifier} onTypeChange={(type) => updateMutation.mutate({ id: issue.id, data: { type } })} />
+                      <IssueLabelsPicker
+                        teamId={issue.teamId}
+                        projectId={issue.projectId}
+                        value={(issue.labels || []).map((l) => l.id)}
+                        onChange={(labelIds) =>
+                          updateMutation.mutate({ id: issue.id, data: { labelIds } as any })
+                        }
+                        appearance="badge"
+                      />
                       <SlaBadge issue={issue} />
 
                       <AssigneePicker

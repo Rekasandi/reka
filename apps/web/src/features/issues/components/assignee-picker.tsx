@@ -27,6 +27,9 @@ interface AssigneePickerProps {
   appearance?: 'icon' | 'badge' | 'compact' | 'default';
 }
 
+const getUserDisplayName = (u?: { name?: string | null; email?: string | null } | null) =>
+  u?.name?.trim() || u?.email?.split('@')[0] || 'Member';
+
 export function AssigneePicker({
   assigneeId,
   id,
@@ -43,8 +46,11 @@ export function AssigneePicker({
 
   const assignedUser = React.useMemo(() => {
     if (!assigneeId) return null;
-    return users.find((u) => u.id === assigneeId) || null;
-  }, [users, assigneeId]);
+    const found = users.find((u) => u.id === assigneeId);
+    if (found) return found;
+    if (currentUser?.id === assigneeId) return currentUser;
+    return null;
+  }, [users, assigneeId, currentUser]);
 
   // The session user lacks avatar/email details; the workspace member record has them.
   const me = currentUser ? { ...currentUser, ...users.find((u) => u.id === currentUser.id) } : null;
@@ -53,12 +59,14 @@ export function AssigneePicker({
     // "Assign to me" already lists the current user, so leave them out of the members below.
     const others = users.filter((u) => u.id !== currentUser?.id);
     if (!q) return others;
-    return others.filter(
-      (u) =>
-        u.name.toLowerCase().includes(q) ||
+    return others.filter((u) => {
+      const displayName = getUserDisplayName(u);
+      return (
+        displayName.toLowerCase().includes(q) ||
         u.email.toLowerCase().includes(q) ||
-        u.role.toLowerCase().includes(q),
-    );
+        u.role.toLowerCase().includes(q)
+      );
+    });
   }, [users, searchQuery, currentUser?.id]);
 
   const handleSelect = (userId: string | null) => {
@@ -67,7 +75,8 @@ export function AssigneePicker({
     setSearchQuery('');
   };
 
-  const initial = assignedUser?.name ? assignedUser.name[0].toUpperCase() : 'U';
+  const assignedName = assignedUser ? getUserDisplayName(assignedUser) : '';
+  const initial = (assignedName[0] || 'M').toUpperCase();
 
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
@@ -89,21 +98,21 @@ export function AssigneePicker({
               size="auto"
               type="button"
               id={id}
-              aria-label={assignedUser ? `Assigned to ${assignedUser.name}` : 'Assign member'}
-              title={assignedUser ? `Assigned to ${assignedUser.name}` : 'Assign member'}
+              aria-label={assignedUser ? `Assigned to ${assignedName}` : 'Assign member'}
+              title={assignedUser ? `Assigned to ${assignedName}` : 'Assign member'}
             >
               {assignedUser ? (
                 <>
                   <Avatar className="size-4.5 rounded-full border border-indigo-500/30">
                     {assignedUser.avatarUrl && (
-                      <AvatarImage src={assignedUser.avatarUrl} alt={assignedUser.name} />
+                      <AvatarImage src={assignedUser.avatarUrl} alt={assignedName} />
                     )}
                     <AvatarFallback className="text-[9px] font-bold bg-indigo-500/20 text-indigo-300">
                       {initial}
                     </AvatarFallback>
                   </Avatar>
                   <span className="truncate text-xs font-medium text-foreground">
-                    {assignedUser.name}
+                    {assignedName}
                   </span>
                 </>
               ) : (
@@ -120,12 +129,12 @@ export function AssigneePicker({
           <Button variant="ghost" size="icon-xs" id={id}
             type="button"
             className={`flex size-6 items-center justify-center rounded-full hover:ring-1 hover:ring-border transition-colors outline-hidden ${className || ''}`}
-            title={assignedUser ? `Assigned to ${assignedUser.name}` : 'Assign member'}
+            title={assignedUser ? `Assigned to ${assignedName}` : 'Assign member'}
           >
             {assignedUser ? (
               <Avatar className="size-5 rounded-full border border-border">
                 {assignedUser.avatarUrl && (
-                  <AvatarImage src={assignedUser.avatarUrl} alt={assignedUser.name} />
+                  <AvatarImage src={assignedUser.avatarUrl} alt={assignedName} />
                 )}
                 <AvatarFallback className="text-xs font-semibold bg-primary/10 text-primary">
                   {initial}
@@ -146,14 +155,14 @@ export function AssigneePicker({
               <>
                 <Avatar className="size-4 rounded-full">
                   {assignedUser.avatarUrl && (
-                    <AvatarImage src={assignedUser.avatarUrl} alt={assignedUser.name} />
+                    <AvatarImage src={assignedUser.avatarUrl} alt={assignedName} />
                   )}
                   <AvatarFallback className="text-xs font-semibold bg-primary/10 text-primary">
                     {initial}
                   </AvatarFallback>
                 </Avatar>
                 <span className="truncate max-w-[90px] text-xs font-medium text-foreground">
-                  {assignedUser.name}
+                  {assignedName}
                 </span>
               </>
             ) : (
@@ -165,7 +174,7 @@ export function AssigneePicker({
           </Button>
         ) : (
           <Button variant="ghost" id={id}
-            aria-label={assignedUser ? `Assigned to ${assignedUser.name}` : 'Assign member'}
+            aria-label={assignedUser ? `Assigned to ${assignedName}` : 'Assign member'}
             type="button"
             className={`flex h-8 w-full items-center justify-between rounded-[6px] border border-border/60 bg-background/80 px-2.5 text-xs font-medium hover:border-border transition-colors outline-hidden ${className || ''}`}
           >
@@ -174,14 +183,14 @@ export function AssigneePicker({
                 <>
                   <Avatar className="size-4.5 rounded-full border border-border">
                     {assignedUser.avatarUrl && (
-                      <AvatarImage src={assignedUser.avatarUrl} alt={assignedUser.name} />
+                      <AvatarImage src={assignedUser.avatarUrl} alt={assignedName} />
                     )}
                     <AvatarFallback className="text-xs font-semibold bg-secondary text-foreground">
                       {initial}
                     </AvatarFallback>
                   </Avatar>
                   <span className="truncate text-xs text-foreground font-medium">
-                    {assignedUser.name}
+                    {assignedName}
                   </span>
                 </>
               ) : (
@@ -219,30 +228,34 @@ export function AssigneePicker({
 
         <DropdownMenuGroup className="max-h-52 overflow-y-auto">
           {/* Quick Assign to Current User */}
-          {me && (
-            <DropdownMenuItem
-              onClick={() => handleSelect(me.id)}
-              className="flex items-center justify-between px-2 py-1.5 text-xs rounded-[4px] cursor-pointer"
-            >
-              <div className="flex items-center gap-2 min-w-0">
-                <Avatar className="size-5 rounded-full border border-border shrink-0">
-                  {me.avatarUrl && <AvatarImage src={me.avatarUrl} alt={me.name} />}
-                  <AvatarFallback className="text-xs font-semibold bg-blue-500/15 text-blue-600 dark:text-blue-400">
-                    {(me.name[0] || 'Y').toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="flex flex-col min-w-0">
-                  <span className="font-medium text-foreground truncate text-xs">
-                    Assign to me
-                  </span>
-                  <span className="text-xs text-muted-foreground truncate">
-                    {me.email || me.name}
-                  </span>
+          {me && (() => {
+            const meName = getUserDisplayName(me);
+            const meInitial = (meName[0] || 'Y').toUpperCase();
+            return (
+              <DropdownMenuItem
+                onClick={() => handleSelect(me.id)}
+                className="flex items-center justify-between px-2 py-1.5 text-xs rounded-[4px] cursor-pointer"
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <Avatar className="size-5 rounded-full border border-border shrink-0">
+                    {me.avatarUrl && <AvatarImage src={me.avatarUrl} alt={meName} />}
+                    <AvatarFallback className="text-xs font-semibold bg-blue-500/15 text-blue-600 dark:text-blue-400">
+                      {meInitial}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex flex-col min-w-0">
+                    <span className="font-medium text-foreground truncate text-xs">
+                      Assign to me
+                    </span>
+                    <span className="text-xs text-muted-foreground truncate font-mono">
+                      {me.email || meName}
+                    </span>
+                  </div>
                 </div>
-              </div>
-              {assigneeId === me.id && <Check className="size-3 text-primary" />}
-            </DropdownMenuItem>
-          )}
+                {assigneeId === me.id && <Check className="size-3 text-primary" />}
+              </DropdownMenuItem>
+            );
+          })()}
 
           {/* Unassigned Option */}
           <DropdownMenuItem
@@ -268,7 +281,8 @@ export function AssigneePicker({
           ) : (
             filteredUsers.map((u) => {
               const isSelected = assigneeId === u.id;
-              const uInitial = (u.name[0] || 'U').toUpperCase();
+              const uName = getUserDisplayName(u);
+              const uInitial = (uName[0] || 'M').toUpperCase();
 
               return (
                 <DropdownMenuItem
@@ -278,14 +292,14 @@ export function AssigneePicker({
                 >
                   <div className="flex items-center gap-2 min-w-0">
                     <Avatar className="size-5 rounded-full border border-border shrink-0">
-                      {u.avatarUrl && <AvatarImage src={u.avatarUrl} alt={u.name} />}
+                      {u.avatarUrl && <AvatarImage src={u.avatarUrl} alt={uName} />}
                       <AvatarFallback className="text-xs font-semibold bg-secondary text-foreground">
                         {uInitial}
                       </AvatarFallback>
                     </Avatar>
                     <div className="flex flex-col min-w-0">
                       <span className="font-medium text-foreground truncate text-xs">
-                        {u.name}
+                        {uName}
                       </span>
                       <span className="text-xs text-muted-foreground truncate font-mono">
                         {u.email}

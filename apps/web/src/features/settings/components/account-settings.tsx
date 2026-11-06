@@ -129,7 +129,7 @@ export function GithubAccount() {
     },
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ACCOUNTS_QUERY_KEY }); queryClient.invalidateQueries({ queryKey: ['auth', 'me'] }); toast.success('GitHub unlinked'); },
   });
-  let statusText = 'Not linked';
+  let statusText = 'No verified GitHub identity available';
   if (linked) {
     statusText = username ? `@${username}` : 'Linked';
   }

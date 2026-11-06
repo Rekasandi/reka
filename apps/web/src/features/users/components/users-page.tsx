@@ -153,9 +153,10 @@ export function UsersPage() {
             </TableHeader>
             <TableBody className="border-0 [&_tr]:border-0">
               {filteredUsers.map((u) => {
-                const names = u.name.trim().split(/\s+/);
-                const initial = names.length >= 2 ? (names[0][0] + names[1][0]).toUpperCase() : (u.name[0] || 'U').toUpperCase();
-                const avatarBg = getAvatarBg(u.name);
+                const name = u.name?.trim() || u.email?.split('@')[0] || 'Member';
+                const names = name.split(/\s+/);
+                const initial = names.length >= 2 ? (names[0][0] + names[1][0]).toUpperCase() : (name[0] || 'U').toUpperCase();
+                const avatarBg = getAvatarBg(name);
                 const joined = formatDateLabel(u.createdAt);
                 const isCurrent = currentUser?.id === u.id;
                 const lastSeen = isCurrent ? 'Online' : formatDateLabel(u.updatedAt || u.createdAt);
@@ -166,13 +167,13 @@ export function UsersPage() {
                     <TableCell className="py-2.5">
                       <div className="flex items-center gap-3 min-w-0">
                         <Avatar className="size-8 rounded-full shrink-0 border border-border/60">
-                          {u.avatarUrl && <AvatarImage src={u.avatarUrl} alt={u.name} />}
+                          {u.avatarUrl && <AvatarImage src={u.avatarUrl} alt={name} />}
                           <AvatarFallback className={cn('text-xs font-semibold', avatarBg)}>
                             {initial}
                           </AvatarFallback>
                         </Avatar>
                         <div className="flex flex-col min-w-0 leading-tight gap-0.5">
-                          <span className="font-medium text-sm text-foreground truncate">{u.name}</span>
+                          <span className="font-medium text-sm text-foreground truncate">{name}</span>
                           {u.githubUsername ? (
                             <a
                               href={`https://github.com/${encodeURIComponent(u.githubUsername)}`}

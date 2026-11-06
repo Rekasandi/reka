@@ -18,6 +18,11 @@ export class CreateLabelDto {
   @Matches(/^#[0-9a-fA-F]{6}$/)
   color = '#6b7280';
 
+  @IsString()
+  @IsOptional()
+  @MaxLength(255)
+  description?: string;
+
   /** Group this label under another top-level label of the same team/project. */
   @IsUUID()
   @IsOptional()

@@ -18,19 +18,64 @@ export function AddMemberDialog({ teamId, open, onOpenChange, existingMemberUser
   const query = useUsers(false, open);
   const add = useAddTeamMember(teamId);
   React.useEffect(() => { if (open) { setSelectedUser(null); setRole('member'); add.reset(); } }, [open]);
+
+  let memberContent: React.ReactNode;
+  if (selectedUser) {
+    const selectedName = selectedUser.name?.trim() || selectedUser.email?.split('@')[0] || 'Member';
+    memberContent = (
+      <div className="flex min-w-0 items-center gap-3 rounded-md border border-border p-3">
+        <Avatar className="size-8 shrink-0">
+          <AvatarImage src={selectedUser.avatarUrl || undefined} alt={selectedName} />
+          <AvatarFallback>{(selectedName[0] || 'M').toUpperCase()}</AvatarFallback>
+        </Avatar>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-medium">{selectedName}</p>
+          <p className="truncate text-xs text-muted-foreground">{selectedUser.email}</p>
+        </div>
+        <Button variant="ghost" size="icon-sm" aria-label="Change selected member" disabled={add.isPending} onClick={() => setSelectedUser(null)}><X /></Button>
+      </div>
+    );
+  } else if (query.isPending) {
+    memberContent = <Skeleton className="h-40 w-full" />;
+  } else if (query.isError) {
+    memberContent = <Alert variant="destructive"><AlertDescription>Could not load workspace members. <Button variant="link" onClick={() => void query.refetch()}>Retry</Button></AlertDescription></Alert>;
+  } else {
+    memberContent = (
+      <Command label="Workspace member" className="rounded-md border border-border">
+        <CommandInput autoFocus placeholder="Search name or email…" />
+        <CommandList className="max-h-48">
+          <CommandEmpty>No matching workspace members.</CommandEmpty>
+          <CommandGroup heading="Workspace members">
+            {(query.data || []).map(user => {
+              const existing = existingMemberUserIds.includes(user.id);
+              const userName = user.name?.trim() || user.email?.split('@')[0] || 'Member';
+              return (
+                <CommandItem key={user.id} value={`${userName} ${user.email}`} disabled={existing} onSelect={() => { setSelectedUser(user); setRole('member'); }}>
+                  <Avatar className="size-7 shrink-0">
+                    <AvatarImage src={user.avatarUrl || undefined} alt={userName} />
+                    <AvatarFallback>{(userName[0] || 'M').toUpperCase()}</AvatarFallback>
+                  </Avatar>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-medium">{userName}</p>
+                    <p className="truncate text-muted-foreground">{user.email}</p>
+                  </div>
+                  {existing && <Badge variant="outline">Already in team</Badge>}
+                </CommandItem>
+              );
+            })}
+          </CommandGroup>
+        </CommandList>
+      </Command>
+    );
+  }
+
   return <>
     <Dialog open={open} onOpenChange={next => { if (!add.isPending) onOpenChange(next); }}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader><DialogTitle>Add team member</DialogTitle><DialogDescription>Choose someone already in this workspace. This does not change their workspace role.</DialogDescription></DialogHeader>
         <FieldGroup>
           <Field><FieldLabel>Workspace member</FieldLabel>
-            {selectedUser ? <div className="flex min-w-0 items-center gap-3 rounded-md border border-border p-3"><Avatar className="size-8 shrink-0"><AvatarImage src={selectedUser.avatarUrl || undefined} alt={selectedUser.name} /><AvatarFallback>{selectedUser.name[0]}</AvatarFallback></Avatar><div className="min-w-0 flex-1"><p className="truncate text-sm font-medium">{selectedUser.name}</p><p className="truncate text-xs text-muted-foreground">{selectedUser.email}</p></div><Button variant="ghost" size="icon-sm" aria-label="Change selected member" disabled={add.isPending} onClick={() => setSelectedUser(null)}><X /></Button></div> : query.isPending ? <Skeleton className="h-40 w-full" /> : query.isError ? <Alert variant="destructive"><AlertDescription>Could not load workspace members. <Button variant="link" onClick={() => void query.refetch()}>Retry</Button></AlertDescription></Alert> : <Command label="Workspace member" className="rounded-md border border-border">
-              <CommandInput autoFocus placeholder="Search name or email…" />
-              <CommandList className="max-h-48"><CommandEmpty>No matching workspace members.</CommandEmpty><CommandGroup heading="Workspace members">{(query.data || []).map(user => {
-                const existing = existingMemberUserIds.includes(user.id);
-                return <CommandItem key={user.id} value={`${user.name} ${user.email}`} disabled={existing} onSelect={() => { setSelectedUser(user); setRole('member'); }}><Avatar className="size-7 shrink-0"><AvatarImage src={user.avatarUrl || undefined} alt={user.name} /><AvatarFallback>{user.name[0]}</AvatarFallback></Avatar><div className="min-w-0 flex-1"><p className="truncate font-medium">{user.name}</p><p className="truncate text-muted-foreground">{user.email}</p></div>{existing && <Badge variant="outline">Already in team</Badge>}</CommandItem>;
-              })}</CommandGroup></CommandList>
-            </Command>}
+            {memberContent}
           </Field>
           <Field><FieldLabel htmlFor="add-team-role">Team role</FieldLabel><Select value={role} onValueChange={setRole} disabled={add.isPending}><SelectTrigger id="add-team-role" className="w-full"><SelectValue /></SelectTrigger><SelectContent><SelectGroup><SelectItem value="lead" disabled={!['owner', 'admin', 'member'].includes(selectedUser?.role || '')}>Lead</SelectItem><SelectItem value="member">Member</SelectItem><SelectItem value="viewer">Viewer</SelectItem></SelectGroup></SelectContent></Select><FieldDescription>{role === 'lead' ? 'Manages team settings and membership.' : role === 'member' ? 'Creates and updates issues in this team.' : 'Can view this team without changing its work.'} Workspace permissions still apply.</FieldDescription></Field>
         </FieldGroup>

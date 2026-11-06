@@ -27,7 +27,7 @@ export function Header() {
   const logout = useLogout();
   const navigate = useNavigate();
 
-  const displayName = user?.name || '';
+  const displayName = user?.name?.trim() || user?.email?.split('@')[0] || '';
   const displayEmail = user?.email || '';
   const displayAvatar = user?.avatarUrl || undefined;
   const displayInitial = (displayName[0] || displayEmail[0] || 'U').toUpperCase();

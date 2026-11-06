@@ -14,6 +14,9 @@ import {
   FieldLabel,
   FieldError,
   FieldGroup,
+  DatePicker,
+  parseDateOnly,
+  toDateOnly,
 } from '@reka/ui';
 import { useCreateIssue } from '../hooks/use-issues';
 import { ProjectPicker } from './project-picker';
@@ -25,7 +28,6 @@ import { AssigneePicker } from './assignee-picker';
 import { TeamFeatureGate } from '../../teams/components/team-feature-gate';
 import { StatusPicker } from './status-picker';
 import { PriorityPicker } from './priority-picker';
-import { IssueTypePicker } from './issue-type-picker';
 import { IssueLabelsPicker } from './issue-labels-picker';
 
 import { useTeams } from '../../teams/hooks/use-teams';
@@ -137,7 +139,7 @@ export function CreateIssueDialog({ open, onOpenChange, defaultProjectId, defaul
             <form.Field
               name="title"
               validators={{
-                onChange: ({ value }) => (!value?.trim() ? 'Title is required' : undefined),
+                onChange: ({ value }) => (value?.trim() ? undefined : 'Title is required'),
               }}
               children={(field) => {
                 const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid;
@@ -187,7 +189,7 @@ export function CreateIssueDialog({ open, onOpenChange, defaultProjectId, defaul
               {/* Team Select */}
               <form.Field
                 name="teamId"
-                validators={{ onChange: ({ value }) => (!value ? 'Team is required' : undefined) }}
+                validators={{ onChange: ({ value }) => (value ? undefined : 'Team is required') }}
                 children={(field) => (
                   <Field>
                     <FieldLabel htmlFor={field.name} className="text-muted-foreground">Team</FieldLabel>
@@ -245,14 +247,29 @@ export function CreateIssueDialog({ open, onOpenChange, defaultProjectId, defaul
                 )}
               />
 
-              {/* Type Select */}
+              {/* Labels Select */}
               <form.Field
-                name="type"
+                name="labelIds"
                 children={(field) => (
-                  <Field>
-                    <FieldLabel htmlFor={field.name} className="text-muted-foreground">Type</FieldLabel>
-                    <IssueTypePicker id={field.name} type={field.state.value} className="h-8 w-full justify-start" onTypeChange={field.handleChange} />
-                  </Field>
+                  <form.Subscribe
+                    selector={(state) => ({
+                      teamId: state.values.teamId,
+                      projectId: state.values.projectId,
+                    })}
+                    children={({ teamId, projectId }) => (
+                      <Field>
+                        <FieldLabel htmlFor={field.name} className="text-muted-foreground">Labels</FieldLabel>
+                        <IssueLabelsPicker
+                          teamId={teamId}
+                          projectId={projectId === 'none' ? null : projectId}
+                          value={field.state.value}
+                          onChange={field.handleChange}
+                          appearance="badge"
+                          className="h-8 w-full justify-start"
+                        />
+                      </Field>
+                    )}
+                  />
                 )}
               />
               {/* Assignee Select */}
@@ -290,14 +307,17 @@ export function CreateIssueDialog({ open, onOpenChange, defaultProjectId, defaul
                 children={(field) => (
                   <Field>
                     <FieldLabel htmlFor={field.name} className="text-muted-foreground">Due date</FieldLabel>
-                    <Input id={field.name} name={field.name} type="date" value={field.state.value} onChange={(event) => field.handleChange(event.target.value)} />
+                    <DatePicker
+                      id={field.name}
+                      date={parseDateOnly(field.state.value)}
+                      onDateChange={(selected) => field.handleChange(toDateOnly(selected))}
+                      placeholder="Due date"
+                      className="h-8"
+                    />
                   </Field>
                 )}
               />
             </div>
-            <form.Subscribe selector={state => ({ teamId: state.values.teamId, projectId: state.values.projectId, labelIds: state.values.labelIds })}>
-              {({ teamId, projectId, labelIds }) => teamId ? <IssueLabelsPicker teamId={teamId} projectId={projectId === 'none' ? null : projectId} value={labelIds} onChange={ids => form.setFieldValue('labelIds', ids)} /> : null}
-            </form.Subscribe>
           </FieldGroup>
 
           <DialogFooter>
@@ -311,15 +331,23 @@ export function CreateIssueDialog({ open, onOpenChange, defaultProjectId, defaul
             </Button>
             <form.Subscribe
               selector={(state) => [state.canSubmit, state.isSubmitting]}
-              children={([canSubmit, isSubmitting]) => (
-                <Button
-                  type="submit"
-                  size="sm"
-                  disabled={!canSubmit || createMutation.isPending || isSubmitting}
-                >
-                  {createMutation.isPending || isSubmitting ? 'Creating...' : defaultParentId ? 'Create Sub-issue' : 'Create Issue'}
-                </Button>
-              )}
+              children={([canSubmit, isSubmitting]) => {
+                let submitText = 'Create Issue';
+                if (createMutation.isPending || isSubmitting) {
+                  submitText = 'Creating...';
+                } else if (defaultParentId) {
+                  submitText = 'Create Sub-issue';
+                }
+                return (
+                  <Button
+                    type="submit"
+                    size="sm"
+                    disabled={!canSubmit || createMutation.isPending || isSubmitting}
+                  >
+                    {submitText}
+                  </Button>
+                );
+              }}
             />
           </DialogFooter>
         </form>

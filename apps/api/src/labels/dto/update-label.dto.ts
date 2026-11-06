@@ -3,6 +3,7 @@ import { IsOptional, IsString, IsUUID, Matches, MaxLength } from 'class-validato
 export class UpdateLabelDto {
   @IsOptional() @IsString() @MaxLength(50) @Matches(/\S/) name?: string;
   @IsOptional() @IsString() @Matches(/^#[0-9a-fA-F]{6}$/) color?: string;
+  @IsOptional() @IsString() @MaxLength(255) description?: string;
   /** Move under a group label, or null to ungroup. */
   @IsOptional() @IsUUID() parentId?: string | null;
 }

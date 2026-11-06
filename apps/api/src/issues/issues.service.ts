@@ -509,24 +509,24 @@ ${issue.description || 'No description provided.'}
       // Notify assignee / reporter if status changed
       const subscribers = await this.issueSubscriptions?.getSubscriberIds(id) ?? [];
       const notifyUserIds = getIssueNotificationRecipients(updated.assigneeId, updated.reporterId, actorId, subscribers);
-      for (const notifyUserId of notifyUserIds) {
-        try {
-          await this.notificationsService.createForEvent(notifyUserId, {
-            type: 'status_change',
-            title: `${updated.identifier} moved to ${dto.status.replace('_', ' ')}`,
-            body: `Status of "${updated.title}" changed from ${existing.status} to ${dto.status}.`,
-            link: `/issues`,
-            metadata: {
-              issueId: updated.id,
-              issueIdentifier: updated.identifier,
-              fromStatus: existing.status,
-              toStatus: dto.status,
-            },
-          });
-        } catch {
-          // Non-fatal
-        }
-      }
+      await Promise.all(
+        notifyUserIds.map((notifyUserId) =>
+          this.notificationsService
+            .createForEvent(notifyUserId, {
+              type: 'status_change',
+              title: `${updated.identifier} moved to ${(dto.status || '').replace('_', ' ')}`,
+              body: `Status of "${updated.title}" changed from ${existing.status} to ${dto.status}.`,
+              link: `/issues`,
+              metadata: {
+                issueId: updated.id,
+                issueIdentifier: updated.identifier,
+                fromStatus: existing.status,
+                toStatus: dto.status,
+              },
+            })
+            .catch(() => null),
+        ),
+      );
     }
 
     if (dto.status && dto.status !== existing.status) {
@@ -538,23 +538,24 @@ ${issue.description || 'No description provided.'}
     // Notify if assignee changed
     if (dto.assigneeId && dto.assigneeId !== existing.assigneeId) {
       const subscribers = await this.issueSubscriptions?.getSubscriberIds(id) ?? [];
-      for (const userId of getIssueNotificationRecipients(dto.assigneeId, null, actorId, subscribers)) {
-        try {
-          await this.notificationsService.createForEvent(userId, {
-            type: 'assignment',
-            title: `Assigned to ${updated.identifier}`,
-            body: `You were assigned to ${updated.title} (${updated.identifier})`,
-            link: `/issues`,
-            metadata: {
-              issueId: updated.id,
-              issueIdentifier: updated.identifier,
-              priority: updated.priority,
-            },
-          });
-        } catch {
-          // Non-fatal
-        }
-      }
+      const recipients = getIssueNotificationRecipients(dto.assigneeId, null, actorId, subscribers);
+      await Promise.all(
+        recipients.map((userId) =>
+          this.notificationsService
+            .createForEvent(userId, {
+              type: 'assignment',
+              title: `Assigned to ${updated.identifier}`,
+              body: `You were assigned to ${updated.title} (${updated.identifier})`,
+              link: `/issues`,
+              metadata: {
+                issueId: updated.id,
+                issueIdentifier: updated.identifier,
+                priority: updated.priority,
+              },
+            })
+            .catch(() => null),
+        ),
+      );
     }
 
     return updated;

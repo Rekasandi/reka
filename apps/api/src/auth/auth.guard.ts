@@ -1,5 +1,6 @@
 import { CanActivate, ExecutionContext, Injectable, UnauthorizedException, ForbiddenException } from '@nestjs/common';
 import { requireWrite } from '../common/access/workspace-access';
+import { isTrustedOrigin } from './better-auth';
 import type { AuthedRequest } from './session.middleware';
 
 /** Every REKA endpoint needs a signed-in user with an active workspace; Better Auth routes, health and webhooks are public. */
@@ -12,8 +13,7 @@ export class AuthGuard implements CanActivate {
     if (!request.userId) throw new UnauthorizedException('Sign in required');
     // Cookie sessions are ambient, so browser writes must come from the app itself (CSRF).
     if (request.authViaCookie && !['GET', 'HEAD', 'OPTIONS'].includes(request.method)) {
-      const trustedOrigin = new URL(process.env.WEB_URL || 'http://localhost:5173').origin;
-      if (request.headers.origin !== trustedOrigin) throw new ForbiddenException('Untrusted request origin');
+      if (!isTrustedOrigin(request.headers.origin)) throw new ForbiddenException('Untrusted request origin');
     }
     if (!request.workspace) throw new ForbiddenException('Select or create a workspace first');
     // Legacy guest/client identities remain internal read-only accounts. Own
