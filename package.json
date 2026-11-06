@@ -37,7 +37,8 @@
     "test:github": "turbo run build --filter=@reka/api --filter=@reka/worker && node --test apps/api/test/github-webhook-signature.integration.test.cjs apps/api/test/github-installation-verification.integration.test.cjs apps/api/test/github-pull-request-access.integration.test.cjs apps/api/test/github-workspace-scope.integration.test.cjs apps/worker/test/github-pr-event-postgres.integration.test.cjs apps/worker/test/github-webhook-delivery.integration.test.cjs apps/worker/test/github-migrations.integration.test.cjs",
     "test:insights": "turbo run build --filter=@reka/api && node --test apps/api/test/insights-history-migration.integration.test.cjs apps/api/test/insights.integration.test.cjs",
     "test:web:insights-real-api": "node apps/web/test/insights-real-api.mjs",
-    "test:web:collaboration-real-api": "node apps/web/test/collaboration-real-api.mjs"
+    "test:web:collaboration-real-api": "node apps/web/test/collaboration-real-api.mjs",
+    "test:e2e:deployed": "node apps/web/test/e2e-deployed-audit.mjs"
   },
   "devDependencies": {
     "@electric-sql/pglite": "0.5.8",
