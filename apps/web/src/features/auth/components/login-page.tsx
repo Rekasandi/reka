@@ -1,13 +1,16 @@
 import * as React from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { Alert, AlertDescription, Button, Field, FieldGroup, FieldLabel, Input, Separator } from '@reka/ui';
 import { Mail } from 'lucide-react';
 import { authClient, authErrorMessage } from '../../../lib/auth-client';
+import { AUTH_QUERY_KEY } from '../hooks/use-auth';
 import { AuthLayout, GithubIcon, safeRedirect } from './auth-layout';
 
 export function LoginPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const redirect = safeRedirect(searchParams.get('redirect'));
   const [email, setEmail] = React.useState('');
   const [password, setPassword] = React.useState('');
@@ -26,6 +29,8 @@ export function LoginPage() {
       else setError(authErrorMessage(error, 'Wrong email or password.'));
       return;
     }
+    queryClient.clear();
+    await queryClient.invalidateQueries({ queryKey: AUTH_QUERY_KEY });
     navigate(redirect, { replace: true });
   };
   const sendMagicLink = async () => {
