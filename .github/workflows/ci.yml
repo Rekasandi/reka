@@ -70,6 +70,7 @@ jobs:
         run: pnpm test:web
 
   # Backend deploy to the VPS (Docker Compose, see DEPLOYMENT.md) after a verified push to main.
+  # Only api and worker are rebuilt: on this server another Caddy already owns ports 80/443 and proxies the API.
   # Gated on type-check, build and integration tests; browser tests report separately and do not block it.
   # Migrations are never run here (see the migration gate in DEPLOYMENT.md).
   # Repository secrets: VPS_HOST, VPS_USER, VPS_SSH_KEY (private key), optional VPS_PORT (default 22)
@@ -117,7 +118,7 @@ jobs:
           git fetch --prune origin main
           git checkout main
           git merge --ff-only origin/main
-          docker compose --profile app up -d --build
+          docker compose up -d --build api worker
           docker image prune -f
           for i in \$(seq 1 30); do
             status=\$(docker inspect --format '{{.State.Health.Status}}' \$(docker compose ps -q api) 2>/dev/null || echo starting)

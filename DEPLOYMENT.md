@@ -35,7 +35,7 @@ Migrations are never run by the containers; follow the migration gate below.
 
 ### Automatic deploy from GitHub Actions
 
-Every push to `main` runs the `deploy` job in `.github/workflows/ci.yml` after type-check, build and integration tests pass (browser tests report separately and do not block it). It SSHes into the server, fast-forwards the checkout to `origin/main`, runs `docker compose --profile app up -d --build` and waits until the API container is healthy. It never runs migrations.
+Every push to `main` runs the `deploy` job in `.github/workflows/ci.yml` after type-check, build and integration tests pass (browser tests report separately and do not block it). It SSHes into the server, fast-forwards the checkout to `origin/main`, runs `docker compose up -d --build api worker` (the bundled Caddy is not started, because on the current server a separate Caddy already serves ports 80/443 and reaches the API through `docker-compose.override.yml`) and waits until the API container is healthy. It never runs migrations.
 
 Set these repository secrets (Settings → Secrets and variables → Actions); without them the job is skipped with a warning:
 
