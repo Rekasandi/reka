@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from '../common/database/database.service';
-import { issues, teamMembers, teams } from '@reka/database';
-import { and, eq, inArray } from 'drizzle-orm';
+import { issues, sessions, teamMembers, teams } from '@reka/database';
+import { and, eq, inArray, max } from 'drizzle-orm';
 import { UpdateUserDto } from './dto/user.dto';
 import { WorkspaceService } from '../workspace/workspace.service';
 import { requireAdmin, requireResourceId, requireWorkspace, issueScope, visibleTeamIds } from '../common/access/workspace-access';
@@ -15,7 +15,8 @@ export class UsersService {
     const actor = await requireWorkspace(db, actorId);
     if (includeInactive) requireAdmin(actor);
     const members = (await this.workspace.findMembers(actorId)).filter(member => includeInactive || member.isActive);
-    const [assigned, memberships] = await Promise.all([
+    const memberIds = members.map(member => member.id);
+    const [assigned, memberships, lastSessions] = await Promise.all([
       db.select({ assigneeId: issues.assigneeId }).from(issues).where(issueScope(db, actor)),
       db.select({
         userId: teamMembers.userId,
@@ -26,7 +27,12 @@ export class UsersService {
       .from(teamMembers)
       .innerJoin(teams, eq(teamMembers.teamId, teams.id))
       .where(inArray(teamMembers.teamId, visibleTeamIds(db, actor))),
+      // "Last seen" is the latest session activity. users.updatedAt also moves when an admin edits the profile or role.
+      memberIds.length
+        ? db.select({ userId: sessions.userId, lastSeenAt: max(sessions.updatedAt) }).from(sessions).where(inArray(sessions.userId, memberIds)).groupBy(sessions.userId)
+        : Promise.resolve([] as { userId: string; lastSeenAt: Date | null }[]),
     ]);
+    const lastSeen = new Map(lastSessions.map(row => [row.userId, row.lastSeenAt]));
     const issueCounts = new Map<string, number>();
     const userTeamsMap = new Map<string, Array<{ id: string; key: string; name: string }>>();
     for (const row of assigned) if (row.assigneeId) issueCounts.set(row.assigneeId, (issueCounts.get(row.assigneeId) ?? 0) + 1);
@@ -40,6 +46,7 @@ export class UsersService {
       assignedIssuesCount: issueCounts.get(member.id) ?? 0,
       teamsCount: userTeamsMap.get(member.id)?.length ?? 0,
       teams: userTeamsMap.get(member.id) ?? [],
+      lastSeenAt: lastSeen.get(member.id) ?? null,
     }));
   }
 

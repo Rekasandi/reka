@@ -138,12 +138,12 @@ export function IssueGroupedListView({
                     aria-label={`Select issue ${subtask.identifier}`}
                     checked={selected}
                     onClick={(event) => handleToggleSelect(subtask.id, event)}
-                    className="size-4 shrink-0 rounded-[4px] opacity-0 transition-opacity group-hover/sub:opacity-100 focus-visible:opacity-100 data-[state=checked]:opacity-100 [@media(hover:none)]:opacity-100"
+                    className="size-4 shrink-0 rounded-sm opacity-0 transition-opacity group-hover/sub:opacity-100 focus-visible:opacity-100 data-[state=checked]:opacity-100 [@media(hover:none)]:opacity-100"
                   />
                   <div className="issue-row-main flex min-w-0 flex-1 items-center gap-2" style={{ marginLeft: `${36 + depth * 16}px` }}>
                   {nested ? (
                     <Button variant="plain" size="auto" type="button" onClick={(event) => toggleSubtasks(subtask.id, event)}
-                      className="flex size-5 shrink-0 items-center justify-center rounded-[4px] text-muted-foreground/70 transition-colors hover:bg-secondary hover:text-foreground"
+                      className="flex size-5 shrink-0 items-center justify-center rounded-sm text-muted-foreground/70 transition-colors hover:bg-secondary hover:text-foreground"
                       aria-label={`${expanded ? 'Collapse' : 'Expand'} sub-issues for ${subtask.identifier}`}
                       aria-expanded={expanded}>
                       <ChevronRight className={`size-3.5 transition-transform ${expanded ? 'rotate-90' : ''}`} />
@@ -153,14 +153,14 @@ export function IssueGroupedListView({
                   <span className="shrink-0 font-mono text-xs font-medium text-muted-foreground">{subtask.identifier}</span>
                   <StatusPicker teamId={subtask.teamId} status={subtask.status} appearance="badge" onStatusChange={(status) => updateMutation.mutate({ id: subtask.id, data: { status: status as any } })} />
                   <Button variant="plain" size="auto" type="button" className="issue-row-title min-w-0 truncate rounded-sm text-left text-muted-foreground group-hover/sub:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label={`Open issue ${subtask.identifier}: ${subtask.title}`} title={subtask.title}>{subtask.title}</Button>
-                  {nested && <span className="shrink-0 rounded-[4px] border border-border/50 bg-secondary/60 px-1.5 py-0.2 font-mono text-xs text-muted-foreground">{childrenDoneCount(subtask)}/{subtaskMap[subtask.id].length}</span>}
+                  {nested && <span className="shrink-0 rounded-sm border border-border/50 bg-secondary/60 px-1.5 py-0.2 font-mono text-xs text-muted-foreground">{childrenDoneCount(subtask)}/{subtaskMap[subtask.id].length}</span>}
                   </div>
                 </div>
                 <div className="issue-row-meta flex shrink-0 items-center gap-1.5 sm:gap-3">
                   <IssueRowProperties issue={subtask} onUpdate={(data) => updateMutation.mutate({ id: subtask.id, data })} />
                   <span className="hidden w-16 shrink-0 text-right font-mono text-xs text-muted-foreground/70 sm:inline">{formatDate(subtask.createdAt)}</span>
                   <Button variant="plain" size="auto" type="button" onClick={(event) => { event.stopPropagation(); setDeleteTargetId(subtask.id); }}
-                    className="rounded-[4px] p-0.5 text-muted-foreground opacity-0 transition-opacity hover:bg-destructive/10 hover:text-destructive group-hover/sub:opacity-100 focus-visible:opacity-100"
+                    className="rounded-sm p-0.5 text-muted-foreground opacity-0 transition-opacity hover:bg-destructive/10 hover:text-destructive group-hover/sub:opacity-100 focus-visible:opacity-100"
                     title="Delete sub-issue" aria-label={`Delete sub-issue ${subtask.identifier}`}>
                     <Trash2 className="size-3.5" />
                   </Button>
@@ -180,7 +180,7 @@ export function IssueGroupedListView({
   if (issues.length === 0) {
     return (
       <div className="rounded-lg border border-dashed border-border/80 p-14 text-center text-xs text-muted-foreground bg-card/10">
-        No issues found. Press <kbd className="rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-xs text-foreground">C</kbd> anywhere to create.
+        No issues found. Press <kbd className="rounded-sm border border-border bg-muted px-1.5 py-0.5 font-mono text-xs text-foreground">C</kbd> anywhere to create.
       </div>
     );
   }
@@ -239,7 +239,7 @@ export function IssueGroupedListView({
                             aria-label={`Select issue ${issue.identifier}`}
                             checked={isChecked}
                             onClick={(e) => handleToggleSelect(issue.id, e)}
-                            className="cursor-pointer shrink-0 rounded-[4px] opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 data-[state=checked]:opacity-100 [@media(hover:none)]:opacity-100"
+                            className="cursor-pointer shrink-0 rounded-sm opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 data-[state=checked]:opacity-100 [@media(hover:none)]:opacity-100"
                           />
 
                           {/* Subtask chevron toggle */}
@@ -247,7 +247,7 @@ export function IssueGroupedListView({
                             <Button variant="plain" size="auto"
                               type="button"
                               onClick={(e) => toggleSubtasks(issue.id, e)}
-                              className="size-5 shrink-0 rounded-[4px] flex items-center justify-center text-muted-foreground/70 hover:text-foreground hover:bg-secondary transition-colors"
+                              className="size-5 shrink-0 rounded-sm flex items-center justify-center text-muted-foreground/70 hover:text-foreground hover:bg-secondary transition-colors"
                               title={isSubtasksExpanded ? 'Collapse subtasks' : 'Expand subtasks'}
                             >
                               <ChevronRight
@@ -286,7 +286,7 @@ export function IssueGroupedListView({
 
                           {/* GitHub Issue Tag */}
                           {issue.githubIssueNumber && (
-                            <span className="font-mono text-xs text-emerald-500 bg-emerald-500/10 border border-emerald-500/30 px-1 py-0.2 rounded shrink-0">
+                            <span className="font-mono text-xs text-success bg-success/10 border border-success/30 px-1 py-0.2 rounded-sm shrink-0">
                               GH #{issue.githubIssueNumber}
                             </span>
                           )}
@@ -295,7 +295,7 @@ export function IssueGroupedListView({
                           {hasSubtasks && (
                             <span
                               onClick={(e) => toggleSubtasks(issue.id, e)}
-                              className="text-xs font-mono text-muted-foreground/80 bg-secondary/60 hover:bg-secondary border border-border/50 px-1.5 py-0.2 rounded-[4px] shrink-0"
+                              className="text-xs font-mono text-muted-foreground/80 bg-secondary/60 hover:bg-secondary border border-border/50 px-1.5 py-0.2 rounded-sm shrink-0"
                             >
                               {subtasks.filter((subtask) => getIssueStatusCategory(subtask) === 'completed').length}/{subtasks.length}
                             </span>
@@ -324,7 +324,7 @@ export function IssueGroupedListView({
                               e.stopPropagation();
                               setDeleteTargetId(issue.id);
                             }}
-                            className="text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity p-0.5 rounded hover:bg-destructive/10"
+                            className="text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity p-0.5 rounded-sm hover:bg-destructive/10"
                             title="Delete issue"
                           >
                             <Trash2 className="size-3.5" />

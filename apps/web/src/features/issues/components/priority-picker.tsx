@@ -12,9 +12,9 @@ export const PRIORITY_CONFIG = [
 ] as const;
 
 export function PriorityIcon({ priority }: { priority: string }) {
-  if (priority === 'urgent') return <span title="Urgent" className="size-4 shrink-0 flex items-center justify-center text-rose-600 dark:text-rose-400"><AlertCircle className="size-3.5" /></span>;
-  if (priority === 'high') return <span title="High Priority" className="size-4 shrink-0 flex items-center justify-center text-amber-500"><SignalHigh className="size-3.5" /></span>;
-  if (priority === 'medium') return <span title="Medium Priority" className="size-4 shrink-0 flex items-center justify-center text-blue-500"><SignalMedium className="size-3.5" /></span>;
+  if (priority === 'urgent') return <span title="Urgent" className="size-4 shrink-0 flex items-center justify-center text-destructive"><AlertCircle className="size-3.5" /></span>;
+  if (priority === 'high') return <span title="High Priority" className="size-4 shrink-0 flex items-center justify-center text-warning"><SignalHigh className="size-3.5" /></span>;
+  if (priority === 'medium') return <span title="Medium Priority" className="size-4 shrink-0 flex items-center justify-center text-info"><SignalMedium className="size-3.5" /></span>;
   if (priority === 'low') return <span title="Low Priority" className="size-4 shrink-0 flex items-center justify-center text-muted-foreground/60"><SignalLow className="size-3.5" /></span>;
   return <span title="No Priority" className="size-4 shrink-0 flex items-center justify-center text-muted-foreground/30"><Minus className="size-3" /></span>;
 }

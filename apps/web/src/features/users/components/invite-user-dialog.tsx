@@ -32,7 +32,7 @@ export function InviteUserDialog({ open, onOpenChange }: { open: boolean; onOpen
     <Dialog open={open} onOpenChange={changeOpen}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Invite User</DialogTitle>
+          <DialogTitle>Invite member</DialogTitle>
           <DialogDescription>They get an email with a link and join this workspace after signing in with that address. Team membership is added separately.</DialogDescription>
         </DialogHeader>
         {created ? (

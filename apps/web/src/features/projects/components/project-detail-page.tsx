@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { useParams, Link, useLocation, useNavigate } from 'react-router-dom';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, Badge, Button, Skeleton, Select, SelectTrigger, SelectContent, SelectGroup, SelectItem, DatePicker, Tabs, TabsList, TabsTrigger, TabsContent, Avatar, AvatarImage, AvatarFallback, toast, cn, Progress, Spinner, DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from '@reka/ui';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, Badge, Button, Skeleton, DatePicker, Tabs, TabsList, TabsTrigger, TabsContent, Avatar, AvatarImage, AvatarFallback, toast, cn, Progress, Spinner, DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from '@reka/ui';
 import {
   Plus, CheckCircle2, AlertTriangle, AlertCircle, Trash2, RefreshCw,
   GitBranch, Lock, Globe, ExternalLink, Users, Circle, CircleDot,
@@ -25,6 +25,8 @@ import { parseProjectDescription } from '../lib/project-description';
 import { getIssueStatusCategory, type Issue } from '@reka/types';
 import type { Project, ProjectRepository } from '../api/projects.api';
 import { useFavorites, useToggleFavorite } from '../../favorites/hooks/use-favorites';
+import { PAGE_TITLE_CLASS } from '../../../components/common/page';
+import { PropertyPicker } from '../../../components/common/property-picker';
 import { useAuth } from '../../auth/hooks/use-auth';
 
 const ProjectDescriptionEditor = React.lazy(() => import('./project-description-editor'));
@@ -48,99 +50,44 @@ const HEALTH_OPTIONS = [
   { value: 'off_track', label: 'Off Track', icon: AlertCircle },
 ];
 
-const STATUS_COLORS: Record<string, string> = {
-  in_progress: 'border-blue-500/30 bg-blue-500/10 text-blue-500 dark:text-blue-400 hover:bg-blue-500/20',
-  planned: 'border-purple-500/30 bg-purple-500/10 text-purple-500 dark:text-purple-400 hover:bg-purple-500/20',
-  paused: 'border-amber-500/30 bg-amber-500/10 text-amber-500 dark:text-amber-400 hover:bg-amber-500/20',
-  completed: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-500 dark:text-emerald-400 hover:bg-emerald-500/20',
-  canceled: 'border-zinc-500/30 bg-zinc-500/10 text-zinc-400 hover:bg-zinc-500/20',
-};
-
 const STATUS_ICON_COLORS: Record<string, string> = {
-  in_progress: 'text-blue-500 dark:text-blue-400',
-  planned: 'text-purple-500 dark:text-purple-400',
-  paused: 'text-amber-500 dark:text-amber-400',
-  completed: 'text-emerald-500 dark:text-emerald-400',
-  canceled: 'text-zinc-400',
-};
-
-const PRIORITY_COLORS: Record<string, string> = {
-  urgent: 'border-rose-500/30 bg-rose-500/10 text-rose-500 dark:text-rose-400 hover:bg-rose-500/20',
-  high: 'border-amber-500/30 bg-amber-500/10 text-amber-500 dark:text-amber-400 hover:bg-amber-500/20',
-  medium: 'border-blue-500/30 bg-blue-500/10 text-blue-500 dark:text-blue-400 hover:bg-blue-500/20',
-  low: 'border-sky-500/30 bg-sky-500/10 text-sky-500 dark:text-sky-400 hover:bg-sky-500/20',
-  no_priority: 'border-border/70 bg-muted/40 text-muted-foreground hover:bg-muted/70',
+  in_progress: 'text-info',
+  planned: 'text-highlight',
+  paused: 'text-warning',
+  completed: 'text-success',
+  canceled: 'text-muted-foreground',
 };
 
 const PRIORITY_ICON_COLORS: Record<string, string> = {
-  urgent: 'text-rose-500 dark:text-rose-400',
-  high: 'text-amber-500 dark:text-amber-400',
-  medium: 'text-blue-500 dark:text-blue-400',
-  low: 'text-sky-500 dark:text-sky-400',
+  urgent: 'text-destructive',
+  high: 'text-warning',
+  medium: 'text-info',
+  low: 'text-info',
   no_priority: 'text-muted-foreground/40',
 };
 
-const HEALTH_COLORS: Record<string, string> = {
-  on_track: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-500 dark:text-emerald-400 hover:bg-emerald-500/20',
-  at_risk: 'border-amber-500/30 bg-amber-500/10 text-amber-500 dark:text-amber-400 hover:bg-amber-500/20',
-  off_track: 'border-rose-500/30 bg-rose-500/10 text-rose-500 dark:text-rose-400 hover:bg-rose-500/20',
-};
-
 const HEALTH_ICON_COLORS: Record<string, string> = {
-  on_track: 'text-emerald-500 dark:text-emerald-400',
-  at_risk: 'text-amber-500 dark:text-amber-400',
-  off_track: 'text-rose-500 dark:text-rose-400',
+  on_track: 'text-success',
+  at_risk: 'text-warning',
+  off_track: 'text-destructive',
 };
 
+/** Project property in the header: the shared searchable picker, with the icon colored by value. */
 function PropertyBadgeSelect({
   label,
   value,
   options,
-  colorMap,
   iconColorMap,
   onChange,
 }: {
   label: string;
   value: string;
   options: readonly { readonly value: string; readonly label: string; readonly icon: React.ComponentType<{ className?: string }> }[];
-  colorMap: Record<string, string>;
   iconColorMap?: Record<string, string>;
   onChange: (value: string) => void;
 }) {
-  const current = options.find((opt) => opt.value === value) || options[0];
-  const CurrentIcon = current.icon;
-  const colorClass = colorMap[value] || 'border-border text-foreground hover:bg-muted';
-  const iconColor = iconColorMap?.[value];
-
-  return (
-    <Select value={value} onValueChange={onChange}>
-      <SelectTrigger
-        aria-label={label}
-        className={cn(
-          'h-6.5 w-auto rounded-full border px-2.5 py-0 text-xs font-medium gap-1.5 transition-all select-none',
-          colorClass
-        )}
-      >
-        <span data-slot="select-value" className="flex items-center gap-1.5 font-medium">
-          <CurrentIcon className={cn('size-3.5 shrink-0', iconColor)} />
-          <span>{current.label}</span>
-        </span>
-      </SelectTrigger>
-      <SelectContent position="popper" align="start">
-        <SelectGroup>
-          {options.map(({ value: optVal, label: optLabel, icon: Icon }) => {
-            const itemIconColor = iconColorMap?.[optVal] || 'text-muted-foreground';
-            return (
-              <SelectItem key={optVal} value={optVal} className="gap-2 text-xs">
-                <Icon className={cn('size-3.5 shrink-0', itemIconColor)} />
-                <span className="font-medium">{optLabel}</span>
-              </SelectItem>
-            );
-          })}
-        </SelectGroup>
-      </SelectContent>
-    </Select>
-  );
+  return <PropertyPicker value={value} menuLabel={label.replace(/^Project /, '').replace(/^./, c => c.toUpperCase())} ariaLabel={label} onChange={onChange}
+    options={options.map(option => ({ key: option.value, label: option.label, icon: option.icon, color: iconColorMap?.[option.value] }))} />;
 }
 
 function LeadBadgePicker({
@@ -152,43 +99,12 @@ function LeadBadgePicker({
   users: Array<{ id: string; name: string; avatarUrl?: string | null }>;
   onChange: (leadId: string) => void;
 }) {
-  const current = users.find((u) => u.id === leadId);
-  return (
-    <Select value={leadId} onValueChange={onChange}>
-      <SelectTrigger
-        aria-label="Project lead"
-        className="h-6.5 w-auto rounded-full border border-border/80 bg-muted/40 hover:bg-muted/80 text-foreground px-2.5 py-0 text-xs font-medium gap-1.5 transition-all select-none"
-      >
-        <span data-slot="select-value" className="flex items-center gap-1.5 font-medium">
-          {current ? (
-            <>
-              <Avatar className="size-4 rounded-full">
-                {current.avatarUrl && <AvatarImage src={current.avatarUrl} />}
-                <AvatarFallback className="text-[9px] font-bold">
-                  {current.name.slice(0, 2).toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
-              <span className="truncate max-w-[120px]">{current.name}</span>
-            </>
-          ) : (
-            <>
-              <Users className="size-3.5 text-muted-foreground" />
-              <span className="text-muted-foreground">Select lead</span>
-            </>
-          )}
-        </span>
-      </SelectTrigger>
-      <SelectContent>
-        <SelectGroup>
-          {users.map((u) => (
-            <SelectItem key={u.id} value={u.id}>
-              {u.name}
-            </SelectItem>
-          ))}
-        </SelectGroup>
-      </SelectContent>
-    </Select>
-  );
+  const options = users.map(person => ({
+    key: person.id,
+    label: person.name,
+    leading: <Avatar className="size-4 shrink-0 rounded-full">{person.avatarUrl && <AvatarImage src={person.avatarUrl} alt="" />}<AvatarFallback className="text-2xs font-semibold">{person.name.slice(0, 2).toUpperCase()}</AvatarFallback></Avatar>,
+  }));
+  return <PropertyPicker value={leadId} menuLabel="Lead" ariaLabel="Project lead" placeholder="Select lead" placeholderIcon={Users} shortcuts={false} options={options} onChange={onChange} />;
 }
 
 function ProjectTeamsManager({
@@ -216,13 +132,13 @@ function ProjectTeamsManager({
         {teams.map((t) => (
           <div key={t.id} className="group inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-muted/30 pl-2 pr-1.5 py-0.5 text-xs font-medium text-foreground">
             <Link to={`/teams/${t.id}`} className="inline-flex items-center gap-1.5 hover:underline">
-              <span aria-hidden="true" className="inline-flex size-4 shrink-0 items-center justify-center rounded border border-border bg-background text-[8px] font-semibold text-muted-foreground">
+              <span aria-hidden="true" className="inline-flex size-4 shrink-0 items-center justify-center rounded-sm border border-border bg-background text-2xs font-semibold text-muted-foreground">
                 {t.key}
               </span>
               <span className="max-w-[140px] truncate">{t.name}</span>
             </Link>
             {t.id === primaryTeamId && (
-              <span className="text-[9px] text-muted-foreground bg-muted px-1 rounded font-mono">Lead</span>
+              <span className="text-xs text-muted-foreground bg-muted px-1 rounded-sm font-mono">Lead</span>
             )}
             {teams.length > 1 && t.id !== primaryTeamId && (
               <button
@@ -253,7 +169,7 @@ function ProjectTeamsManager({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-52 p-1">
-              <div className="px-2 py-1 text-[11px] font-medium text-muted-foreground">
+              <div className="px-2 py-1 text-xs font-medium text-muted-foreground">
                 Link additional team
               </div>
               <DropdownMenuSeparator />
@@ -266,7 +182,7 @@ function ProjectTeamsManager({
                   }}
                   className="gap-2 text-xs cursor-pointer"
                 >
-                  <span className="font-mono text-[9px] px-1 bg-muted rounded border border-border">{t.key}</span>
+                  <span className="font-mono text-xs px-1 bg-muted rounded-sm border border-border">{t.key}</span>
                   <span className="truncate">{t.name}</span>
                 </DropdownMenuItem>
               ))}
@@ -366,7 +282,7 @@ export function ProjectDetailPage() {
         </TabsList>
         </div>
         <div className="ml-auto flex items-center gap-1">
-          <Button variant="ghost" size="icon-sm" aria-label={isProjectFavorite ? 'Remove project from favorites' : 'Add project to favorites'} title={isProjectFavorite ? 'Remove from favorites' : 'Add to favorites'} disabled={!canFavorite} onClick={() => toggleFavorite.mutate({ resourceType: 'project', resourceId: project.id, favorite: !isProjectFavorite })}><Star className={isProjectFavorite ? 'fill-current text-amber-500' : ''} /></Button>
+          <Button variant="ghost" size="icon-sm" aria-label={isProjectFavorite ? 'Remove project from favorites' : 'Add project to favorites'} title={isProjectFavorite ? 'Remove from favorites' : 'Add to favorites'} disabled={!canFavorite} onClick={() => toggleFavorite.mutate({ resourceType: 'project', resourceId: project.id, favorite: !isProjectFavorite })}><Star className={isProjectFavorite ? 'fill-current text-warning' : ''} /></Button>
           <Button variant="ghost" size="icon-sm" aria-label="Copy project link" onClick={async () => {
             try { await navigator.clipboard.writeText(window.location.href); toast.success('Project link copied'); }
             catch { toast.error('Could not copy the project link'); }
@@ -380,7 +296,7 @@ export function ProjectDetailPage() {
         <div className="min-w-0">
           <TabsContent value="overview" forceMount hidden={mainTab !== 'overview'} className="project-overview">
             <header className="flex flex-col items-start gap-4 px-1 pt-6 sm:px-6 sm:pt-12 xl:pt-16">
-              <h1 className="max-w-full break-words text-2xl font-semibold leading-tight tracking-[-0.025em] sm:text-3xl">{project.name}</h1>
+              <h1 className={PAGE_TITLE_CLASS}>{project.name}</h1>
               {summary && <p className="max-w-[70ch] text-base leading-7 text-foreground/80">{summary}</p>}
 
               {/* Interactive Colored Property Badges */}
@@ -390,7 +306,6 @@ export function ProjectDetailPage() {
                     label="Project status"
                     value={project.status}
                     options={STATUS_OPTIONS}
-                    colorMap={STATUS_COLORS}
                     iconColorMap={STATUS_ICON_COLORS}
                     onChange={(status) => updateMutation.mutate({ id: project.id, data: { status } })}
                   />
@@ -398,7 +313,6 @@ export function ProjectDetailPage() {
                     label="Project priority"
                     value={project.priority}
                     options={PRIORITY_OPTIONS}
-                    colorMap={PRIORITY_COLORS}
                     iconColorMap={PRIORITY_ICON_COLORS}
                     onChange={(priority) => updateMutation.mutate({ id: project.id, data: { priority } })}
                   />
@@ -406,7 +320,6 @@ export function ProjectDetailPage() {
                     label="Project health"
                     value={project.health}
                     options={HEALTH_OPTIONS}
-                    colorMap={HEALTH_COLORS}
                     iconColorMap={HEALTH_ICON_COLORS}
                     onChange={(health) => updateMutation.mutate({ id: project.id, data: { health } })}
                   />
@@ -419,21 +332,21 @@ export function ProjectDetailPage() {
                     date={project.startDate ? new Date(project.startDate) : undefined}
                     placeholder="Set start date"
                     aria-label="Start date"
-                    className="h-6.5 w-auto rounded-full border-border/80 bg-muted/40 hover:bg-muted/80 text-foreground px-2.5 text-xs font-medium"
+                    className="h-6 w-auto gap-1.5 rounded-4xl border-border bg-transparent px-2 text-xs font-medium text-foreground hover:bg-secondary/70"
                     onDateChange={(date) => updateMutation.mutate({ id: project.id, data: { startDate: date?.toISOString() ?? null } })}
                   />
                   <DatePicker
                     date={project.targetDate ? new Date(project.targetDate) : undefined}
                     placeholder="Set target date"
                     aria-label="Target date"
-                    className="h-6.5 w-auto rounded-full border-border/80 bg-muted/40 hover:bg-muted/80 text-foreground px-2.5 text-xs font-medium"
+                    className="h-6 w-auto gap-1.5 rounded-4xl border-border bg-transparent px-2 text-xs font-medium text-foreground hover:bg-secondary/70"
                     onDateChange={(date) => updateMutation.mutate({ id: project.id, data: { targetDate: date?.toISOString() ?? null } })}
                   />
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => setIsMembersOpen(true)}
-                    className="h-6.5 rounded-full border-border/80 bg-muted/40 hover:bg-muted/80 text-foreground px-2.5 text-xs font-medium gap-1.5"
+                    className="h-6 gap-1.5 rounded-4xl border-border bg-transparent px-2 text-xs font-medium text-foreground hover:bg-secondary/70"
                   >
                     <Users className="size-3.5 text-muted-foreground" />
                     <span>Manage members</span>
@@ -503,7 +416,7 @@ export function ProjectDetailPage() {
           </TabsContent>
 
           <TabsContent value="issues" className="flex flex-col gap-5 py-3">
-            <div className="flex flex-wrap items-center justify-between gap-3"><h1 className="text-xl font-semibold tracking-tight">Project issues</h1><Button size="sm" onClick={() => setIsCreateIssueOpen(true)}><Plus data-icon="inline-start" />Add Issue</Button></div>
+            <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="text-base font-semibold">Project issues</h2><Button size="sm" onClick={() => setIsCreateIssueOpen(true)}><Plus data-icon="inline-start" />New issue</Button></div>
             <div className="flex flex-wrap gap-1" aria-label="Issue filters">
               {[{ id: 'all', label: 'All' }, { id: 'active', label: 'Active' }, { id: 'done', label: 'Done' }].map((tab) => <Button key={tab.id} variant="category" size="sm" aria-pressed={issueFilterTab === tab.id} onClick={() => setIssueFilterTab(tab.id)}>{tab.label}</Button>)}
             </div>
@@ -527,7 +440,7 @@ export function ProjectDetailPage() {
           </TabsContent>
 
           <TabsContent value="repositories" className="flex flex-col gap-5 py-3">
-            <div className="flex flex-wrap items-center justify-between gap-3"><h1 className="text-xl font-semibold tracking-tight">Repositories</h1><Button size="sm" onClick={() => setIsLinkRepoOpen(true)}><Plus data-icon="inline-start" />Connect Repository</Button></div>
+            <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="text-base font-semibold">Repositories</h2><Button size="sm" onClick={() => setIsLinkRepoOpen(true)}><Plus data-icon="inline-start" />Connect Repository</Button></div>
             {isReposLoading ? <Skeleton className="h-40 w-full" /> : isReposError ? <div className="flex items-center gap-3"><p className="text-sm text-muted-foreground">Could not load repositories.</p><Button variant="outline" size="sm" onClick={() => refetchRepos()}>Retry</Button></div> : projectRepos.length === 0 ? (
               <div className="flex flex-col items-center gap-3 py-16 text-center"><GithubIcon className="size-8 text-muted-foreground" /><h2 className="text-sm font-medium">No repositories connected</h2><p className="max-w-sm text-sm text-muted-foreground">Connect GitHub repositories to link pull requests and branches to this project.</p><Button variant="outline" size="sm" onClick={() => setIsLinkRepoOpen(true)}>Connect Repository</Button></div>
             ) : <div className="flex flex-col divide-y divide-border">
@@ -551,11 +464,11 @@ export function ProjectDetailPage() {
                 <Progress aria-label="Project completion" value={progressPercent} className="h-2 rounded-full bg-secondary" />
                 <div className="grid grid-cols-2 gap-2.5 rounded-lg border border-border/60 bg-muted/20 p-2.5">
                   <div className="flex flex-col">
-                    <span className="text-[11px] text-muted-foreground">Scope</span>
+                    <span className="text-xs text-muted-foreground">Scope</span>
                     <span className="font-mono text-base font-semibold tabular-nums text-foreground">{projectIssues.length}</span>
                   </div>
                   <div className="flex flex-col">
-                    <span className="text-[11px] text-muted-foreground">Completed</span>
+                    <span className="text-xs text-muted-foreground">Completed</span>
                     <span className="font-mono text-base font-semibold tabular-nums text-foreground">{completedCount}</span>
                   </div>
                 </div>
@@ -584,7 +497,7 @@ export function ProjectDetailPage() {
                             {progressGrouping === 'labels' ? <Tag className="size-3 text-muted-foreground shrink-0" /> : <Users className="size-3 text-muted-foreground shrink-0" />}
                             <span className="truncate max-w-[170px]">{group.name}</span>
                           </span>
-                          <span className="shrink-0 font-mono text-[11px] tabular-nums text-muted-foreground">
+                          <span className="shrink-0 font-mono text-xs tabular-nums text-muted-foreground">
                             {group.completed}/{group.total}
                           </span>
                         </div>

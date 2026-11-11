@@ -10,6 +10,7 @@ import { useProjects } from '../hooks/use-projects';
 import { useTeams } from '../../teams/hooks/use-teams';
 import { useArchiveDocument, useCreateDocument, useDocuments, useRestoreDocument } from '../hooks/use-documents';
 import type { ProjectDocument } from '../api/documents.api';
+import { EmptyState, PageContainer, PageHeader } from '../../../components/common/page';
 
 export function DocumentsPage({ fixedProjectId, fixedTeamId }: { fixedProjectId?: string; fixedTeamId?: string } = {}) {
   const [params] = useSearchParams();
@@ -32,24 +33,23 @@ export function DocumentsPage({ fixedProjectId, fixedTeamId }: { fixedProjectId?
     ? `Project · ${projects.find(project => project.id === document.projectId)?.name ?? 'Project'}`
     : document.teamId ? `Team · ${teams.find(team => team.id === document.teamId)?.name ?? 'Team'}` : 'Workspace';
 
-  return <main className="flex flex-col gap-5 pb-10">
-    <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-      <div><h1 className="text-xl font-semibold tracking-tight sm:text-2xl">Documents</h1><p className="mt-1 max-w-2xl text-xs text-muted-foreground">Internal project, team and workspace documents. Access follows the resource they belong to.</p></div>
-      <Button onClick={() => setCreateOpen(true)}><Plus data-icon="inline-start" />New document</Button>
-    </header>
+  return <PageContainer>
+    <PageHeader title="Documents" count={isLoading ? undefined : filtered.length} description="Internal project, team and workspace documents. Access follows the resource they belong to."
+      actions={<Button onClick={() => setCreateOpen(true)}><Plus data-icon="inline-start" />New document</Button>} />
     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
       <Label className="relative block w-full sm:max-w-sm"><Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" /><Input value={query} onChange={event => setQuery(event.target.value)} placeholder="Filter documents…" aria-label="Filter documents" className="pl-9" /></Label>
       <Button variant="category" size="sm" aria-pressed={includeArchived} onClick={() => setIncludeArchived(value => !value)}>{includeArchived ? 'Showing archived' : 'Include archived'}</Button>
     </div>
     {isLoading && <div className="flex flex-col gap-2"><Spinner aria-label="Loading documents" className="sr-only" />{[1, 2, 3].map(item => <Skeleton key={item} className="h-14 w-full" />)}</div>}
-    {isError && <Alert className="rounded-none border-0 bg-transparent px-0 py-0 text-foreground flex items-center justify-between gap-3 border border-destructive/30 p-3 text-sm"><span>Could not load documents.</span><Button variant="outline" size="sm" onClick={() => void refetch()}><RefreshCw data-icon="inline-start" />Retry</Button></Alert>}
+    {isError && <Alert variant="destructive"><AlertDescription className="flex flex-wrap items-center justify-between gap-3"><span>Could not load documents.</span><Button variant="outline" size="sm" onClick={() => void refetch()}><RefreshCw data-icon="inline-start" />Retry documents</Button></AlertDescription></Alert>}
     {!isLoading && !isError && (filtered.length ? <ul className="divide-y divide-border border-y border-border">{filtered.map(document => <li key={document.id} className="flex min-w-0 items-center gap-3 py-3">
       <FileText className="size-4 shrink-0 text-muted-foreground" />
       <Link to={`/documents/${document.id}`} className="min-w-0 flex-1 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><span className="block truncate text-sm font-medium">{document.title}</span><span className="mt-1 block truncate text-xs text-muted-foreground">{scopeLabel(document)} · Updated {new Date(document.updatedAt).toLocaleDateString()}</span></Link>
-      {document.archivedAt ? <Button variant="ghost" size="icon-sm" aria-label={`Restore ${document.title}`} disabled={restore.isPending} onClick={() => restore.mutate(document.id)}><RotateCcw /></Button> : <><Button variant="ghost" size="icon-sm" aria-label={favorites.some(item => item.resourceType === 'document' && item.resourceId === document.id) ? `Remove ${document.title} from favorites` : `Add ${document.title} to favorites`} disabled={!canFavorite || favorite.isPending} onClick={() => favorite.mutate({ resourceType: 'document', resourceId: document.id, favorite: !favorites.some(item => item.resourceType === 'document' && item.resourceId === document.id) })}><Star className={favorites.some(item => item.resourceType === 'document' && item.resourceId === document.id) ? 'fill-current text-amber-500' : ''} /></Button><Button variant="ghost" size="icon-sm" aria-label={`Archive ${document.title}`} disabled={archive.isPending} onClick={() => archive.mutate(document.id)}><Archive /></Button></>}
-    </li>)}</ul> : <div className="border border-dashed border-border p-12 text-center text-sm text-muted-foreground">{query ? 'No documents match this filter.' : 'No documents yet. Create one to capture project context and decisions.'}</div>)}
+      {document.archivedAt ? <Button variant="ghost" size="icon-sm" aria-label={`Restore ${document.title}`} disabled={restore.isPending} onClick={() => restore.mutate(document.id)}><RotateCcw /></Button> : <><Button variant="ghost" size="icon-sm" aria-label={favorites.some(item => item.resourceType === 'document' && item.resourceId === document.id) ? `Remove ${document.title} from favorites` : `Add ${document.title} to favorites`} disabled={!canFavorite || favorite.isPending} onClick={() => favorite.mutate({ resourceType: 'document', resourceId: document.id, favorite: !favorites.some(item => item.resourceType === 'document' && item.resourceId === document.id) })}><Star className={favorites.some(item => item.resourceType === 'document' && item.resourceId === document.id) ? 'fill-current text-warning' : ''} /></Button><Button variant="ghost" size="icon-sm" aria-label={`Archive ${document.title}`} disabled={archive.isPending} onClick={() => archive.mutate(document.id)}><Archive /></Button></>}
+    </li>)}</ul> : <EmptyState icon={FileText} title={query ? 'No documents match this filter' : 'No documents yet'} description={query ? 'Try another search term.' : 'Create one to capture project context and decisions.'}
+      action={!query && <Button variant="outline" onClick={() => setCreateOpen(true)}><Plus data-icon="inline-start" />New document</Button>} />)}
     <CreateDocumentDialog open={createOpen} onOpenChange={setCreateOpen} fixedProjectId={projectId} fixedTeamId={teamId} />
-  </main>;
+  </PageContainer>;
 }
 
 function CreateDocumentDialog({ open, onOpenChange, fixedProjectId, fixedTeamId }: { open: boolean; onOpenChange: (open: boolean) => void; fixedProjectId?: string; fixedTeamId?: string }) {

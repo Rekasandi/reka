@@ -1,5 +1,6 @@
 import * as React from 'react';
-import { Badge, Button, Input, Skeleton, Spinner } from '@reka/ui';
+import { Link } from 'react-router-dom';
+import { Alert, AlertDescription, Badge, Button, Input, Skeleton, Spinner, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@reka/ui';
 import {
   Building2,
   Plus,
@@ -7,15 +8,24 @@ import {
   Users,
   Search,
   X,
-  ChevronRight,
   RefreshCw,
 } from 'lucide-react';
 import { useClients } from '../hooks/use-clients';
 import { CreateClientDialog } from './create-client-dialog';
 import { ClientDetailSheet } from './client-detail-sheet';
 import type { Client } from '@reka/types';
+import { useWorkspaceNavigation } from '../../settings/lib/workspace-navigation';
+import { EmptyState, PageContainer, PageHeader } from '../../../components/common/page';
 
+/** Clients is an opt-in workspace feature; until an admin enables it the page is unavailable. */
 export function ClientsPage() {
+  const { features, isLoading } = useWorkspaceNavigation();
+  if (isLoading) return <Skeleton className="h-32 w-full" />;
+  if (!features.clients) return <PageContainer width="narrow"><Alert><AlertDescription>Clients is turned off for this workspace. An admin can enable it in <Link to="/settings/sidebar" className="underline">Settings → Sidebar</Link>.</AlertDescription></Alert></PageContainer>;
+  return <ClientsPageContent />;
+}
+
+function ClientsPageContent() {
   const [isCreateOpen, setIsCreateOpen] = React.useState(false);
   const [selectedClient, setSelectedClient] = React.useState<Client | null>(null);
   const [isDetailOpen, setIsDetailOpen] = React.useState(false);
@@ -70,30 +80,9 @@ export function ClientsPage() {
   const totalContacts = clients.reduce((acc, c) => acc + (c.contactCount || 0), 0);
 
   return (
-    <div className="flex flex-col gap-5 max-w-none mx-auto selection:bg-foreground selection:text-background pb-10">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex flex-col gap-1">
-          <div className="flex items-center gap-2.5">
-            <h1 className="text-xl sm:text-2xl font-semibold tracking-[-0.03em] text-foreground">
-              Clients
-            </h1>
-            <Badge variant="outline" className="font-mono text-xs font-medium">
-              {clients.length}
-            </Badge>
-          </div>
-          <p className="text-xs text-muted-foreground">
-            Client accounts, contacts, and linked projects.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <Button onClick={() => setIsCreateOpen(true)} className="px-3">
-            <Plus data-icon="inline-start" />
-            <span>New Client</span>
-          </Button>
-        </div>
-      </div>
+    <PageContainer>
+      <PageHeader title="Clients" count={clients.length} description="Client accounts, contacts, and linked projects."
+        actions={<Button onClick={() => setIsCreateOpen(true)}><Plus data-icon="inline-start" />New client</Button>} />
 
       {/* Account summary: one calm information band instead of repeated metric cards */}
       <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
@@ -156,7 +145,7 @@ export function ClientsPage() {
           <Input
             type="text"
             aria-label="Search clients or contacts"
-            placeholder="Search clients or contacts..."
+            placeholder="Search clients or contacts…"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="h-8 pl-8 pr-7 text-xs bg-background"
@@ -182,55 +171,35 @@ export function ClientsPage() {
           ))}
         </div>
       ) : isError ? (
-        <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-xs text-destructive flex items-center justify-between">
-          <span>Could not load clients. Please try again.</span>
-          <Button variant="outline" size="sm" onClick={() => refetch()}>
-            <RefreshCw data-icon="inline-start" className="size-3.5" />
-            <span>Retry</span>
-          </Button>
-        </div>
+        <Alert variant="destructive"><AlertDescription className="flex flex-wrap items-center justify-between gap-3"><span>Could not load clients.</span><Button variant="outline" size="sm" onClick={() => refetch()}><RefreshCw data-icon="inline-start" />Retry clients</Button></AlertDescription></Alert>
       ) : filteredClients.length === 0 ? (
-        <div className="col-span-full rounded-lg border border-dashed border-border/80 p-14 text-center text-xs text-muted-foreground bg-card/10 flex flex-col items-center gap-3">
-          <Building2 className="size-8 text-muted-foreground/40" />
-          <div>
-            <p className="font-semibold text-foreground text-sm">No clients found</p>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              {searchQuery || industryFilter !== 'all'
-                ? 'Try adjusting your search query or industry filter.'
-                : 'Create a client account to get started.'}
-            </p>
-          </div>
-          {!searchQuery && industryFilter === 'all' && (
-            <Button
-              className="gap-1.5"
-              onClick={() => setIsCreateOpen(true)}
-            >
-              <Plus className="size-3.5" />
-              <span>Create Client</span>
-            </Button>
-          )}
-        </div>
+        <EmptyState icon={Building2} title={searchQuery || industryFilter !== 'all' ? 'No clients match these filters' : 'No clients yet'}
+          description={searchQuery || industryFilter !== 'all' ? 'Try another search or industry filter.' : 'Create a client account to track contacts and linked projects.'}
+          action={!searchQuery && industryFilter === 'all' && <Button variant="outline" onClick={() => setIsCreateOpen(true)}><Plus data-icon="inline-start" />New client</Button>} />
       ) : (
-        <div>
-          <div aria-hidden="true" className="hidden grid-cols-[minmax(0,1.5fr)_120px_minmax(0,1fr)_80px_80px_110px_16px] items-center gap-4 border-b border-border px-3 pb-3 text-xs text-muted-foreground xl:grid">
-            <span>Client</span><span>Industry</span><span>Primary contact</span>
-            <span>Projects</span><span>Contacts</span><span>Added</span><span />
-          </div>
-          <ul aria-label="Clients" className="divide-y divide-border">
+        <Table aria-label="Clients" className="table-fixed">
+          <TableHeader>
+            <TableRow>
+              <TableHead>Client</TableHead>
+              <TableHead className="hidden w-36 xl:table-cell">Industry</TableHead>
+              <TableHead className="hidden w-56 xl:table-cell">Primary contact</TableHead>
+              <TableHead className="hidden w-24 text-right xl:table-cell">Projects</TableHead>
+              <TableHead className="hidden w-24 text-right xl:table-cell">Contacts</TableHead>
+              <TableHead className="hidden w-32 xl:table-cell">Added</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {filteredClients.map((client) => {
               const primaryContact = client.contacts?.[0];
               return (
-                <li key={client.id}>
-                  <Button variant="plain" size="auto"
-                    type="button"
-                    aria-label={`Open client ${client.name}`}
-                    onClick={() => handleOpenDetail(client)}
-                    className="grid w-full grid-cols-[minmax(0,1fr)_16px] items-center gap-4 rounded-md px-3 py-4 text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset xl:grid-cols-[minmax(0,1.5fr)_120px_minmax(0,1fr)_80px_80px_110px_16px]"
-                  >
-                    <span className="flex min-w-0 items-start gap-3">
-                      <Building2 className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-                      <span className="flex min-w-0 flex-col gap-1">
-                        <span className="truncate text-sm font-medium">{client.name}</span>
+                <TableRow key={client.id} className="cursor-pointer" onClick={() => handleOpenDetail(client)}>
+                  <TableCell className="whitespace-normal">
+                    <button type="button" aria-label={`Open client ${client.name}`}
+                      onClick={(event) => { event.stopPropagation(); handleOpenDetail(client); }}
+                      className="flex w-full min-w-0 items-start gap-3 rounded-sm text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                      <Building2 aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                      <span className="flex min-w-0 flex-col gap-0.5">
+                        <span className="truncate font-medium text-foreground">{client.name}</span>
                         <span className="truncate text-xs text-muted-foreground">{client.notes || 'No account notes recorded.'}</span>
                         {primaryContact && <span className="truncate text-xs text-muted-foreground xl:hidden">{primaryContact.name} · {primaryContact.email}</span>}
                         <span className="flex flex-wrap items-center gap-x-3 gap-y-1 pt-1 text-xs text-muted-foreground xl:hidden">
@@ -239,22 +208,23 @@ export function ClientsPage() {
                           <span>{client.contactCount || 0} contacts</span>
                         </span>
                       </span>
+                    </button>
+                  </TableCell>
+                  <TableCell className="hidden truncate text-muted-foreground xl:table-cell">{client.industry || 'No industry'}</TableCell>
+                  <TableCell className="hidden xl:table-cell">
+                    <span className="flex min-w-0 flex-col gap-0.5">
+                      <span className="truncate">{primaryContact?.name || <span className="text-muted-foreground">No primary contact</span>}</span>
+                      {primaryContact && <span className="truncate text-xs text-muted-foreground">{primaryContact.email}</span>}
                     </span>
-                    <span className="hidden truncate text-xs text-muted-foreground xl:block">{client.industry || 'No industry'}</span>
-                    <span className="hidden min-w-0 flex-col gap-1 text-xs xl:flex">
-                      <span className="truncate">{primaryContact?.name || 'No primary contact'}</span>
-                      {primaryContact && <span className="truncate text-muted-foreground">{primaryContact.email}</span>}
-                    </span>
-                    <span className="hidden items-center gap-2 text-xs tabular-nums text-muted-foreground xl:flex"><FolderKanban className="size-3.5" />{client.projectCount || 0}<span className="sr-only">projects</span></span>
-                    <span className="hidden items-center gap-2 text-xs tabular-nums text-muted-foreground xl:flex"><Users className="size-3.5" />{client.contactCount || 0}<span className="sr-only">contacts</span></span>
-                    <span className="hidden text-xs text-muted-foreground xl:block">{new Date(client.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}</span>
-                    <ChevronRight className="size-4 text-muted-foreground" />
-                  </Button>
-                </li>
+                  </TableCell>
+                  <TableCell className="hidden text-right tabular-nums xl:table-cell">{client.projectCount || 0}</TableCell>
+                  <TableCell className="hidden text-right tabular-nums xl:table-cell">{client.contactCount || 0}</TableCell>
+                  <TableCell className="hidden text-muted-foreground tabular-nums xl:table-cell">{new Date(client.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}</TableCell>
+                </TableRow>
               );
             })}
-          </ul>
-        </div>
+          </TableBody>
+        </Table>
       )}
 
       {/* Create Client Dialog */}
@@ -266,6 +236,6 @@ export function ClientsPage() {
         open={isDetailOpen}
         onOpenChange={setIsDetailOpen}
       />
-    </div>
+    </PageContainer>
   );
 }

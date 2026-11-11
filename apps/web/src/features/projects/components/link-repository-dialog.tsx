@@ -90,7 +90,7 @@ export function LinkRepositoryDialog({
             <div className="relative">
               <Search className="size-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
               <Input
-                placeholder="Search connected repositories..."
+                placeholder="Search connected repositories…"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="pl-8 h-8 text-xs bg-background/60"
@@ -100,7 +100,7 @@ export function LinkRepositoryDialog({
             <div className="rounded-lg border border-border/80 divide-y divide-border/60 max-h-[280px] overflow-y-auto">
               {isLoading ? (
                 <div className="p-6 text-center text-xs text-muted-foreground">
-                  Loading repositories...
+                  Loading repositories…
                 </div>
               ) : filtered.length === 0 ? (
                 <div className="p-6 text-center flex flex-col items-center gap-2">
@@ -194,7 +194,7 @@ export function LinkRepositoryDialog({
                 }}
                 className="text-xs text-primary hover:underline h-7 px-2 gap-1"
               >
-                <span>Add new repo</span>
+                <span>Add repository</span>
                 <ExternalLink className="size-3" />
               </Button>
             </div>

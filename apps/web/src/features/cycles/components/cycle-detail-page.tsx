@@ -29,6 +29,7 @@ import { BurndownChart } from './burndown-chart';
 import { useTeamFeatures } from '../../teams/hooks/use-team-features';
 import { CycleStatusBadge } from './cycle-status-badge';
 import { ConfirmDeleteDialog } from '../../../components/common/confirm-delete-dialog';
+import { PAGE_TITLE_CLASS } from '../../../components/common/page';
 import { getIssueStatusCategory, isIssueClosed, type Issue } from '@reka/types';
 
 function formatDateRange(start: string, end: string) {
@@ -99,7 +100,7 @@ export function CycleDetailPage() {
   if (isLoading) {
     return (
       <div className="flex flex-col gap-5 max-w-none mx-auto">
-        <Skeleton className="h-8 w-40 rounded-[6px]" />
+        <Skeleton className="h-8 w-40 rounded-sm" />
         <Skeleton className="h-32 w-full rounded-lg" />
         <Skeleton className="h-64 w-full rounded-lg" />
       </div>
@@ -110,7 +111,7 @@ export function CycleDetailPage() {
     return (
       <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-6 text-xs text-destructive flex items-center justify-between max-w-3xl mx-auto">
         <span>Failed to load cycle details.</span>
-        <Button variant="outline" size="sm" onClick={() => refetch()} className="rounded-[6px]">
+        <Button variant="outline" size="sm" onClick={() => refetch()} className="rounded-sm">
           <RefreshCw data-icon="inline-start" className="size-3.5" />
           Retry
         </Button>
@@ -119,7 +120,7 @@ export function CycleDetailPage() {
   }
 
   return (
-    <div className="flex flex-col gap-5 max-w-none mx-auto selection:bg-foreground selection:text-background pb-10">
+    <div className="mx-auto flex w-full min-w-0 flex-col gap-6 pb-10">
       {/* Top back navigation */}
       <div className="flex items-center justify-between">
         <Link
@@ -131,15 +132,15 @@ export function CycleDetailPage() {
         </Link>
 
         <div className="flex items-center gap-2">
-          {cycle.isCompleted ? <Button variant="outline" size="sm" disabled={reopenMutation.isPending} onClick={() => reopenMutation.mutate(cycle.id)} className="h-8 text-xs rounded-[6px]">Reopen cycle</Button> : (
+          {cycle.isCompleted ? <Button variant="outline" size="sm" disabled={reopenMutation.isPending} onClick={() => reopenMutation.mutate(cycle.id)} className="h-8 text-xs rounded-sm">Reopen cycle</Button> : (
             <Button
               variant="outline"
               size="sm"
               onClick={() => setIsCompleteOpen(true)}
-              className="h-8 text-xs rounded-[6px]"
+              className="h-8 text-xs rounded-sm"
             >
-              <CheckCircle2 data-icon="inline-start" className="size-3.5 text-emerald-500" />
-              <span>Complete Cycle...</span>
+              <CheckCircle2 data-icon="inline-start" className="size-3.5 text-success" />
+              <span>Complete Cycle…</span>
             </Button>
           )}
 
@@ -165,7 +166,7 @@ export function CycleDetailPage() {
             </div>
             <div>
               <div className="flex items-center gap-2.5">
-                <h1 className="text-xl sm:text-2xl font-semibold tracking-[-0.03em] text-foreground">
+                <h1 className={PAGE_TITLE_CLASS}>
                   {cycle.name || `Cycle ${cycle.number}`}
                 </h1>
                 <CycleStatusBadge status={cycle.status} />
@@ -196,8 +197,8 @@ export function CycleDetailPage() {
       <div className="flex flex-col gap-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <h2 className="text-base font-semibold tracking-[-0.02em] text-foreground">Cycle Issues</h2>
-            <span className="font-mono text-xs text-muted-foreground bg-secondary/80 border border-border/60 px-2 py-0.5 rounded-[5px]">
+            <h2 className="text-base font-semibold tracking-tight text-foreground">Cycle Issues</h2>
+            <span className="font-mono text-xs text-muted-foreground bg-secondary/80 border border-border/60 px-2 py-0.5 rounded-sm">
               {cycleIssues.length}
             </span>
           </div>
@@ -225,10 +226,10 @@ export function CycleDetailPage() {
             <Button
               size="sm"
               onClick={() => setIsCreateIssueOpen(true)}
-              className="rounded-[6px] h-7 px-2.5 text-xs font-medium"
+              className="rounded-sm h-7 px-2.5 text-xs font-medium"
             >
               <Plus data-icon="inline-start" className="size-3" />
-              <span>New Issue</span>
+              <span>New issue</span>
             </Button>
           </div>
         </div>
@@ -284,7 +285,7 @@ export function CycleDetailPage() {
               <div><p className="text-muted-foreground">Remaining estimate</p><p className="mt-0.5 font-mono text-foreground">{cycle.remainingEstimate ?? 0} pts</p></div>
             </div>
             {cycle.capacity !== null && cycle.capacity !== undefined && <p className="mt-2 text-xs text-muted-foreground">{cycle.remainingCapacity! < 0 ? `${Math.abs(cycle.remainingCapacity!)} pts over capacity` : `${cycle.remainingCapacity} pts capacity remaining`}</p>}
-            {!!cycle.missingEstimateCount && <p className="mt-2 text-xs text-amber-700 dark:text-amber-400">{cycle.missingEstimateCount} planned issue{cycle.missingEstimateCount === 1 ? '' : 's'} missing an estimate.</p>}
+            {!!cycle.missingEstimateCount && <p className="mt-2 text-xs text-warning">{cycle.missingEstimateCount} planned issue{cycle.missingEstimateCount === 1 ? '' : 's'} missing an estimate.</p>}
           </div>}
         </aside>
       </div>

@@ -51,7 +51,7 @@ export function EmailSentView({
           {email}
         </p>
       </div>
-      <p className="text-[11px] text-muted-foreground/80 max-w-xs">
+      <p className="text-xs text-muted-foreground/80 max-w-xs">
         {note}
       </p>
 

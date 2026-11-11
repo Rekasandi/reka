@@ -6,6 +6,7 @@ import { useAuth } from '../../auth/hooks/use-auth';
 import { useToggleFavorite, useFavorites } from '../../favorites/hooks/use-favorites';
 import { useArchiveDocument, useDocument, useRestoreDocument, useUpdateDocument } from '../hooks/use-documents';
 import { useProjects } from '../hooks/use-projects';
+import { PageContainer } from '../../../components/common/page';
 import { useTeams } from '../../teams/hooks/use-teams';
 
 export function DocumentDetailPage() {
@@ -57,14 +58,14 @@ export function DocumentDetailPage() {
     setTitle(document.title); setContent(document.content); baseline.current = `${document.title}\n${document.content}`; setDirty(false); setSaveError('');
   }
 
-  if (isLoading) return <div className="mx-auto flex w-full max-w-5xl flex-col gap-4"><Spinner aria-label="Loading document" className="sr-only" /><Skeleton className="h-6 w-48" /><Skeleton className="h-10 w-2/3" /><Skeleton className="h-72 w-full" /></div>;
+  if (isLoading) return <PageContainer width="narrow"><Spinner aria-label="Loading document" className="sr-only" /><Skeleton className="h-6 w-48" /><Skeleton className="h-10 w-2/3" /><Skeleton className="h-72 w-full" /></PageContainer>;
   if (isError || !document) return <div className="mx-auto flex w-full max-w-5xl flex-col items-center gap-3 py-20"><p className="text-sm text-muted-foreground">Document unavailable or access was revoked.</p><Button variant="outline" size="sm" onClick={() => void refetch()}><RefreshCw data-icon="inline-start" />Retry</Button></div>;
 
-  return <main className="mx-auto flex w-full max-w-5xl flex-col gap-6 pb-10">
+  return <PageContainer width="narrow">
     <header className="flex flex-wrap items-center justify-between gap-3">
       <div className="flex min-w-0 flex-col gap-2"><Link to="/documents" className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"><ArrowLeft className="size-3" />Documents</Link><p className="text-xs text-muted-foreground">{scope} · Updated {new Date(document.updatedAt).toLocaleString()}</p></div>
       <div className="flex items-center gap-1">
-        <Button variant="ghost" size="icon-sm" aria-label={isFavorite ? 'Remove document from favorites' : 'Add document to favorites'} disabled={!canFavorite || toggleFavorite.isPending} onClick={() => toggleFavorite.mutate({ resourceType: 'document', resourceId: document.id, favorite: !isFavorite })}><Star className={isFavorite ? 'fill-current text-amber-500' : ''} /></Button>
+        <Button variant="ghost" size="icon-sm" aria-label={isFavorite ? 'Remove document from favorites' : 'Add document to favorites'} disabled={!canFavorite || toggleFavorite.isPending} onClick={() => toggleFavorite.mutate({ resourceType: 'document', resourceId: document.id, favorite: !isFavorite })}><Star className={isFavorite ? 'fill-current text-warning' : ''} /></Button>
         {document.archivedAt ? <Button variant="outline" size="sm" disabled={restore.isPending} onClick={() => restore.mutate(document.id)}><RotateCcw data-icon="inline-start" />Restore</Button> : <Button variant="ghost" size="icon-sm" aria-label="Archive document" disabled={archive.isPending} onClick={() => archive.mutate(document.id)}><Archive /></Button>}
       </div>
     </header>
@@ -77,5 +78,5 @@ export function DocumentDetailPage() {
       <div className="flex gap-2"><Button variant="ghost" size="sm" disabled={!isDirty || update.isPending} onClick={discard}>Discard</Button><Button size="sm" disabled={!isDirty || !title.trim() || update.isPending || !!document.archivedAt} onClick={() => void save()}><Save data-icon="inline-start" />{update.isPending ? 'Saving…' : 'Save'}</Button></div>
     </div>
     {saveError && <Alert variant="destructive"><AlertDescription>{saveError}</AlertDescription></Alert>}
-  </main>;
+  </PageContainer>;
 }

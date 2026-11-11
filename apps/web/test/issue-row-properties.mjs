@@ -472,10 +472,10 @@ try {
     }
     await openContext('T-10');
     await page.getByRole('menuitem', { name: 'Add sub-issue', exact: true }).click();
-    const subIssueDialog = page.getByRole('dialog', { name: 'New Sub-issue', exact: true });
+    const subIssueDialog = page.getByRole('dialog', { name: 'New sub-issue', exact: true });
     await subIssueDialog.waitFor();
     await subIssueDialog.getByLabel('Title', { exact: true }).fill('Context menu child issue');
-    await subIssueDialog.getByRole('button', { name: 'Create Sub-issue', exact: true }).click();
+    await subIssueDialog.getByRole('button', { name: 'Create sub-issue', exact: true }).click();
     await subIssueDialog.waitFor({ state: 'hidden' });
     assert.equal(creates.at(-1).parentId, 'i1', 'Context creation links the new issue to the selected parent');
     assert.equal(creates.at(-1).teamId, 'team1');

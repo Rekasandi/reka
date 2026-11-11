@@ -114,10 +114,10 @@ export function AddRepositoryDialog({ open, onOpenChange }: AddRepositoryDialogP
           <DialogHeader className="gap-1 text-left">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2.5">
-                <div className="size-7 rounded-[6px] bg-secondary flex items-center justify-center text-foreground shrink-0 border border-border/70">
+                <div className="size-7 rounded-sm bg-secondary flex items-center justify-center text-foreground shrink-0 border border-border/70">
                   <GitBranch className="size-3.5" />
                 </div>
-                <DialogTitle className="text-base font-semibold tracking-[-0.02em] text-foreground">
+                <DialogTitle className="text-base font-semibold tracking-tight text-foreground">
                   Connect GitHub Repository
                 </DialogTitle>
               </div>
@@ -163,11 +163,11 @@ export function AddRepositoryDialog({ open, onOpenChange }: AddRepositoryDialogP
                   <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
                   <Input
                     name="search"
-                    placeholder="Search repository by name..."
+                    placeholder="Search repository by name…"
                     value={search}
                     onChange={(e) => form.setFieldValue('search', e.target.value)}
                     autoFocus
-                    className="h-8 pl-8 text-xs font-mono bg-background rounded-[6px] border-border/80"
+                    className="h-8 pl-8 text-xs font-mono bg-background rounded-sm border-border/80"
                   />
                 </div>
               </div>
@@ -190,7 +190,7 @@ export function AddRepositoryDialog({ open, onOpenChange }: AddRepositoryDialogP
                 {isLoading ? (
                   <div className="p-8 text-center text-xs text-muted-foreground flex items-center justify-center gap-2">
                     <RefreshCw className="size-3.5 animate-spin" />
-                    <span>Loading repositories from GitHub...</span>
+                    <span>Loading repositories from GitHub…</span>
                   </div>
                 ) : (
                   filtered.map((repo) => {
@@ -214,7 +214,7 @@ export function AddRepositoryDialog({ open, onOpenChange }: AddRepositoryDialogP
                         }`}
                       >
                         <div className="flex items-center gap-3 min-w-0">
-                          <div className="size-6 rounded-[5px] bg-secondary flex items-center justify-center shrink-0 border border-border/60">
+                          <div className="size-6 rounded-sm bg-secondary flex items-center justify-center shrink-0 border border-border/60">
                             {repo.isPrivate ? (
                               <Lock className="size-3 text-muted-foreground" />
                             ) : (
@@ -239,7 +239,7 @@ export function AddRepositoryDialog({ open, onOpenChange }: AddRepositoryDialogP
                               Connected
                             </Badge>
                           ) : isSelected ? (
-                            <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground bg-primary/10 border border-primary/20 px-2 py-0.5 rounded-[5px]">
+                            <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground bg-primary/10 border border-primary/20 px-2 py-0.5 rounded-sm">
                               <Check className="size-3 text-primary" />
                               <span>Selected</span>
                             </div>
@@ -290,7 +290,7 @@ export function AddRepositoryDialog({ open, onOpenChange }: AddRepositoryDialogP
               disabled={(!selectedRepo && !search.includes('/')) || addRepoMutation.isPending}
               className="font-medium"
             >
-              {addRepoMutation.isPending ? 'Connecting...' : 'Connect Repository'}
+              {addRepoMutation.isPending ? 'Connecting…' : 'Connect Repository'}
             </Button>
           </DialogFooter>
         </form>

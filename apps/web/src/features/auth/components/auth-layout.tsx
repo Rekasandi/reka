@@ -7,11 +7,11 @@ export function AuthLayout({ title, description, children, footer, wide = false 
     <main className="flex min-h-svh items-center justify-center bg-background p-6">
       <section className={`flex w-full flex-col gap-6 ${wide ? 'max-w-lg' : 'max-w-sm'}`}>
         <Link to="/" className="flex w-fit items-center gap-2" aria-label="REKA home">
-          <span className="flex size-6 items-center justify-center rounded-[5px] bg-foreground text-xs font-semibold text-background">R</span>
+          <span className="flex size-6 items-center justify-center rounded-sm bg-foreground text-xs font-semibold text-background">R</span>
           <span className="text-sm font-semibold tracking-tight">REKA</span>
         </Link>
         <div className="flex flex-col gap-1">
-          <h1 className="text-xl font-semibold tracking-[-0.03em]">{title}</h1>
+          <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
           {description && <p className="text-sm text-muted-foreground">{description}</p>}
         </div>
         {children}

@@ -108,7 +108,7 @@ export function IssueListView({
   if (issues.length === 0) {
     return (
       <div className="rounded-lg border border-dashed border-border/80 p-14 text-center text-xs text-muted-foreground bg-card/10">
-        No issues found. Press <kbd className="rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-xs text-foreground">C</kbd> anywhere to create.
+        No issues found. Press <kbd className="rounded-sm border border-border bg-muted px-1.5 py-0.5 font-mono text-xs text-foreground">C</kbd> anywhere to create.
       </div>
     );
   }
@@ -135,7 +135,7 @@ export function IssueListView({
                   onFocusIndex?.(idx);
                   onSelectIssue?.(issue);
                 }}
-                className={`issue-work-row flex items-center justify-between rounded-[6px] px-3.5 py-2.5 transition-colors text-xs gap-3 cursor-pointer group relative ${
+                className={`issue-work-row flex items-center justify-between rounded-sm px-3.5 py-2.5 transition-colors text-xs gap-3 cursor-pointer group relative ${
                   isFocused
                     ? 'bg-secondary/70'
                     : isChecked
@@ -154,7 +154,7 @@ export function IssueListView({
                     aria-label={`Select issue ${issue.identifier}`}
                     checked={isChecked}
                     onClick={(e) => handleToggleSelect(issue.id, e)}
-                    className="cursor-pointer shrink-0 rounded-[4px] opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 data-[state=checked]:opacity-100 [@media(hover:none)]:opacity-100"
+                    className="cursor-pointer shrink-0 rounded-sm opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 data-[state=checked]:opacity-100 [@media(hover:none)]:opacity-100"
                   />
 
                   {/* Subtask expand chevron */}
@@ -162,7 +162,7 @@ export function IssueListView({
                     <Button variant="plain" size="auto"
                       type="button"
                       onClick={(e) => toggleExpand(issue.id, e)}
-                      className="size-5 rounded-[4px] flex items-center justify-center text-muted-foreground/70 hover:text-foreground hover:bg-secondary transition-all"
+                      className="size-5 rounded-sm flex items-center justify-center text-muted-foreground/70 hover:text-foreground hover:bg-secondary transition-all"
                       title={isExpanded ? 'Collapse sub-tasks' : 'Expand sub-tasks'}
                     >
                       <ChevronRight className={`size-3.5 transition-transform duration-150 ${isExpanded ? 'rotate-90' : ''}`} />
@@ -194,7 +194,7 @@ export function IssueListView({
 
                   {/* GitHub Issue Linked Badge */}
                   {issue.githubIssueNumber && (
-                    <span className="font-mono text-xs text-emerald-500 bg-emerald-500/10 border border-emerald-500/30 px-1.5 py-0.2 rounded shrink-0">
+                    <span className="font-mono text-xs text-success bg-success/10 border border-success/30 px-1.5 py-0.2 rounded-sm shrink-0">
                       GH #{issue.githubIssueNumber}
                     </span>
                   )}
@@ -203,7 +203,7 @@ export function IssueListView({
                   {hasSubtasks && (
                     <span
                       onClick={(e) => toggleExpand(issue.id, e)}
-                      className="ml-1 text-xs font-mono text-muted-foreground/80 bg-secondary/60 hover:bg-secondary border border-border/50 px-1.5 py-0.2 rounded-[4px] shrink-0"
+                      className="ml-1 text-xs font-mono text-muted-foreground/80 bg-secondary/60 hover:bg-secondary border border-border/50 px-1.5 py-0.2 rounded-sm shrink-0"
                       title={`${doneSubtasksCount} of ${subtasks.length} sub-tasks completed`}
                     >
                       {doneSubtasksCount}/{subtasks.length}
@@ -221,7 +221,7 @@ export function IssueListView({
                   <Button variant="plain" size="auto"
                     type="button"
                     onClick={(e) => handleDelete(issue.id, e)}
-                    className="text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity p-1 rounded-[4px] hover:bg-destructive/10"
+                    className="text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity p-1 rounded-sm hover:bg-destructive/10"
                     title="Delete issue"
                   >
                     <Trash2 className="size-3.5" />
@@ -293,7 +293,7 @@ export function IssueListView({
                           <Button variant="plain" size="auto"
                             type="button"
                             onClick={(e) => handleDelete(st.id, e)}
-                            className="text-muted-foreground hover:text-destructive opacity-0 group-hover/sub:opacity-100 focus-visible:opacity-100 transition-opacity p-1 rounded-[4px] hover:bg-destructive/10"
+                            className="text-muted-foreground hover:text-destructive opacity-0 group-hover/sub:opacity-100 focus-visible:opacity-100 transition-opacity p-1 rounded-sm hover:bg-destructive/10"
                             title="Delete sub-task"
                           >
                             <Trash2 className="size-3" />
@@ -315,7 +315,7 @@ export function IssueListView({
         <Card role="toolbar" aria-label="Selected issue actions"
           className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex-row max-w-[calc(100vw-2rem)] flex-wrap items-center justify-center gap-2 sm:gap-3 bg-popover/95 backdrop-blur-md border border-border px-4 py-2 [--card-spacing:--spacing(2)] rounded-lg shadow-2xl text-xs select-none animate-in fade-in-0 slide-in-from-bottom-4">
           <div className="flex items-center gap-2 font-mono font-medium text-foreground">
-            <span className="size-5 rounded-[4px] bg-primary text-primary-foreground flex items-center justify-center text-xs">
+            <span className="size-5 rounded-sm bg-primary text-primary-foreground flex items-center justify-center text-xs">
               {selectedIds.size}
             </span>
             <span>selected</span>
@@ -327,7 +327,7 @@ export function IssueListView({
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="sm" disabled={bulkMutation.isPending || !workflowReady || bulkStatusOptions.length === 0}>
-                Status...
+                Status…
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="center" className="w-40 p-1">
@@ -344,7 +344,7 @@ export function IssueListView({
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="sm" disabled={bulkMutation.isPending}>
-                Priority...
+                Priority…
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="center" className="w-36 p-1">
@@ -370,7 +370,7 @@ export function IssueListView({
           <Button variant="plain" size="auto"
             type="button"
             onClick={() => setSelectedIds(new Set())}
-            className="p-1 rounded text-muted-foreground hover:text-foreground"
+            className="p-1 rounded-sm text-muted-foreground hover:text-foreground"
             title="Clear selection"
             aria-label="Clear selection"
           >

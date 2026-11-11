@@ -18,7 +18,7 @@ export function ThemeToggle() {
         <Button
           variant="ghost"
           size="icon-xs"
-          className="size-7 rounded-[6px] text-muted-foreground hover:text-foreground hover:bg-secondary/70 transition-colors"
+          className="size-7 rounded-sm text-muted-foreground hover:text-foreground hover:bg-secondary/70 transition-colors"
           title="Toggle theme"
         >
           {resolvedTheme === 'dark' ? (
@@ -32,7 +32,7 @@ export function ThemeToggle() {
       <DropdownMenuContent align="end" className="w-32 p-1 rounded-lg">
         <DropdownMenuItem
           onClick={() => setTheme('light')}
-          className={`flex items-center gap-2 text-xs rounded-[5px] cursor-pointer ${
+          className={`flex items-center gap-2 text-xs rounded-sm cursor-pointer ${
             theme === 'light' ? 'bg-secondary font-medium text-foreground' : ''
           }`}
         >
@@ -41,7 +41,7 @@ export function ThemeToggle() {
         </DropdownMenuItem>
         <DropdownMenuItem
           onClick={() => setTheme('dark')}
-          className={`flex items-center gap-2 text-xs rounded-[5px] cursor-pointer ${
+          className={`flex items-center gap-2 text-xs rounded-sm cursor-pointer ${
             theme === 'dark' ? 'bg-secondary font-medium text-foreground' : ''
           }`}
         >
@@ -50,7 +50,7 @@ export function ThemeToggle() {
         </DropdownMenuItem>
         <DropdownMenuItem
           onClick={() => setTheme('system')}
-          className={`flex items-center gap-2 text-xs rounded-[5px] cursor-pointer ${
+          className={`flex items-center gap-2 text-xs rounded-sm cursor-pointer ${
             theme === 'system' ? 'bg-secondary font-medium text-foreground' : ''
           }`}
         >

@@ -13,6 +13,8 @@ import { WorkspaceSettings } from './workspace-settings';
 import { TeamsSettings } from './teams-settings';
 import { IssueSettings, ProjectSettings } from './settings-resource-pages';
 import { LabelsSettings } from './labels-settings';
+import { SidebarSettings } from './sidebar-settings';
+import { PageContainer, PageHeader } from '../../../components/common/page';
 import { getSettingsSection, LEGACY_SETTINGS_SECTIONS, SETTINGS_GROUPS, SETTINGS_ITEMS } from '../lib/settings-navigation';
 
 function Preferences() {
@@ -89,12 +91,12 @@ export function SettingsPage() {
     const legacy = LEGACY_SETTINGS_SECTIONS[location.hash.slice(1)] || (new URLSearchParams(location.search).has('github') ? 'github' : null);
     if (legacy) return <Navigate to={`/settings/${legacy}${location.search}`} replace />;
   }
-  if (!item) return <div className="mx-auto flex w-full max-w-5xl flex-col gap-4"><Alert><AlertDescription>Settings page not found. <Link to="/settings">Back to settings</Link></AlertDescription></Alert></div>;
-  if (adminOnly && !canAdminister) return <div className="mx-auto flex w-full max-w-5xl flex-col gap-4"><h1 className="text-xl font-semibold">{item.label}</h1><Alert><AlertDescription>Only workspace owners and admins can manage these settings.</AlertDescription></Alert></div>;
-  if (section === 'members') return <div className="mx-auto flex w-full max-w-5xl flex-col pb-10"><UsersPage /></div>;
+  if (!item) return <PageContainer width="narrow"><Alert><AlertDescription>Settings page not found. <Link to="/settings" className="underline">Back to settings</Link></AlertDescription></Alert></PageContainer>;
+  if (adminOnly && !canAdminister) return <PageContainer width="narrow"><PageHeader title={item.label} description={item.description} /><Alert><AlertDescription>Only workspace owners and admins can manage these settings.</AlertDescription></Alert></PageContainer>;
+  if (section === 'members') return <div className="mx-auto w-full max-w-5xl"><UsersPage title="Members" /></div>;
   if (section === 'teams') return <TeamsSettings />;
-  return <div className="mx-auto flex w-full max-w-5xl flex-col gap-8 pb-10">
-    <header className="flex flex-col gap-2 border-b border-border pb-5"><h1 className="text-xl font-semibold tracking-tight sm:text-2xl">{item.label}</h1><p className="text-sm text-muted-foreground">{item.description}</p></header>
+  return <PageContainer width="narrow" className="gap-8">
+    <PageHeader title={item.label} description={item.description} />
     {section === 'preferences' && <Preferences />}
     {section === 'profile' && <Profile />}
     {section === 'accounts' && <GithubAccount />}
@@ -102,6 +104,7 @@ export function SettingsPage() {
     {section === 'labels' && <LabelsSettings />}
     {section === 'projects' && <ProjectSettings />}
     {section === 'github' && <GithubSettings />}
+    {section === 'sidebar' && <SidebarSettings />}
     {section === 'workspace' && <div className="settings-sections"><WorkspaceSettings /></div>}
-  </div>;
+  </PageContainer>;
 }

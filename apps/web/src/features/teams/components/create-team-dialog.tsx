@@ -30,7 +30,7 @@ export function CreateTeamDialog({ open, onOpenChange }: { open: boolean; onOpen
   return <Dialog open={open} onOpenChange={next => { if (!create.isPending) onOpenChange(next); }}>
     <DialogContent className="sm:max-w-lg">
       <form className="flex flex-col gap-5" onSubmit={event => { event.preventDefault(); event.stopPropagation(); form.handleSubmit(); }}>
-        <DialogHeader><DialogTitle>Create team</DialogTitle><DialogDescription>Organize work and people. You will become the team lead, then add members.</DialogDescription></DialogHeader>
+        <DialogHeader><DialogTitle>New team</DialogTitle><DialogDescription>Organize work and people. You will become the team lead, then add members.</DialogDescription></DialogHeader>
         <FieldGroup>
           <form.Field name="name" validators={{ onChange: ({ value }) => (!value.trim() ? 'Team name is required' : undefined) }}>
             {field => <Field><FieldLabel htmlFor="create-team-name">Team name</FieldLabel><Input id="create-team-name" name={field.name} autoFocus required maxLength={255} placeholder="e.g. Engineering" value={field.state.value} disabled={create.isPending} onBlur={field.handleBlur} onChange={event => { field.handleChange(event.target.value); if (!keyEdited) form.setFieldValue('key', suggestIdentifier(event.target.value)); }} /></Field>}

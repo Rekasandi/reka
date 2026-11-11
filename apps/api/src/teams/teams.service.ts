@@ -19,7 +19,8 @@ export class TeamsService {
     const writable = ['owner', 'admin', 'member'].includes(actor.role);
     return { currentMemberUserId: actor.userId, currentMemberRole: current?.role ?? null,
       canManage: writable && (actor.role === 'owner' || actor.role === 'admin' || current?.role === 'lead'),
-      canWrite: writable && current?.role !== 'viewer',
+      // Mirrors requireTeamWrite: writing needs a non-viewer team membership, even for owners and admins.
+      canWrite: writable && !!current && current.role !== 'viewer',
       canDelete: actor.role === 'owner' || actor.role === 'admin',
       canJoin: writable && !team.isPrivate && !current,
       canLeave: writable && !!current,

@@ -88,7 +88,7 @@ export function AssigneePicker({
             className={cn(
               'h-8 w-full justify-start gap-1.5 px-2 hover:bg-secondary/70 transition-all cursor-pointer font-normal text-xs rounded-4xl border select-none',
               assignedUser
-                ? 'border-indigo-500/30 bg-indigo-500/10 text-indigo-400 dark:text-indigo-300 hover:bg-indigo-500/20'
+                ? 'border-info/30 bg-info/10 text-info hover:bg-info/20'
                 : 'border-border/80 text-muted-foreground',
               className
             )}
@@ -103,11 +103,11 @@ export function AssigneePicker({
             >
               {assignedUser ? (
                 <>
-                  <Avatar className="size-4.5 rounded-full border border-indigo-500/30">
+                  <Avatar className="size-4.5 rounded-full border border-info/30">
                     {assignedUser.avatarUrl && (
                       <AvatarImage src={assignedUser.avatarUrl} alt={assignedName} />
                     )}
-                    <AvatarFallback className="text-[9px] font-bold bg-indigo-500/20 text-indigo-300">
+                    <AvatarFallback className="text-2xs font-bold bg-info/20 text-info">
                       {initial}
                     </AvatarFallback>
                   </Avatar>
@@ -149,7 +149,7 @@ export function AssigneePicker({
         ) : size === 'sm' ? (
           <Button variant="outline" size="xs" id={id}
             type="button"
-            className={`inline-flex items-center gap-1.5 h-6 px-1.5 rounded-[4px] border border-border/60 hover:bg-muted/50 text-xs transition-colors outline-hidden ${className || ''}`}
+            className={`inline-flex items-center gap-1.5 h-6 px-1.5 rounded-sm border border-border/60 hover:bg-muted/50 text-xs transition-colors outline-hidden ${className || ''}`}
           >
             {assignedUser ? (
               <>
@@ -176,7 +176,7 @@ export function AssigneePicker({
           <Button variant="ghost" id={id}
             aria-label={assignedUser ? `Assigned to ${assignedName}` : 'Assign member'}
             type="button"
-            className={`flex h-8 w-full items-center justify-between rounded-[6px] border border-border/60 bg-background/80 px-2.5 text-xs font-medium hover:border-border transition-colors outline-hidden ${className || ''}`}
+            className={`flex h-8 w-full items-center justify-between rounded-sm border border-border/60 bg-background/80 px-2.5 text-xs font-medium hover:border-border transition-colors outline-hidden ${className || ''}`}
           >
             <div className="flex items-center gap-2 min-w-0">
               {assignedUser ? (
@@ -216,7 +216,7 @@ export function AssigneePicker({
         <div className="relative p-1">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3 text-muted-foreground pointer-events-none" />
           <Input
-            placeholder="Assign to..."
+            placeholder="Assign to…"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="h-7 pl-7 text-xs bg-background"
@@ -234,12 +234,12 @@ export function AssigneePicker({
             return (
               <DropdownMenuItem
                 onClick={() => handleSelect(me.id)}
-                className="flex items-center justify-between px-2 py-1.5 text-xs rounded-[4px] cursor-pointer"
+                className="flex items-center justify-between px-2 py-1.5 text-xs rounded-sm cursor-pointer"
               >
                 <div className="flex items-center gap-2 min-w-0">
                   <Avatar className="size-5 rounded-full border border-border shrink-0">
                     {me.avatarUrl && <AvatarImage src={me.avatarUrl} alt={meName} />}
-                    <AvatarFallback className="text-xs font-semibold bg-blue-500/15 text-blue-600 dark:text-blue-400">
+                    <AvatarFallback className="text-xs font-semibold bg-info/15 text-info">
                       {meInitial}
                     </AvatarFallback>
                   </Avatar>
@@ -260,7 +260,7 @@ export function AssigneePicker({
           {/* Unassigned Option */}
           <DropdownMenuItem
             onClick={() => handleSelect(null)}
-            className="flex items-center justify-between px-2 py-1.5 text-xs rounded-[4px] cursor-pointer text-muted-foreground hover:text-foreground"
+            className="flex items-center justify-between px-2 py-1.5 text-xs rounded-sm cursor-pointer text-muted-foreground hover:text-foreground"
           >
             <div className="flex items-center gap-2">
               <div className="size-5 rounded-full border border-dashed border-border flex items-center justify-center">
@@ -288,7 +288,7 @@ export function AssigneePicker({
                 <DropdownMenuItem
                   key={u.id}
                   onClick={() => handleSelect(u.id)}
-                  className="flex items-center justify-between px-2 py-1.5 text-xs rounded-[4px] cursor-pointer"
+                  className="flex items-center justify-between px-2 py-1.5 text-xs rounded-sm cursor-pointer"
                 >
                   <div className="flex items-center gap-2 min-w-0">
                     <Avatar className="size-5 rounded-full border border-border shrink-0">

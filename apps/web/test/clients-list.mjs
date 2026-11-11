@@ -20,6 +20,8 @@ try {
       if (delay) await new Promise(resolve => setTimeout(resolve, delay));
       return route.fulfill({ status: fail ? 500 : 200, json: fail ? {} : clients });
     }
+    // Clients is opt-in per workspace; this suite runs with the feature switched on.
+    if (path === '/api/workspace') return route.fulfill({ json: { id: 'w1', name: 'Acme', slug: 'acme', role: 'owner', metadata: JSON.stringify({ features: { clients: true } }) } });
     return route.fulfill({ json: [] });
   });
   await page.route('**/src/app/main.tsx*', async route => {
@@ -39,20 +41,20 @@ try {
   const url = process.env.WEB_URL || 'http://localhost:5173';
   await page.goto(url);
   await page.getByRole('status', { name: 'Loading clients' }).waitFor();
-  const list = page.getByRole('list', { name: 'Clients', exact: true });
+  const list = page.getByRole('table', { name: 'Clients', exact: true });
   await list.waitFor();
   delay = 0;
-  assert.equal(await list.getByRole('listitem').count(), 3);
+  assert.equal(await list.locator('tbody tr').count(), 3);
   assert.equal(await page.locator('[data-slot="card"]').count(), 0);
   await page.screenshot({ path: '/tmp/reka-clients-list-desktop.png', fullPage: true });
   await page.getByRole('button', { name: 'Fintech & Payments', exact: true }).click();
-  assert.equal(await list.getByRole('listitem').count(), 1);
+  assert.equal(await list.locator('tbody tr').count(), 1);
   await page.getByRole('button', { name: 'All Industries', exact: true }).click();
   const search = page.getByRole('textbox', { name: 'Search clients or contacts' });
   await search.fill('alex@acme');
-  assert.equal(await list.getByRole('listitem').count(), 1);
+  assert.equal(await list.locator('tbody tr').count(), 1);
   await page.getByRole('button', { name: 'Clear client search' }).click();
-  assert.equal(await list.getByRole('listitem').count(), 3);
+  assert.equal(await list.locator('tbody tr').count(), 3);
   const row = page.getByRole('button', { name: 'Open client Acme Financial Services', exact: true });
   await row.focus();
   await page.keyboard.press('Enter');
@@ -60,25 +62,25 @@ try {
   await page.getByRole('heading', { name: 'Acme Financial Services', exact: true }).waitFor();
   assert(Math.abs(await page.getByRole('dialog').evaluate(element => element.getBoundingClientRect().width) - 768) < 1);
   await page.keyboard.press('Escape');
-  await page.getByRole('button', { name: 'New Client', exact: true }).click();
-  await page.getByRole('dialog', { name: 'New Client Account' }).waitFor();
+  await page.getByRole('button', { name: 'New client', exact: true }).click();
+  await page.getByRole('dialog', { name: 'New client' }).waitFor();
   await page.keyboard.press('Escape');
   await search.fill('not-a-client');
-  await page.getByText('No clients found', { exact: true }).waitFor();
+  await page.getByText('No clients match these filters', { exact: true }).waitFor();
   await page.getByRole('button', { name: 'Clear client search' }).click();
   await page.setViewportSize({ width: 390, height: 844 });
   await page.screenshot({ path: '/tmp/reka-clients-list-mobile.png', fullPage: true });
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
   fail = true;
   await page.reload();
-  await page.getByText('Could not load clients. Please try again.', { exact: true }).waitFor();
+  await page.getByText('Could not load clients.', { exact: true }).waitFor();
   fail = false;
-  await page.getByRole('button', { name: 'Retry', exact: true }).click();
+  await page.getByRole('button', { name: 'Retry clients', exact: true }).click();
   await list.waitFor();
   clients = [];
   await page.reload();
-  await page.getByText('No clients found', { exact: true }).waitFor();
-  await page.getByRole('button', { name: 'Create Client', exact: true }).waitFor();
+  await page.getByText('No clients yet', { exact: true }).waitFor();
+  await page.getByRole('button', { name: 'New client', exact: true }).nth(1).waitFor();
   assert.deepEqual(errors, []);
   console.log('PASS: Client list rows, search/contact search, industry filters, keyboard detail, create dialog, empty/error/retry/loading and mobile.');
 } finally { await browser.close(); }

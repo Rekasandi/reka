@@ -14,6 +14,8 @@ export interface User {
   assignedIssues?: Issue[];
   createdAt: string;
   updatedAt: string;
+  /** Latest session activity; null when the person never signed in. */
+  lastSeenAt?: string | null;
 }
 
 export interface UpdateUserInput {

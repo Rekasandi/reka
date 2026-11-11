@@ -40,6 +40,7 @@ import { ManageLabelsDialog } from '../../issues/components/manage-labels-dialog
 import { useTeams } from '../../teams/hooks/use-teams';
 import { useCreateLabel, useDeleteLabel, useIssueLabels, useUpdateLabel } from '../../issues/hooks/use-issues';
 import type { Team } from '../../teams/api/teams.api';
+import { EmptyState } from '../../../components/common/page';
 
 const NO_GROUP = '__none__';
 const ALL_TEAMS = '__all__';
@@ -339,25 +340,24 @@ export function LabelsSettings() {
       </div>
 
       {/* Table view */}
-      <div className="rounded-md border border-border">
-        <Table className="text-xs">
+      {filteredLabels.length > 0 ? (
+        <Table aria-label="Labels" className="min-w-[640px] table-fixed">
           <TableHeader>
-            <TableRow className="hover:bg-transparent">
-              <TableHead className="w-[40%]">Label</TableHead>
-              <TableHead className="w-[25%]">Group</TableHead>
-              <TableHead className="w-[25%]">Team</TableHead>
-              <TableHead className="w-[10%] text-right">Actions</TableHead>
+            <TableRow>
+              <TableHead>Label</TableHead>
+              <TableHead className="w-48">Group</TableHead>
+              <TableHead className="w-56">Team</TableHead>
+              <TableHead className="w-24 text-right"><span className="sr-only">Actions</span></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredLabels.length > 0 ? (
-              filteredLabels.map((label) => {
+            {filteredLabels.map((label) => {
                 const team = label.teamId ? teamMap.get(label.teamId) : null;
                 const parent = label.parentId ? labelMap.get(label.parentId) : null;
                 const canManageLabel = Boolean(team?.canManage);
 
                 return (
-                  <TableRow key={label.id} className="h-11">
+                  <TableRow key={label.id}>
                     <TableCell className="font-medium">
                       <div className="flex items-center gap-2 min-w-0">
                         <span
@@ -365,12 +365,12 @@ export function LabelsSettings() {
                           className="size-2.5 shrink-0 rounded-full border border-border"
                           style={{ backgroundColor: label.color }}
                         />
-                        <span className="truncate text-foreground font-medium">{label.name}</span>
+                        <span className="truncate text-foreground">{label.name}</span>
                       </div>
                     </TableCell>
                     <TableCell>
                       {parent ? (
-                        <Badge variant="secondary" className="font-normal text-[11px]">
+                        <Badge variant="secondary" className="font-normal text-xs">
                           {parent.name}
                         </Badge>
                       ) : (
@@ -379,9 +379,9 @@ export function LabelsSettings() {
                     </TableCell>
                     <TableCell>
                       {team ? (
-                        <span className="inline-flex items-center gap-1.5 font-mono text-muted-foreground">
-                          <span className="font-semibold text-foreground">{team.key}</span>
-                          <span className="text-[11px]">· {team.name}</span>
+                        <span className="flex min-w-0 items-center gap-1.5 text-muted-foreground">
+                          <span className="font-mono text-foreground">{team.key}</span>
+                          <span className="truncate">· {team.name}</span>
                         </span>
                       ) : (
                         <span className="text-muted-foreground">Workspace</span>
@@ -391,8 +391,8 @@ export function LabelsSettings() {
                       {canManageLabel ? (
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon-xs" aria-label={`Actions for ${label.name}`}>
-                              <MoreHorizontal className="size-3.5" />
+                            <Button variant="ghost" size="icon-sm" aria-label={`Actions for ${label.name}`}>
+                              <MoreHorizontal />
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="w-32">
@@ -412,30 +412,18 @@ export function LabelsSettings() {
                           </DropdownMenuContent>
                         </DropdownMenu>
                       ) : (
-                        <span className="text-[11px] text-muted-foreground">View only</span>
+                        <span className="text-muted-foreground">View only</span>
                       )}
                     </TableCell>
                   </TableRow>
                 );
-              })
-            ) : (
-              <TableRow>
-                <TableCell colSpan={4} className="h-32 text-center text-muted-foreground">
-                  <div className="flex flex-col items-center justify-center gap-1.5">
-                    <Tag className="size-5 text-muted-foreground/60" />
-                    <p className="text-sm font-medium">No labels found</p>
-                    <p className="text-xs text-muted-foreground">
-                      {labels.length === 0
-                        ? 'Create your first label to start organizing issues.'
-                        : 'No labels match your filter.'}
-                    </p>
-                  </div>
-                </TableCell>
-              </TableRow>
-            )}
+              })}
           </TableBody>
         </Table>
-      </div>
+      ) : (
+        <EmptyState icon={Tag} title={labels.length === 0 ? 'No labels yet' : 'No labels match this filter'}
+          description={labels.length === 0 ? 'Create your first label to start organizing issues.' : 'Choose another team or clear the search.'} />
+      )}
 
       <CreateEditLabelDialog
         state={modalState}

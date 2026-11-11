@@ -22,7 +22,7 @@ export function CyclePicker({ cycleId, teamId, onCycleChange, identifier, compac
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild onClick={event => event.stopPropagation()}>
-        <Badge asChild variant="outline" className={cn('h-6 gap-1.5 px-1.5 sm:px-2 border-emerald-600/30 bg-emerald-600/10 text-emerald-800 hover:bg-emerald-600/15 dark:border-emerald-400/30 dark:bg-emerald-400/10 dark:text-emerald-300 dark:hover:bg-emerald-400/15', className)}>
+        <Badge asChild variant="outline" className={cn('h-6 gap-1.5 px-1.5 sm:px-2 border-success/30 bg-success/10 text-success hover:bg-success/15', className)}>
           <Button variant="plain" size="auto" type="button" id={id} disabled={isPending}
             aria-label={`Change cycle${identifier ? ` for ${identifier}` : ''}: ${label}`} title={`Change cycle: ${label}`}>
             <Repeat className="size-3.5 shrink-0" />

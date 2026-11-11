@@ -9,6 +9,7 @@ import { CompleteCycleDialog } from './complete-cycle-dialog';
 import { CycleScheduleDialog } from './cycle-schedule-dialog';
 import { CycleProgressChart } from './cycle-progress-chart';
 import type { Cycle } from '../api/cycles.api';
+import { EmptyState, PageContainer, PageHeader } from '../../../components/common/page';
 
 function MetricRing({ percent, overCapacity = false }: { percent: number | null; overCapacity?: boolean }) {
   return <svg aria-hidden="true" viewBox="0 0 20 20" className="size-4 shrink-0 -rotate-90"><circle cx="10" cy="10" r="8" fill="none" stroke="var(--border)" strokeWidth="2.5" />{percent !== null && <circle cx="10" cy="10" r="8" fill="none" stroke={overCapacity ? 'var(--destructive)' : 'var(--cycle-completed)'} strokeWidth="2.5" pathLength="100" strokeDasharray={`${Math.max(1, Math.min(100, percent))} 100`} strokeLinecap="round" />}</svg>;
@@ -60,11 +61,9 @@ export function CyclesPage() {
   const nearestUpcoming = new Set(teams.map(team => scopedCycles.filter(cycle => cycle.teamId === team.id && cycle.status === 'upcoming').sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime())[0]?.id));
   const canManage = teams.some(team => team.canManage && (!teamId || team.id === teamId));
 
-  return <div className="cycles-timeline-page flex min-w-0 flex-col gap-5 pb-10">
-    <header className="flex flex-wrap items-center justify-between gap-3">
-      <div className="flex items-center gap-2.5"><h1 className="text-xl font-semibold tracking-tight sm:text-2xl">Cycles</h1><Badge variant="outline">{scopedCycles.length}</Badge></div>
-      {canManage && <Button variant="outline" size="sm" onClick={() => setIsScheduleOpen(true)}><CalendarClock data-icon="inline-start" />Schedule settings</Button>}
-    </header>
+  return <PageContainer className="cycles-timeline-page">
+    <PageHeader title="Cycles" count={scopedCycles.length} description="Time-boxed iterations that run on each team's cadence."
+      actions={canManage && <Button variant="outline" onClick={() => setIsScheduleOpen(true)}><CalendarClock data-icon="inline-start" />Schedule settings</Button>} />
     <Tabs value={filterTab} onValueChange={setFilterTab} activationMode="manual">
       <TabsList variant="line" aria-label="Cycle filters" className="w-full justify-start gap-3 border-b border-border p-0 sm:gap-5">
         {[['all', 'All cycles'], ['active', 'Current'], ['upcoming', 'Upcoming'], ['completed', 'Completed']].map(([value, label]) => <TabsTrigger key={value} value={value} aria-label={label} className="h-9 flex-none rounded-none border-0 px-0">{value === 'all' ? 'All' : label}</TabsTrigger>)}
@@ -124,13 +123,10 @@ export function CyclesPage() {
         </React.Fragment>;
       })}
       </ol>
-    </Timeline> : <div className="flex flex-col items-center gap-3 py-16 text-center">
-      <div className="flex size-10 items-center justify-center rounded-lg border border-border bg-muted/40 text-muted-foreground"><CalendarClock className="size-5" /></div>
-      <p className="text-sm font-medium">{scopedCycles.length ? 'No matching cycles' : 'No cycles yet'}</p>
-      <p className="max-w-md text-xs text-muted-foreground">{scopedCycles.length ? 'Choose another filter to see your cycles.' : "Cycles run automatically based on your team's repeating cadence, just like in Linear. Configure your schedule to start generating cycles."}</p>
-      {!scopedCycles.length && canManage && <Button size="sm" onClick={() => setIsScheduleOpen(true)}><CalendarClock data-icon="inline-start" />Configure schedule</Button>}
-    </div>}
+    </Timeline> : <EmptyState icon={CalendarClock} title={scopedCycles.length ? 'No matching cycles' : 'No cycles yet'}
+      description={scopedCycles.length ? 'Choose another filter to see your cycles.' : "Cycles run automatically on your team's repeating cadence. Configure a schedule to start generating them."}
+      action={!scopedCycles.length && canManage && <Button variant="outline" onClick={() => setIsScheduleOpen(true)}><CalendarClock data-icon="inline-start" />Configure schedule</Button>} />}
     <CycleScheduleDialog key={`schedule-${teamId ?? 'all'}`} open={isScheduleOpen} onOpenChange={setIsScheduleOpen} defaultTeamId={teamId ?? undefined} />
     <CompleteCycleDialog cycle={completeCycleTarget} open={!!completeCycleTarget} onOpenChange={open => !open && setCompleteCycleTarget(null)} />
-  </div>;
+  </PageContainer>;
 }

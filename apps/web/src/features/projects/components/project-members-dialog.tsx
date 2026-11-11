@@ -74,7 +74,7 @@ export function ProjectMembersDialog({ projectId, projectName, open, onOpenChang
           <div className="flex items-center gap-2">
             <Select value={selectedUserId} onValueChange={setSelectedUserId}>
               <SelectTrigger aria-label="Select user to invite">
-                <SelectValue placeholder={isUsersLoading ? 'Loading users...' : 'Select a workspace user'} />
+                <SelectValue placeholder={isUsersLoading ? 'Loading users…' : 'Select a workspace user'} />
               </SelectTrigger>
               <SelectContent>
                 {availableUsers.map((user) => (
@@ -83,14 +83,14 @@ export function ProjectMembersDialog({ projectId, projectName, open, onOpenChang
               </SelectContent>
             </Select>
             <Button disabled={!selectedUserId || addMember.isPending} onClick={() => addMember.mutate(selectedUserId)}>
-              {addMember.isPending ? 'Adding...' : 'Add'}
+              {addMember.isPending ? 'Adding…' : 'Add'}
             </Button>
           </div>
           <div className="max-h-60 divide-y divide-border overflow-y-auto rounded-md border border-border">
             {isMembersLoading ? (
-              <p className="p-3 text-sm text-muted-foreground inline-flex items-center gap-1.5"><Spinner className="size-3.5" aria-label="Loading members" />Loading members...</p>
+              <p className="p-3 text-sm text-muted-foreground inline-flex items-center gap-1.5"><Spinner className="size-3.5" aria-label="Loading members" />Loading members…</p>
             ) : isMembersError ? (
-              <Alert className="rounded-none border-0 bg-transparent px-0 py-0 text-foreground flex items-center justify-between gap-2 p-3 text-sm"><span>Could not load project members.</span><Button variant="outline" size="sm" onClick={() => void refetchMembers()}><RefreshCw data-icon="inline-start" />Retry</Button></Alert>
+              <Alert variant="destructive" className="flex flex-wrap items-center justify-between gap-3"><span>Could not load project members.</span><Button variant="outline" size="sm" onClick={() => void refetchMembers()}><RefreshCw data-icon="inline-start" />Retry</Button></Alert>
             ) : members.length ? members.map((member) => (
               <div key={member.id} className="flex items-center justify-between gap-3 p-3 text-sm">
                 <div className="min-w-0">

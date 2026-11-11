@@ -34,7 +34,10 @@
   --color-input: var(--input);
   --color-ring: var(--ring);
   --color-success: var(--success);
+  --color-warning: var(--warning);
   --color-warning-foreground: var(--warning-foreground);
+  --color-info: var(--info);
+  --color-highlight: var(--highlight);
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-primary: var(--sidebar-primary);
@@ -43,6 +46,10 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+
+  /* Monogram glyphs only (avatar initials, team keys in 16-24px boxes); readable text starts at text-xs. */
+  --text-2xs: 0.625rem;
+  --text-2xs--line-height: 1;
 
   --radius-sm: calc(var(--radius) - 6px);
   --radius-md: calc(var(--radius) - 4px);
@@ -72,6 +79,9 @@
   --input: #ebebeb;
   --ring: #0070f3;
   --success: #0761d1;
+  --warning: #ab570a;
+  --info: #0070f3;
+  --highlight: #7928ca;
   --warning-foreground: #ab570a;
   --radius: 0.75rem;
   --sidebar: #fafafa;
@@ -111,6 +121,9 @@
   --input: rgb(255 255 255 / 15%);
   --ring: #50a2ff;
   --success: #50a2ff;
+  --warning: #fbbf24;
+  --info: #50a2ff;
+  --highlight: #a78bfa;
   --warning-foreground: #fbbf24;
   --sidebar: #111111;
   --sidebar-foreground: #a1a1a1;

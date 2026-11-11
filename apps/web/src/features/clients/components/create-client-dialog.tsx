@@ -90,7 +90,7 @@ export function CreateClientDialog({ open, onOpenChange }: CreateClientDialogPro
           className="flex flex-col gap-4"
         >
           <DialogHeader>
-            <DialogTitle>New Client Account</DialogTitle>
+            <DialogTitle>New client</DialogTitle>
             <DialogDescription>
               Register a client company or partner to associate projects and contacts.
             </DialogDescription>
@@ -151,7 +151,7 @@ export function CreateClientDialog({ open, onOpenChange }: CreateClientDialogPro
                   <FieldLabel htmlFor="client-notes">Description & Account Notes</FieldLabel>
                   <Textarea
                     id="client-notes"
-                    placeholder="Project scope summary, billing arrangements, SLA expectations..."
+                    placeholder="Project scope summary, billing arrangements, SLA expectations…"
                     value={field.state.value}
                     onBlur={field.handleBlur}
                     onChange={(e) => field.handleChange(e.target.value)}
@@ -254,7 +254,7 @@ export function CreateClientDialog({ open, onOpenChange }: CreateClientDialogPro
               Cancel
             </Button>
             <Button type="submit" disabled={createMutation.isPending}>
-              {createMutation.isPending ? 'Creating...' : 'Create Client'}
+              {createMutation.isPending ? 'Creating…' : 'Create client'}
             </Button>
           </DialogFooter>
         </form>

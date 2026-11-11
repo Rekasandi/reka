@@ -45,12 +45,12 @@ export function Header() {
         <Button variant="plain" size="auto"
           type="button"
           onClick={() => setCommandPaletteOpen(true)}
-          aria-label="Search or jump to..."
-          className="flex size-8 shrink-0 items-center justify-center gap-2 rounded-[6px] border border-border bg-secondary/40 text-xs text-muted-foreground transition-colors hover:bg-secondary/70 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:h-8 sm:w-auto sm:px-2.5"
+          aria-label="Search or jump to…"
+          className="flex size-8 shrink-0 items-center justify-center gap-2 rounded-sm border border-border bg-secondary/40 text-xs text-muted-foreground transition-colors hover:bg-secondary/70 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:h-8 sm:w-auto sm:px-2.5"
         >
           <Search className="size-3.5" />
-          <span className="hidden sm:inline truncate">Search or jump to...</span>
-          <kbd className="ml-4 hidden md:flex items-center gap-0.5 rounded border border-border bg-background px-1.5 py-0.5 text-xs text-muted-foreground">
+          <span className="hidden sm:inline truncate">Search or jump to…</span>
+          <kbd className="ml-4 hidden md:flex items-center gap-0.5 rounded-sm border border-border bg-background px-1.5 py-0.5 text-xs text-muted-foreground">
             <Command className="size-2.5" />K
           </kbd>
         </Button>
@@ -95,7 +95,7 @@ export function Header() {
               </div>
 
               {/* GitHub Connected Profile Badge */}
-              {githubUsername && <div className="mt-2.5 flex items-center gap-1.5 px-2 py-1 rounded-[5px] bg-secondary/60 border border-border/60 text-xs font-mono text-muted-foreground">
+              {githubUsername && <div className="mt-2.5 flex items-center gap-1.5 px-2 py-1 rounded-sm bg-secondary/60 border border-border/60 text-xs font-mono text-muted-foreground">
                 <GithubIcon className="size-3 text-muted-foreground shrink-0" />
                 <span className="truncate text-foreground font-medium">github.com/{githubUsername}</span>
               </div>}

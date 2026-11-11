@@ -4,7 +4,7 @@ import { IssuePickerMenu } from './issue-picker-menu';
 
 type PickerTeam = { id: string; name: string; key: string };
 
-const TeamKey = ({ team }: { team: PickerTeam }) => <span aria-hidden="true" className="inline-flex h-4 min-w-4 shrink-0 items-center justify-center rounded border border-border bg-muted px-0.5 font-mono text-[9px] font-semibold text-muted-foreground">{team.key}</span>;
+const TeamKey = ({ team }: { team: PickerTeam }) => <span aria-hidden="true" className="inline-flex h-4 min-w-4 shrink-0 items-center justify-center rounded-sm border border-border bg-muted px-0.5 font-mono text-2xs font-semibold text-muted-foreground">{team.key}</span>;
 
 /** Searchable team menu, same surface as the project/status/priority pickers. Callers pass the teams the user may pick. */
 export function TeamPicker({ teams, teamId, onTeamChange, id, label = 'Team', placeholder = 'Choose team', disabled, className }: {

@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useTeams } from '../../features/teams/hooks/use-teams';
+import { useWorkspaceNavigation } from '../../features/settings/lib/workspace-navigation';
 import { useNavigate } from 'react-router-dom';
 import {
   CommandDialog, CommandInput, CommandList, CommandEmpty, CommandGroup,
@@ -18,6 +19,7 @@ export function CommandPalette() {
   const setOpen = useUiStore(state => state.setCommandPaletteOpen);
   const navigate = useNavigate();
   const { data: teams = [] } = useTeams();
+  const { features } = useWorkspaceNavigation();
   const [query, setQuery] = React.useState('');
   const [offset, setOffset] = React.useState(0);
   const [debouncedQuery, setDebouncedQuery] = React.useState('');
@@ -54,7 +56,7 @@ export function CommandPalette() {
         </>}
         <CommandSeparator />
         <CommandGroup heading="Actions">
-          <CommandItem onSelect={() => handleSelect(() => navigate('/issues?create=1'))}><PlusCircle /><span>Create new issue</span><CommandShortcut>C</CommandShortcut></CommandItem>
+          <CommandItem onSelect={() => handleSelect(() => navigate('/issues?create=1'))}><PlusCircle /><span>New issue</span><CommandShortcut>C</CommandShortcut></CommandItem>
         </CommandGroup>
         <CommandGroup heading="Navigation">
           <CommandItem onSelect={() => handleSelect(() => navigate('/dashboard'))}><LayoutDashboard /><span>Go to Dashboard</span><CommandShortcut>G H</CommandShortcut></CommandItem>
@@ -69,7 +71,7 @@ export function CommandPalette() {
           <CommandItem onSelect={() => handleSelect(() => navigate('/insights'))}><Activity /><span>Go to Insights</span></CommandItem>
           <CommandItem onSelect={() => handleSelect(() => navigate('/users'))}><UserCheck /><span>Go to Users</span></CommandItem>
           <CommandItem onSelect={() => handleSelect(() => navigate('/teams'))}><Users /><span>Go to Teams</span></CommandItem>
-          <CommandItem onSelect={() => handleSelect(() => navigate('/clients'))}><Building2 /><span>Go to Clients</span></CommandItem>
+          {features.clients && <CommandItem onSelect={() => handleSelect(() => navigate('/clients'))}><Building2 /><span>Go to Clients</span></CommandItem>}
           <CommandItem onSelect={() => handleSelect(() => navigate('/settings'))}><Settings /><span>Go to Settings</span><CommandShortcut>G S</CommandShortcut></CommandItem>
         </CommandGroup>
       </CommandList>

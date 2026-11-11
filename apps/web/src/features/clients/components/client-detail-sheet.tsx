@@ -229,9 +229,9 @@ export function ClientDetailSheet({ client, open, onOpenChange }: ClientDetailSh
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <FolderKanban className="size-4 text-purple-500" />
+                <FolderKanban className="size-4 text-highlight" />
                 <h3 className="text-sm font-semibold text-foreground">Associated Projects</h3>
-                <span className="text-xs font-mono text-muted-foreground px-1.5 py-0.2 rounded bg-muted">
+                <span className="text-xs font-mono text-muted-foreground px-1.5 py-0.2 rounded-sm bg-muted">
                   {client.projects?.length || 0}
                 </span>
               </div>
@@ -291,9 +291,9 @@ export function ClientDetailSheet({ client, open, onOpenChange }: ClientDetailSh
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Users className="size-4 text-blue-500" />
+                <Users className="size-4 text-info" />
                 <h3 className="text-sm font-semibold text-foreground">Client Contacts</h3>
-                <span className="text-xs font-mono text-muted-foreground px-1.5 py-0.2 rounded bg-muted">
+                <span className="text-xs font-mono text-muted-foreground px-1.5 py-0.2 rounded-sm bg-muted">
                   {client.contacts?.length || 0}
                 </span>
               </div>
@@ -303,7 +303,7 @@ export function ClientDetailSheet({ client, open, onOpenChange }: ClientDetailSh
                 onClick={() => setIsAddingContact(!isAddingContact)}
               >
                 <Plus className="size-3" />
-                <span>Add Contact</span>
+                <span>Add contact</span>
               </Button>
             </div>
 
@@ -398,7 +398,7 @@ export function ClientDetailSheet({ client, open, onOpenChange }: ClientDetailSh
                           {contact.name}
                         </span>
                         {contact.role && (
-                          <span className="text-xs font-mono text-muted-foreground bg-muted px-1.5 py-0.2 rounded">
+                          <span className="text-xs font-mono text-muted-foreground bg-muted px-1.5 py-0.2 rounded-sm">
                             {contact.role}
                           </span>
                         )}

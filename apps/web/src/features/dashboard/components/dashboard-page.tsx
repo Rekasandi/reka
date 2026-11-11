@@ -32,6 +32,7 @@ import { CreateIssueDialog } from '../../issues/components/create-issue-dialog';
 import { IssueDetailSheet } from '../../issues/components/issue-detail-sheet';
 import { isIssueClosed, type Issue } from '@reka/types';
 import { attentionReasons } from '../lib/dashboard-work';
+import { EmptyState, PageContainer, PageHeader } from '../../../components/common/page';
 import { DashboardActionSections } from './dashboard-action-sections';
 
 // Register only the chart elements used on this page.
@@ -130,46 +131,21 @@ export function DashboardPage() {
   };
 
   return (
-    <div className="flex flex-col gap-5 max-w-none mx-auto selection:bg-foreground selection:text-background pb-10">
-      {/* Top Workspace Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/60 pb-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl sm:text-2xl font-semibold tracking-[-0.03em] text-foreground">
-              Dashboard
-            </h1>
-          </div>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Your work, upcoming deadlines, and team delivery.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            asChild
-          >
-            <Link to="/inbox">
-              <InboxIcon />
-              <span>Inbox</span>
-              {unreadData && unreadData.count > 0 && (
-                <span className="px-1.5 py-0.2 rounded-full bg-blue-500/15 text-blue-600 dark:text-blue-400 text-xs font-mono">
-                  {unreadData.count}
-                </span>
-              )}
-            </Link>
-          </Button>
-
-          <Button
-            className="px-3"
-            onClick={() => setIsCreateOpen(true)}
-          >
-            <Plus />
-            <span>New Issue</span>
-            <kbd className="hidden sm:inline font-mono text-xs opacity-60 ml-0.5">C</kbd>
-          </Button>
-        </div>
-      </div>
+    <PageContainer>
+      <PageHeader title="Dashboard" description="Your work, upcoming deadlines, and team delivery." actions={<>
+        <Button variant="outline" asChild>
+          <Link to="/inbox">
+            <InboxIcon data-icon="inline-start" />
+            Inbox
+            {unreadData && unreadData.count > 0 && <Badge variant="secondary" className="tabular-nums" aria-label={`${unreadData.count} unread`}>{unreadData.count}</Badge>}
+          </Link>
+        </Button>
+        <Button onClick={() => setIsCreateOpen(true)}>
+          <Plus data-icon="inline-start" />
+          New issue
+          <kbd className="ml-0.5 hidden text-xs opacity-60 sm:inline">C</kbd>
+        </Button>
+      </>} />
 
       {/* Clean Hairline Metric Strip */}
       <div className="grid grid-cols-2 gap-4 border-b border-border pb-5 md:grid-cols-4">
@@ -203,7 +179,7 @@ export function DashboardPage() {
           <div className="flex items-baseline gap-2 mt-1.5">
             <span
               className={`text-xl font-bold font-mono tracking-tight ${
-                attentionIssues.length > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-foreground'
+                attentionIssues.length > 0 ? 'text-destructive' : 'text-foreground'
               }`}
             >
               {issuesLoading ? '…' : issuesError ? '-' : attentionIssues.length}
@@ -237,7 +213,7 @@ export function DashboardPage() {
             <div className="p-3.5 border-b border-border/70 flex items-center justify-between bg-muted/20">
               <div className="flex items-center gap-2">
                 <span className="text-xs font-semibold text-foreground">My assigned issues</span>
-                <span className="font-mono text-xs text-muted-foreground bg-muted px-1.5 py-0.2 rounded">
+                <span className="font-mono text-xs text-muted-foreground bg-muted px-1.5 py-0.2 rounded-sm">
                   {myWorkIssues.length}
                 </span>
               </div>
@@ -250,11 +226,8 @@ export function DashboardPage() {
             </div>
 
             <div className="divide-y divide-border/60">
-              {issuesLoading ? <Skeleton className="h-28 w-full" /> : issuesError ? <Alert className="rounded-none border-0 bg-transparent px-0 py-0 text-foreground flex items-center gap-3 py-6"><p className="text-sm text-muted-foreground">Could not load issues.</p><Button variant="outline" size="sm" onClick={() => retryIssues()}>Retry</Button></Alert> : myWorkIssues.length === 0 ? (
-                <div className="p-8 text-center text-xs text-muted-foreground">
-                  <p className="font-semibold text-foreground">All caught up</p>
-                  <p className="text-xs mt-0.5">No active tasks currently assigned to you.</p>
-                </div>
+              {issuesLoading ? <Skeleton className="h-28 w-full" /> : issuesError ? <Alert variant="destructive" className="flex flex-wrap items-center gap-3"><p className="text-sm text-muted-foreground">Could not load issues.</p><Button variant="outline" size="sm" onClick={() => retryIssues()}>Retry</Button></Alert> : myWorkIssues.length === 0 ? (
+                <EmptyState className="m-4" icon={CheckCircle2} title="All caught up" description="No active tasks are assigned to you." />
               ) : (
                 myWorkIssues.slice(0, 6).map((issue) => (
                   <Button variant="plain" size="auto"
@@ -400,6 +373,6 @@ export function DashboardPage() {
         open={isDetailOpen}
         onOpenChange={setIsDetailOpen}
       />
-    </div>
+    </PageContainer>
   );
 }

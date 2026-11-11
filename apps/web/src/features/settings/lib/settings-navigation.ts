@@ -1,4 +1,4 @@
-import { Building2, CircleDot, FolderKanban, GitBranch, Link2, SlidersHorizontal, Tags, UserRound, Users } from 'lucide-react';
+import { Building2, PanelLeft, CircleDot, FolderKanban, GitBranch, Link2, SlidersHorizontal, Tags, UserRound, Users } from 'lucide-react';
 
 export const SETTINGS_GROUPS = [
   { label: 'Personal', items: [
@@ -18,6 +18,7 @@ export const SETTINGS_GROUPS = [
   ] },
   { label: 'Administrations', adminOnly: true, items: [
     { id: 'workspace', label: 'Workspace', icon: Building2, description: 'Workspace identity and invitations.' },
+    { id: 'sidebar', label: 'Sidebar', icon: PanelLeft, description: 'Choose which workspace pages appear in the sidebar, which sit under More, and which optional features are on.' },
     { id: 'members', label: 'Members', icon: Users, description: 'Manage workspace members and their roles.' },
     { id: 'teams', label: 'Teams', icon: Users, description: 'Manage teams and their members.' },
   ] },

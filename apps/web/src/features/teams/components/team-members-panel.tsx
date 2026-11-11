@@ -1,11 +1,20 @@
 import * as React from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Alert, AlertDescription, Avatar, AvatarFallback, AvatarImage, Badge, Button, Input, Select, SelectTrigger, SelectValue, SelectContent, SelectGroup, SelectItem, DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, Popover, PopoverTrigger, PopoverContent, Table, TableHeader, TableBody, TableRow, TableHead, TableCell, FieldDescription } from '@reka/ui';
-import { Info, MoreHorizontal, Plus } from 'lucide-react';
+import { Alert, AlertDescription, Avatar, AvatarFallback, AvatarImage, Badge, Button, Input, DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, Popover, PopoverTrigger, PopoverContent, Table, TableHeader, TableBody, TableRow, TableHead, TableCell, FieldDescription } from '@reka/ui';
+import { Crown, Eye, Info, MoreHorizontal, Plus, User, Users } from 'lucide-react';
 import { useRemoveTeamMember, useUpdateTeamMember } from '../hooks/use-teams';
 import { AddMemberDialog } from './add-member-dialog';
 import { ConfirmDeleteDialog } from '../../../components/common/confirm-delete-dialog';
 import type { Team, TeamMember } from '../api/teams.api';
+import { EmptyState } from '../../../components/common/page';
+import { PropertyPicker, type PropertyOption } from '../../../components/common/property-picker';
+
+// Lead needs a writable workspace role (owner/admin/member); guests and clients can be Member or Viewer only.
+const teamRoleOptions = (canLead: boolean): PropertyOption<TeamMember['role']>[] => [
+  { key: 'lead', label: 'Lead', icon: Crown, color: 'text-highlight', disabled: !canLead },
+  { key: 'member', label: 'Member', icon: User },
+  { key: 'viewer', label: 'Viewer', hint: 'Read-only', icon: Eye },
+];
 
 export function TeamMembersPanel({ team }: { team: Team }) {
   const remove = useRemoveTeamMember(team.id);
@@ -26,7 +35,7 @@ export function TeamMembersPanel({ team }: { team: Team }) {
 
   return <section aria-label="Team members" className="@container/team-members flex w-full min-w-0 flex-col gap-4">
     <header className="flex flex-wrap items-center justify-between gap-3">
-      <div><div className="flex items-center gap-2"><h2 className="text-xl font-semibold tracking-[-0.02em]">Members</h2><Badge variant="outline" className="tabular-nums">{members.length}</Badge></div><p className="mt-1 text-xs text-muted-foreground">Team roles do not change workspace roles.</p></div>
+      <div><div className="flex items-center gap-2"><h2 className="text-xl font-semibold tracking-tight">Members</h2><Badge variant="outline" className="tabular-nums">{members.length}</Badge></div><p className="mt-1 text-xs text-muted-foreground">Team roles do not change workspace roles.</p></div>
       {team.canManage && <Button onClick={() => setAddOpen(true)}><Plus data-icon="inline-start" />Add member</Button>}
     </header>
     <div className="flex flex-wrap items-center gap-2">
@@ -34,22 +43,21 @@ export function TeamMembersPanel({ team }: { team: Team }) {
       <Popover><PopoverTrigger asChild><Button variant="ghost" size="sm" aria-label="About team roles"><Info data-icon="inline-start" />Team roles</Button></PopoverTrigger><PopoverContent aria-label="About team roles" className="w-72 max-w-[calc(100vw-2rem)] p-4"><dl className="flex flex-col gap-3 text-sm"><div><dt className="font-medium">Lead</dt><dd className="text-xs text-muted-foreground">Manages the team and its members.</dd></div><div><dt className="font-medium">Member</dt><dd className="text-xs text-muted-foreground">Creates and updates issues.</dd></div><div><dt className="font-medium">Viewer</dt><dd className="text-xs text-muted-foreground">Has read-only access.</dd></div></dl><p className="mt-4 text-xs text-muted-foreground">Workspace permissions still apply.</p></PopoverContent></Popover>
     </div>
     {(remove.isError || update.isError) && <Alert variant="destructive"><AlertDescription>{remove.error?.message || update.error?.message}</AlertDescription></Alert>}
-    <Table aria-label="Team members" className="table-fixed">
-      <TableHeader><TableRow><TableHead>Member</TableHead><TableHead className="hidden w-36 @min-[40rem]/team-members:table-cell">Workspace role</TableHead><TableHead className="w-24 @min-[40rem]/team-members:w-36">Team role</TableHead>{hasActions && <TableHead className="w-10"><span className="sr-only">Actions</span></TableHead>}</TableRow></TableHeader>
+    {!filtered.length ? <EmptyState icon={Users} title={members.length ? 'No members match your search' : 'No members yet'} description={members.length ? 'Try another name or email.' : 'Add a workspace member to start working together.'} /> : <Table aria-label="Team members" className="table-fixed">
+      <TableHeader><TableRow><TableHead>Member</TableHead><TableHead className="hidden w-36 @min-[40rem]/team-members:table-cell">Workspace role</TableHead><TableHead className="w-24 @min-[40rem]/team-members:w-36">Team role</TableHead>{hasActions && <TableHead className="w-12"><span className="sr-only">Actions</span></TableHead>}</TableRow></TableHeader>
       <TableBody>{filtered.map(member => {
         const name = member.user?.name?.trim() || member.user?.email?.split('@')[0] || 'Unknown member';
         const self = member.userId === team.currentMemberUserId;
         const lastLead = member.role === 'lead' && writable(member) && leadCount <= 1;
         return <TableRow key={member.userId} data-team-member={member.userId}>
-          <TableCell className="py-3"><div className="flex min-w-0 items-center gap-3"><Avatar className="size-8 shrink-0"><AvatarImage src={member.user?.avatarUrl || undefined} alt={name} /><AvatarFallback>{(name[0] || 'U').toUpperCase()}</AvatarFallback></Avatar><div className="min-w-0"><p className="truncate text-sm font-medium" title={name}>{name}{self && <span className="ml-1 text-xs font-normal text-muted-foreground">(you)</span>}</p><p className="truncate text-xs text-muted-foreground" title={member.user?.email}>{member.user?.email || 'Email unavailable'}</p><p className="text-xs text-muted-foreground @min-[40rem]/team-members:hidden">{member.user?.role ? <><span className="capitalize">{member.user.role}</span> in workspace</> : 'Workspace role unavailable'}</p></div></div></TableCell>
+          <TableCell><div className="flex min-w-0 items-center gap-3"><Avatar className="size-8 shrink-0"><AvatarImage src={member.user?.avatarUrl || undefined} alt={name} /><AvatarFallback>{(name[0] || 'U').toUpperCase()}</AvatarFallback></Avatar><div className="min-w-0"><p className="truncate text-sm font-medium" title={name}>{name}{self && <span className="ml-1 text-xs font-normal text-muted-foreground">(you)</span>}</p><p className="truncate text-xs text-muted-foreground" title={member.user?.email}>{member.user?.email || 'Email unavailable'}</p><p className="text-xs text-muted-foreground @min-[40rem]/team-members:hidden">{member.user?.role ? <><span className="capitalize">{member.user.role}</span> in workspace</> : 'Workspace role unavailable'}</p></div></div></TableCell>
           <TableCell className="hidden capitalize text-muted-foreground @min-[40rem]/team-members:table-cell">{member.user?.role || 'Not available'}</TableCell>
-          <TableCell>{team.canManage ? <Select value={member.role} disabled={pending || lastLead} onValueChange={role => update.mutate({ userId: member.userId, role: role as TeamMember['role'] })}>
-            <SelectTrigger aria-label={`Team role for ${name}`} aria-describedby={lastLead ? noticeId : undefined} size="sm" className="w-full"><SelectValue /></SelectTrigger><SelectContent><SelectGroup><SelectItem value="lead" disabled={!writable(member)}>Lead</SelectItem><SelectItem value="member">Member</SelectItem><SelectItem value="viewer">Viewer</SelectItem></SelectGroup></SelectContent>
-          </Select> : <Badge variant="secondary" className="capitalize">{member.role}</Badge>}</TableCell>
-          {hasActions && <TableCell className="px-1">{(team.canManage || (self && team.canLeave)) && <DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" size="icon-sm" disabled={pending} aria-label={`Member actions for ${name}`}><MoreHorizontal /></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuGroup><DropdownMenuItem variant="destructive" disabled={pending || lastLead} onSelect={() => setTarget(member)}>{self ? 'Leave team' : 'Remove member'}</DropdownMenuItem></DropdownMenuGroup></DropdownMenuContent></DropdownMenu>}</TableCell>}
+          <TableCell><PropertyPicker value={member.role} menuLabel="Team role" ariaLabel={`Team role for ${name}`} disabled={pending || lastLead} describedBy={lastLead ? noticeId : undefined}
+            options={teamRoleOptions(writable(member))} onChange={team.canManage ? role => update.mutate({ userId: member.userId, role }) : undefined} /></TableCell>
+          {hasActions && <TableCell className="text-right">{(team.canManage || (self && team.canLeave)) && <DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" size="icon-sm" disabled={pending} aria-label={`Member actions for ${name}`}><MoreHorizontal /></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuGroup><DropdownMenuItem variant="destructive" disabled={pending || lastLead} onSelect={() => setTarget(member)}>{self ? 'Leave team' : 'Remove member'}</DropdownMenuItem></DropdownMenuGroup></DropdownMenuContent></DropdownMenu>}</TableCell>}
         </TableRow>;
-      })}{!filtered.length && <TableRow><TableCell colSpan={hasActions ? 3 : 2} className="py-10 text-center text-muted-foreground @min-[40rem]/team-members:hidden">{members.length ? 'No members match your search.' : 'No members yet. Add a workspace member to start working together.'}</TableCell><TableCell colSpan={hasActions ? 4 : 3} className="hidden py-10 text-center text-muted-foreground @min-[40rem]/team-members:table-cell">{members.length ? 'No members match your search.' : 'No members yet. Add a workspace member to start working together.'}</TableCell></TableRow>}</TableBody>
-    </Table>
+      })}</TableBody>
+    </Table>}
     {hasLastLead && <p id={noticeId} className="flex items-start gap-2 text-xs text-muted-foreground"><Info aria-hidden="true" className="mt-0.5 size-3.5 shrink-0" />Add another lead before changing or removing this lead.</p>}
     {search && <FieldDescription role="status" className="text-xs text-muted-foreground">Showing {filtered.length} of {members.length} members.</FieldDescription>}
     {team.canManage && <AddMemberDialog teamId={team.id} open={addOpen} onOpenChange={setAddOpen} existingMemberUserIds={members.map(member => member.userId)} />}

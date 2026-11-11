@@ -161,11 +161,11 @@ function SubtaskForm({ pending, onCreate, onCancel }: { pending: boolean; onCrea
         value={field.state.value}
         onBlur={field.handleBlur}
         onChange={(e) => field.handleChange(e.target.value)}
-        placeholder="Sub-task title..."
-        className="flex-1 h-8 px-2.5 rounded-[6px] border border-border/80 bg-background text-xs text-foreground placeholder:text-muted-foreground/60 outline-hidden focus:border-ring transition-colors"
+        placeholder="Sub-task title…"
+        className="flex-1 h-8 px-2.5 rounded-sm border border-border/80 bg-background text-xs text-foreground placeholder:text-muted-foreground/60 outline-hidden focus:border-ring transition-colors"
       />
     </Field>} />
-    <form.Subscribe selector={state => state.values.title} children={title => <Button type="submit" size="sm" disabled={!title.trim() || pending} className="px-2.5">{pending ? 'Adding...' : 'Add'}</Button>} />
+    <form.Subscribe selector={state => state.values.title} children={title => <Button type="submit" size="sm" disabled={!title.trim() || pending} className="px-2.5">{pending ? 'Adding…' : 'Add'}</Button>} />
     <Button type="button" variant="ghost" size="sm" onClick={() => { form.reset(); onCancel(); }} className="px-2 text-muted-foreground">Cancel</Button>
   </form>;
 }
@@ -528,7 +528,7 @@ export function IssueDetailContent({ issue, presentation = 'sheet', headerAction
             <div className="flex flex-wrap items-center justify-between gap-2"><div className="flex items-center gap-2"><Paperclip className="size-3.5 text-muted-foreground" /><span className="text-xs font-medium">Attachments</span><Badge variant="outline">{attachments.length}</Badge></div><div className="flex items-center gap-2"><Input ref={attachmentInputRef} type="file" aria-label="Choose issue attachment" accept="image/png,image/jpeg,image/gif,image/webp,application/pdf,text/plain,text/markdown" className="sr-only" onChange={handleUploadAttachment} /><Button type="button" size="xs" variant="outline" disabled={attachmentMutations.upload.isPending || readOnly} onClick={() => attachmentInputRef.current?.click()}>{attachmentMutations.upload.isPending ? 'Uploading…' : 'Upload file'}</Button></div></div>
             <p className="text-xs text-muted-foreground">PNG, JPEG, GIF, WebP, PDF or UTF-8 text · up to 5 MiB. Files are private to people who can read this issue.</p>
             {attachmentsLoading && <p className="text-xs text-muted-foreground inline-flex items-center gap-1.5"><Spinner className="size-3.5" aria-label="Loading attachments" />Loading attachments…</p>}
-            {attachmentsError && <Alert className="rounded-none border-0 bg-transparent px-0 py-0 text-foreground flex items-center gap-2 text-xs text-destructive">Could not load attachments.<Button type="button" size="xs" variant="ghost" onClick={() => void refetchAttachments()}>Retry</Button></Alert>}
+            {attachmentsError && <Alert variant="destructive" className="flex flex-wrap items-center gap-3">Could not load attachments.<Button type="button" size="xs" variant="ghost" onClick={() => void refetchAttachments()}>Retry</Button></Alert>}
             {!attachmentsLoading && !attachmentsError && attachments.length === 0 && <p className="text-xs text-muted-foreground">No attachments yet.</p>}
             {attachments.map(file => <div key={file.id} className="flex min-w-0 items-center gap-2 border-t border-border/50 pt-2 text-xs"><Paperclip className="size-3 shrink-0 text-muted-foreground" /><a className="min-w-0 flex-1 truncate hover:underline" href={file.url} download={file.fileName} aria-label={`Download ${file.fileName}`}>{file.fileName}</a><span className="shrink-0 text-muted-foreground">{Math.max(1, Math.ceil(file.fileSize / 1024))} KB</span>{file.canDelete && <Button type="button" variant="ghost" size="icon-xs" aria-label={`Delete attachment ${file.fileName}`} disabled={attachmentMutations.remove.isPending} onClick={() => setDeleteTarget({ title: `Delete ${file.fileName}?`, confirm: () => attachmentMutations.remove.mutate(file.id) })}><Trash2 className="size-3" /></Button>}</div>)}
           </section>
@@ -542,7 +542,7 @@ export function IssueDetailContent({ issue, presentation = 'sheet', headerAction
             {relations.map(({ type, relatedIssue, duplicateDirection }) => {
               const label = type === 'duplicate' ? (duplicateDirection === 'source' ? 'duplicate of' : duplicateDirection === 'target' ? 'duplicate source' : 'duplicate') : type.replaceAll('_', ' ');
               return <div key={`${type}:${relatedIssue.id}`} className="flex items-center gap-2 text-xs">
-                <span className="rounded border border-border px-1.5 py-0.5 text-muted-foreground">{label}</span>
+                <span className="rounded-sm border border-border px-1.5 py-0.5 text-muted-foreground">{label}</span>
                 <span className="font-mono text-muted-foreground">{relatedIssue.identifier}</span>
                 <span className="min-w-0 flex-1 truncate">{relatedIssue.title}</span>
                 <Button type="button" variant="ghost" size="icon-xs" aria-label={`Remove ${type} relation to ${relatedIssue.identifier}`} onClick={() => relationMutations.remove.mutate({ relatedIssueId: relatedIssue.id, type })}><Trash2 /></Button>
@@ -570,7 +570,7 @@ export function IssueDetailContent({ issue, presentation = 'sheet', headerAction
               <div className="flex items-center gap-2">
                 <h2 className="text-sm font-medium">Sub-tasks</h2>
                 {subtasks.length > 0 && (
-                  <span className="font-mono text-xs text-muted-foreground bg-secondary/80 px-1.5 py-0.5 rounded border border-border/50">
+                  <span className="font-mono text-xs text-muted-foreground bg-secondary/80 px-1.5 py-0.5 rounded-sm border border-border/50">
                     {doneSubtasksCount}/{subtasks.length}
                   </span>
                 )}
@@ -594,7 +594,7 @@ export function IssueDetailContent({ issue, presentation = 'sheet', headerAction
             {subtasksLoading && <PendingRows label="Loading sub-tasks" />}
             {subtasksError && <LoadError label="sub-tasks" retry={() => void refetchSubtasks()} />}
             {subtasks.length > 0 && (
-              <div className="rounded-[6px] border border-border/70 divide-y divide-border/50 bg-background/60 overflow-hidden">
+              <div className="rounded-sm border border-border/70 divide-y divide-border/50 bg-background/60 overflow-hidden">
                 {subtasks.map((st) => {
                   const isDone = getIssueStatusCategory(st) === 'completed';
                   return (
@@ -674,7 +674,7 @@ export function IssueDetailContent({ issue, presentation = 'sheet', headerAction
                 size="xs"
                 disabled={readOnly}
                 onClick={() => setIsLinkPrOpen(true)}
-                className="h-6 text-xs text-muted-foreground hover:text-foreground gap-1.5 px-2 rounded-[5px]"
+                className="h-6 text-xs text-muted-foreground hover:text-foreground gap-1.5 px-2 rounded-sm"
               >
                 <GitPullRequest className="size-3" />
                 <span>Link PR</span>
@@ -683,13 +683,13 @@ export function IssueDetailContent({ issue, presentation = 'sheet', headerAction
 
             {/* PR List with CI/CD Checks and Reviewers */}
             {pullRequests.length > 0 ? (
-              <div className="rounded-[6px] border border-border/70 divide-y divide-border/50 bg-background/60 overflow-hidden">
+              <div className="rounded-sm border border-border/70 divide-y divide-border/50 bg-background/60 overflow-hidden">
                 {pullRequests.map((pr) => (
                   <div key={pr.id} className="flex flex-col p-3 gap-2.5 hover:bg-secondary/30 transition-colors">
                     <div className="flex items-center justify-between text-xs gap-3">
                       <div className="flex items-center gap-2.5 min-w-0">
-                        <div className="size-6 rounded-[5px] bg-secondary flex items-center justify-center shrink-0 border border-border/60">
-                          <GitPullRequest className={`size-3.5 ${pr.merged ? 'text-purple-400' : pr.state === 'open' ? 'text-emerald-500' : 'text-muted-foreground'}`} />
+                        <div className="size-6 rounded-sm bg-secondary flex items-center justify-center shrink-0 border border-border/60">
+                          <GitPullRequest className={`size-3.5 ${pr.merged ? 'text-highlight' : pr.state === 'open' ? 'text-success' : 'text-muted-foreground'}`} />
                         </div>
                         <div className="flex flex-col min-w-0">
                           <div className="flex items-center gap-1.5">
@@ -707,8 +707,8 @@ export function IssueDetailContent({ issue, presentation = 'sheet', headerAction
                           variant="outline"
                           className={`text-xs font-mono h-5 px-1.5 capitalize ${
                             pr.merged
-                              ? 'border-purple-500/30 bg-purple-500/10 text-purple-400'
-                              : pr.state === 'open' ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-500' : 'border-border bg-muted text-muted-foreground'
+                              ? 'border-highlight/30 bg-highlight/10 text-highlight'
+                              : pr.state === 'open' ? 'border-success/30 bg-success/10 text-success' : 'border-border bg-muted text-muted-foreground'
                           }`}
                         >
                           {pr.merged ? 'Merged' : pr.state === 'closed' ? 'Closed unmerged' : pr.state}
@@ -727,18 +727,18 @@ export function IssueDetailContent({ issue, presentation = 'sheet', headerAction
                       {/* CI Status */}
                       <span className="flex items-center gap-1 text-muted-foreground">
                         {pr.ciStatus === 'success' ? (
-                          <span className="text-emerald-500 flex items-center gap-1">
-                            <CheckCircle2 className="size-3 text-emerald-500" />
+                          <span className="text-success flex items-center gap-1">
+                            <CheckCircle2 className="size-3 text-success" />
                             <span>CI Checks Passing</span>
                           </span>
                         ) : pr.ciStatus === 'failure' ? (
-                          <span className="text-red-500 flex items-center gap-1">
-                            <Trash2 className="size-3 text-red-500" />
+                          <span className="text-destructive flex items-center gap-1">
+                            <Trash2 className="size-3 text-destructive" />
                             <span>CI Failed</span>
                           </span>
                         ) : (
-                          <span className="text-amber-500 flex items-center gap-1">
-                            <Clock className="size-3 text-amber-500" />
+                          <span className="text-warning flex items-center gap-1">
+                            <Clock className="size-3 text-warning" />
                             <span>CI status not reported</span>
                           </span>
                         )}
@@ -749,7 +749,7 @@ export function IssueDetailContent({ issue, presentation = 'sheet', headerAction
                       {/* Code Review Status */}
                       <span className="flex items-center gap-1 text-muted-foreground">
                         <ShieldCheck className="size-3 text-muted-foreground" />
-                        <span className={pr.reviewStatus === 'approved' ? 'text-emerald-500' : ''}>
+                        <span className={pr.reviewStatus === 'approved' ? 'text-success' : ''}>
                           {pr.reviewStatus === 'approved'
                             ? 'Approved'
                             : pr.reviewStatus === 'changes_requested'
@@ -806,7 +806,7 @@ export function IssueDetailContent({ issue, presentation = 'sheet', headerAction
               <span className="text-xs font-medium text-foreground">Linked branches</span>
               {branchesLoading ? <p className="text-xs text-muted-foreground inline-flex items-center gap-1.5"><Spinner className="size-3.5" aria-label="Loading branches" />Loading branches…</p>
                 : branchesError ? <div className="flex items-center justify-between gap-2 text-xs text-destructive"><span>Could not load branches.</span><Button type="button" size="xs" variant="outline" onClick={() => void refetchBranches()}>Retry</Button></div>
-                : linkedBranches.length ? <ul className="flex flex-col gap-1.5">{linkedBranches.map(branch => <li key={branch.id} className="flex min-w-0 items-center justify-between gap-2 text-xs"><a className="flex min-w-0 items-center gap-2 truncate text-muted-foreground hover:text-foreground hover:underline" href={`https://github.com/${branch.repositoryName}/tree/${encodeURIComponent(branch.name)}`} target="_blank" rel="noopener noreferrer"><GitBranch className="size-3 shrink-0" /><span className="truncate">{branch.name}</span></a><span className="shrink-0 font-mono text-[10px] text-muted-foreground">{branch.sha.slice(0, 7)}</span></li>)}</ul>
+                : linkedBranches.length ? <ul className="flex flex-col gap-1.5">{linkedBranches.map(branch => <li key={branch.id} className="flex min-w-0 items-center justify-between gap-2 text-xs"><a className="flex min-w-0 items-center gap-2 truncate text-muted-foreground hover:text-foreground hover:underline" href={`https://github.com/${branch.repositoryName}/tree/${encodeURIComponent(branch.name)}`} target="_blank" rel="noopener noreferrer"><GitBranch className="size-3 shrink-0" /><span className="truncate">{branch.name}</span></a><span className="shrink-0 font-mono text-xs text-muted-foreground">{branch.sha.slice(0, 7)}</span></li>)}</ul>
                 : <p className="text-xs text-muted-foreground">No linked branches yet.</p>}
             </div>
           </div>
@@ -850,7 +850,7 @@ export function IssueDetailContent({ issue, presentation = 'sheet', headerAction
                         ref={commentInputRef}
                         aria-label="Write a comment"
                         name={field.name}
-                        placeholder="Leave a comment or review note..."
+                        placeholder="Leave a comment or review note…"
                         rows={3}
                         value={field.state.value}
                         disabled={readOnly}
@@ -870,7 +870,7 @@ export function IssueDetailContent({ issue, presentation = 'sheet', headerAction
                       disabled={readOnly || !body.trim() || commentMutation.isPending}
                       className="px-3 font-medium"
                     >
-                      {commentMutation.isPending ? 'Posting...' : 'Comment'}
+                      {commentMutation.isPending ? 'Posting…' : 'Comment'}
                     </Button>} />
                   </div>
                 </form>

@@ -322,7 +322,7 @@ export function IssuesPage({ teamId }: IssuesPageProps) {
           {canManageLabels && <Button type="button" variant="outline" onClick={() => setManageLabelsOpen(true)}><Tag data-icon="inline-start" /><span>Manage labels</span></Button>}
           <Button onClick={() => setIsCreateOpen(true)} className="px-3">
             <Plus data-icon="inline-start" />
-            <span>New Issue</span>
+            <span>New issue</span>
           </Button>
       </WorkPageHeader>
 
@@ -355,10 +355,10 @@ export function IssuesPage({ teamId }: IssuesPageProps) {
           <Input
             ref={searchInputRef}
             aria-label="Search issues"
-            placeholder="Search issues..."
+            placeholder="Search issues…"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="h-7.5 pl-8 pr-8 text-xs font-sans tracking-tight bg-background/80 rounded-[6px] border-border/70 placeholder:text-muted-foreground placeholder:font-normal"
+            className="h-7.5 pl-8 pr-8 text-xs font-sans tracking-tight bg-background/80 rounded-sm border-border/70 placeholder:text-muted-foreground placeholder:font-normal"
           />
           {searchQuery ? (
             <Button
@@ -373,7 +373,7 @@ export function IssuesPage({ teamId }: IssuesPageProps) {
               <X />
             </Button>
           ) : (
-            <kbd className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none inline-flex h-4 select-none items-center rounded border border-border/70 bg-muted/60 px-1 font-mono text-xs font-medium text-muted-foreground">
+            <kbd className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none inline-flex h-4 select-none items-center rounded-sm border border-border/70 bg-muted/60 px-1 font-mono text-xs font-medium text-muted-foreground">
               /
             </kbd>
           )}
@@ -470,7 +470,7 @@ export function IssuesPage({ teamId }: IssuesPageProps) {
             )}
           </div>
           {filtersVisible && (
-            <aside id="issue-filters-panel" aria-label="Issue filters panel" className="sticky top-6 hidden h-[calc(100svh-7.25rem)] min-h-0 self-start flex-col overflow-hidden rounded-xl border border-border bg-card xl:flex">
+            <aside id="issue-filters-panel" aria-label="Issue filters panel" className="sticky top-6 hidden h-[calc(100svh-7.25rem)] min-h-0 self-start flex-col overflow-hidden rounded-lg border border-border bg-card xl:flex">
               <IssueFiltersSidebar
                 issues={filterBaseIssues}
                 users={users}
@@ -486,7 +486,7 @@ export function IssuesPage({ teamId }: IssuesPageProps) {
             </aside>
           )}
           {metricsVisible && (
-            <aside id="issue-metrics-panel" aria-label="Issue metrics insight" className="sticky top-6 hidden h-[calc(100svh-7.25rem)] min-h-0 self-start flex-col overflow-hidden rounded-xl border border-border bg-card xl:flex shadow-sm">
+            <aside id="issue-metrics-panel" aria-label="Issue metrics insight" className="sticky top-6 hidden h-[calc(100svh-7.25rem)] min-h-0 self-start flex-col overflow-hidden rounded-lg border border-border bg-card xl:flex shadow-sm">
               <IssueMetricsAside
                 issues={filteredIssues}
                 users={users}

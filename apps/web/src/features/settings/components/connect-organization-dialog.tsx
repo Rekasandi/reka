@@ -16,7 +16,7 @@ export function ConnectOrganizationDialog({ open, onOpenChange }: ConnectOrganiz
       <DialogContent className="w-full max-w-md">
         <DialogHeader>
           <div className="flex items-center gap-2">
-            <ShieldCheck className="size-4 text-emerald-500" />
+            <ShieldCheck className="size-4 text-success" />
             <DialogTitle className="text-base font-semibold">Install the REKA GitHub App</DialogTitle>
           </div>
           <DialogDescription className="text-xs leading-relaxed">

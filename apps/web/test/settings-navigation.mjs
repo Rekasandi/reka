@@ -76,7 +76,7 @@ try {
   await page.getByRole('button', { name: 'Save preferences', exact: true }).click();
   await page.getByRole('dialog').waitFor({ state: 'hidden' });
   assert.equal(preferences.assignments, false);
-  for (const [label, heading, section] of [['Profile', 'Profile', 'profile'], ['Connected accounts', 'Connected accounts', 'accounts'], ['Workflows', 'Workflows', 'workflows'], ['Labels', 'Labels', 'labels'], ['Project settings', 'Project settings', 'projects'], ['GitHub', 'GitHub', 'github'], ['Workspace', 'Workspace', 'workspace'], ['Members', 'Workspace Users', 'members'], ['Teams', 'Teams', 'teams']]) {
+  for (const [label, heading, section] of [['Profile', 'Profile', 'profile'], ['Connected accounts', 'Connected accounts', 'accounts'], ['Workflows', 'Workflows', 'workflows'], ['Labels', 'Labels', 'labels'], ['Project settings', 'Project settings', 'projects'], ['GitHub', 'GitHub', 'github'], ['Workspace', 'Workspace', 'workspace'], ['Members', 'Members', 'members'], ['Teams', 'Teams', 'teams']]) {
     await nav.getByRole('link', { name: label, exact: true }).click();
     await page.waitForURL(`**/settings/${section}`);
     await page.getByRole('heading', { name: heading, exact: true, level: 1 }).waitFor();
@@ -106,8 +106,8 @@ try {
   await page.getByRole('link', { name: 'Manage team Design' }).waitFor();
   await page.getByRole('combobox', { name: 'Team visibility' }).click();
   await page.getByRole('option', { name: 'All visibility', exact: true }).click();
-  await page.getByRole('button', { name: 'Create team', exact: true }).click();
-  const createDialog = page.getByRole('dialog', { name: 'Create team', exact: true });
+  await page.getByRole('button', { name: 'New team', exact: true }).click();
+  const createDialog = page.getByRole('dialog', { name: 'New team', exact: true });
   await createDialog.getByLabel('Team name', { exact: true }).fill('Engineering');
   await createDialog.getByLabel('Identifier', { exact: true }).fill('1!');
   assert.equal(await createDialog.getByLabel('Identifier', { exact: true }).getAttribute('aria-invalid'), 'true');
@@ -119,7 +119,7 @@ try {
   assert.equal(await createDialog.getByLabel('Team name', { exact: true }).inputValue(), 'Engineering');
   await createDialog.getByRole('button', { name: 'Cancel', exact: true }).click();
   await page.getByRole('searchbox', { name: 'Filter teams by name' }).fill('no matching team');
-  await page.getByText('No matching teams. Try another name or visibility.', { exact: true }).waitFor();
+  await page.getByText('No matching teams', { exact: true }).waitFor();
   await page.getByRole('searchbox', { name: 'Filter teams by name' }).fill('Engineering');
   await page.getByRole('link', { name: 'Manage team Engineering' }).click();
   await page.waitForURL('**/settings/teams/t1');
@@ -128,7 +128,7 @@ try {
   const memberDialog = page.getByRole('dialog', { name: 'Add team member', exact: true });
   await memberDialog.getByRole('button', { name: 'Invite to workspace', exact: true }).click();
   await memberDialog.waitFor({ state: 'hidden' });
-  const inviteDialog = page.getByRole('dialog', { name: 'Invite User', exact: true });
+  const inviteDialog = page.getByRole('dialog', { name: 'Invite member', exact: true });
   await inviteDialog.getByLabel('Work email', { exact: true }).waitFor();
   assert.equal(await page.getByRole('dialog').count(), 1, 'Workspace invitation replaces, not stacks over, the add-member dialog');
   await inviteDialog.getByRole('button', { name: 'Cancel', exact: true }).click();
@@ -137,9 +137,9 @@ try {
   await page.keyboard.press('Enter');
   await memberDialog.getByRole('button', { name: 'Add member', exact: true }).click();
   await memberDialog.waitFor({ state: 'hidden' });
-  await page.getByRole('combobox', { name: 'Team role for Ayu Lestari' }).click();
-  await page.getByRole('option', { name: 'Viewer', exact: true }).click();
-  await page.waitForFunction(() => document.querySelector('[aria-label="Team role for Ayu Lestari"]')?.textContent?.includes('Viewer'));
+  await page.getByRole('button', { name: 'Team role for Ayu Lestari' }).click();
+  await page.getByRole('menuitemradio', { name: /^Viewer/ }).click();
+  await page.waitForFunction(() => document.querySelector('[aria-label^="Team role for Ayu Lestari"]')?.textContent?.includes('Viewer'));
   assert.equal(members.find(member => member.userId === 'u2').role, 'viewer');
   const deletesBefore = requests.filter(request => request.startsWith('DELETE')).length;
   await page.getByRole('button', { name: 'Member actions for Ayu Lestari' }).click();
@@ -149,7 +149,7 @@ try {
   await page.getByRole('button', { name: 'Member actions for Ayu Lestari' }).click();
   await page.getByRole('menuitem', { name: 'Remove member', exact: true }).click();
   await page.getByRole('alertdialog').getByRole('button', { name: 'Remove member', exact: true }).click();
-  await page.getByRole('combobox', { name: 'Team role for Ayu Lestari' }).waitFor({ state: 'hidden' });
+  await page.getByRole('button', { name: 'Team role for Ayu Lestari' }).waitFor({ state: 'hidden' });
   assert.equal(members.some(member => member.userId === 'u2'), false);
   await nav.waitFor();
   await page.reload();
@@ -163,7 +163,7 @@ try {
   assert.equal(await workspaceSidebar.getByRole('link', { name: 'Overview', exact: true }).getAttribute('aria-current'), 'page');
   assert.equal(await page.getByRole('tab', { name: 'Members', exact: true }).getAttribute('aria-selected'), 'true');
   await page.getByRole('searchbox', { name: 'Search team members' }).fill('not a member');
-  await page.getByRole('cell', { name: 'No members match your search.', exact: true }).waitFor();
+  await page.getByText('No members match your search', { exact: true }).waitFor();
   await page.getByRole('searchbox', { name: 'Search team members' }).fill('');
   const historyBeforeTab = await page.evaluate(() => history.length);
   await page.getByRole('tab', { name: 'Overview', exact: true }).click();
@@ -173,7 +173,7 @@ try {
   await page.waitForURL('**/teams/t1?tab=members');
   assert.equal(await page.getByRole('tab', { name: 'Members', exact: true }).getAttribute('aria-selected'), 'true');
   await page.reload();
-  await page.getByRole('combobox', { name: 'Team role for Dimas Pratama' }).waitFor();
+  await page.getByRole('button', { name: 'Team role for Dimas Pratama' }).waitFor();
   await page.getByRole('tab', { name: 'Overview', exact: true }).focus();
   await page.keyboard.press('Enter');
   await page.waitForURL('**/teams/t1');
@@ -217,14 +217,14 @@ try {
     await page.getByRole('link', { name: 'Manage team Engineering' }).waitFor();
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, 'Teams directory stays within the viewport');
     await page.screenshot({ path: `${out}/${theme}-${width}-teams.png` });
-    await page.getByRole('button', { name: 'Create team', exact: true }).click();
-    await page.getByRole('dialog', { name: 'Create team', exact: true }).getByLabel('Team name', { exact: true }).fill('Engineering');
+    await page.getByRole('button', { name: 'New team', exact: true }).click();
+    await page.getByRole('dialog', { name: 'New team', exact: true }).getByLabel('Team name', { exact: true }).fill('Engineering');
     assert.equal(await page.getByRole('dialog').getByLabel('Identifier', { exact: true }).inputValue(), 'ENG');
     assert.equal(await page.getByRole('dialog').getByRole('button', { name: 'Create team', exact: true }).isEnabled(), true);
     await page.screenshot({ path: `${out}/${theme}-${width}-create-team.png` });
-    await page.getByRole('dialog', { name: 'Create team', exact: true }).getByRole('button', { name: 'Cancel', exact: true }).click();
+    await page.getByRole('dialog', { name: 'New team', exact: true }).getByRole('button', { name: 'Cancel', exact: true }).click();
     await page.getByRole('link', { name: 'Manage team Engineering' }).click();
-    await page.getByRole('combobox', { name: 'Team role for Dimas Pratama' }).waitFor();
+    await page.getByRole('button', { name: 'Team role for Dimas Pratama' }).waitFor();
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
     await page.screenshot({ path: `${out}/${theme}-${width}-team-members.png` });
     await page.getByRole('button', { name: 'Add member', exact: true }).click();
@@ -322,7 +322,7 @@ try {
     for (const tab of ['members', 'settings']) {
       await page.goto(`${base}/teams/t1?tab=${tab}`);
       await page.getByRole('tabpanel', { name: tab === 'members' ? 'Members' : 'Settings', exact: true }).waitFor();
-      await (tab === 'members' ? page.getByRole('combobox', { name: 'Team role for Dimas Pratama' }) : page.getByLabel('todo state name', { exact: true })).waitFor();
+      await (tab === 'members' ? page.getByRole('button', { name: 'Team role for Dimas Pratama' }) : page.getByLabel('todo state name', { exact: true })).waitFor();
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
       assert.equal(await page.getByRole('link', { name: 'Back to Teams', exact: true }).count(), 0);
       const clipped = await page.evaluate(() => [...document.querySelectorAll('.team-detail-page input, .team-detail-page select, .team-detail-page button')].filter(element => { const rect = element.getBoundingClientRect(); return element.checkVisibility() && (rect.left < 0 || rect.right > innerWidth + 1); }).map(element => element.getAttribute('aria-label') || element.textContent));
@@ -332,7 +332,7 @@ try {
         await page.getByRole('dialog', { name: 'About team roles', exact: true }).getByText('Workspace permissions still apply.', { exact: true }).waitFor();
         await page.keyboard.press('Escape');
         await page.getByRole('dialog', { name: 'About team roles', exact: true }).waitFor({ state: 'hidden' });
-        assert.equal(await page.getByRole('combobox', { name: 'Team role for Dimas Pratama' }).isDisabled(), true, 'Last writable lead guard stays intact');
+        assert.equal(await page.getByRole('button', { name: 'Team role for Dimas Pratama' }).isDisabled(), true, 'Last writable lead guard stays intact');
       } else {
         const alignment = await page.getByRole('checkbox', { name: 'Private team', exact: true }).evaluate(element => { const label = document.querySelector('label[for="team-settings-private"]'); return { gap: label.getBoundingClientRect().left - element.getBoundingClientRect().right, formWidth: document.querySelector('.team-settings-form form').getBoundingClientRect().width, nestedScroll: [...document.querySelectorAll('[aria-label="Workflow states"], [aria-label="Workflow states"] *')].some(element => ['auto', 'scroll'].includes(getComputedStyle(element).overflowY) && element.scrollHeight > element.clientHeight + 2) }; });
         assert.ok(alignment.gap >= 6 && alignment.gap <= 12, 'Privacy checkbox remains next to its label, not spread across the form');
@@ -375,7 +375,7 @@ try {
   await page.getByRole('button', { name: 'Configure workflow' }).first().waitFor();
   role = 'admin';
   await page.goto(base + '/settings/teams/t1');
-  await page.getByRole('combobox', { name: 'Team role for Dimas Pratama' }).waitFor();
+  await page.getByRole('button', { name: 'Team role for Dimas Pratama' }).waitFor();
   assert.deepEqual(errors, []);
   console.log('PASS: actual settings/team routes, member roles/search/help/last-lead controls, add/remove/cancel, compact team tabs/history, settings and workflow save/reload/error/pending/retry, privacy alignment, 20 team desktop/mobile light/dark renders, existing settings/dialog flows and read-only/admin access. Controlled APIs only.');
 } finally { await browser.close(); }

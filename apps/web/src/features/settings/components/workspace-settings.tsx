@@ -67,7 +67,7 @@ export function WorkspaceSettings() {
         {update.isError && <Alert variant="destructive"><AlertDescription>{update.error.message}</AlertDescription></Alert>}
         {canManage && (
           <section className="flex min-w-0 flex-col gap-4" aria-labelledby="invitations-title">
-            <div className="flex flex-wrap items-center justify-between gap-3"><h3 id="invitations-title" className="text-sm font-medium">Workspace invitations</h3><Button size="sm" onClick={() => setInviteOpen(true)}>Invite User</Button></div>
+            <div className="flex flex-wrap items-center justify-between gap-3"><h3 id="invitations-title" className="text-sm font-medium">Workspace invitations</h3><Button size="sm" onClick={() => setInviteOpen(true)}>Invite member</Button></div>
             {invitations.isLoading && <Skeleton className="h-16 w-full" />}
             {invitations.isError && <Alert variant="destructive"><AlertDescription>Could not load invitations. <Button variant="outline" size="sm" onClick={() => invitations.refetch()}>Retry invitations</Button></AlertDescription></Alert>}
             {revoke.isError && <Alert variant="destructive"><AlertDescription>{revoke.error.message}</AlertDescription></Alert>}

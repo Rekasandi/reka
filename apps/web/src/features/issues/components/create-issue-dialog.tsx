@@ -12,6 +12,7 @@ import {
   Input,
   Field,
   FieldLabel,
+  FieldDescription,
   FieldError,
   FieldGroup,
   DatePicker,
@@ -44,7 +45,9 @@ interface CreateIssueDialogProps {
 }
 
 export function CreateIssueDialog({ open, onOpenChange, defaultProjectId, defaultCycleId, defaultTeamId, defaultStatus, defaultParentId, defaultParentIdentifier }: CreateIssueDialogProps) {
-  const { data: teams = [] } = useTeams();
+  const { data: allTeams = [] } = useTeams();
+  // Only teams the server will accept: issues need a non-viewer team membership.
+  const teams = React.useMemo(() => allTeams.filter(team => team.canWrite), [allTeams]);
   const createMutation = useCreateIssue();
 
   const form = useForm({
@@ -106,7 +109,7 @@ export function CreateIssueDialog({ open, onOpenChange, defaultProjectId, defaul
     }
     if (defaultTeamId) {
       form.setFieldValue('teamId', defaultTeamId);
-    } else if (!form.state.values.teamId && teams[0]) {
+    } else if (!teams.some(team => team.id === form.state.values.teamId) && teams[0]) {
       form.setFieldValue('teamId', teams[0].id);
     }
     if (defaultParentId) {
@@ -126,7 +129,7 @@ export function CreateIssueDialog({ open, onOpenChange, defaultProjectId, defaul
           className="flex flex-col gap-4"
         >
           <DialogHeader>
-            <DialogTitle>{defaultParentId ? 'New Sub-issue' : 'New Issue'}</DialogTitle>
+            <DialogTitle>{defaultParentId ? 'New sub-issue' : 'New issue'}</DialogTitle>
             <DialogDescription>
               {defaultParentId
                 ? `Add a child issue to ${defaultParentIdentifier ?? 'this issue'}.`
@@ -195,6 +198,7 @@ export function CreateIssueDialog({ open, onOpenChange, defaultProjectId, defaul
                     <FieldLabel htmlFor={field.name} className="text-muted-foreground">Team</FieldLabel>
                     <TeamPicker id={field.name} teams={teams} teamId={field.state.value} className="h-8 w-full justify-start"
                       onTeamChange={teamId => { form.setFieldValue('cycleId', 'none'); form.setFieldValue('estimate', ''); if (!form.getFieldMeta('status')?.isTouched) form.setFieldValue('status', teamDefaultStatus(teamId), { dontUpdateMeta: true }); field.handleChange(teamId); }} />
+                    {!teams.length && <FieldDescription className="text-xs">Join a team to create issues.</FieldDescription>}
                   </Field>
                 )}
               />
@@ -332,11 +336,11 @@ export function CreateIssueDialog({ open, onOpenChange, defaultProjectId, defaul
             <form.Subscribe
               selector={(state) => [state.canSubmit, state.isSubmitting]}
               children={([canSubmit, isSubmitting]) => {
-                let submitText = 'Create Issue';
+                let submitText = 'Create issue';
                 if (createMutation.isPending || isSubmitting) {
-                  submitText = 'Creating...';
+                  submitText = 'Creating…';
                 } else if (defaultParentId) {
-                  submitText = 'Create Sub-issue';
+                  submitText = 'Create sub-issue';
                 }
                 return (
                   <Button

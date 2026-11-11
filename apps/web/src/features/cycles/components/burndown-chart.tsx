@@ -32,7 +32,7 @@ export function BurndownChart({ snapshots, isLoading, isError, onRetry, estimate
         <Button size="sm" variant="category" aria-pressed={metric === 'estimate'} onClick={() => setMetric('estimate')}>Estimate</Button>
       </div>}
     </div>
-    {isLoading ? <Skeleton role="status" aria-label="Loading cycle history" className="h-48 w-full" /> : isError ? <Alert className="rounded-none border-0 bg-transparent px-0 py-0 text-foreground flex items-center gap-3 text-sm text-muted-foreground">Could not load history.<Button variant="outline" size="sm" onClick={onRetry}>Retry</Button></Alert> : data.length ? <>
+    {isLoading ? <Skeleton role="status" aria-label="Loading cycle history" className="h-48 w-full" /> : isError ? <Alert variant="destructive" className="flex flex-wrap items-center gap-3">Could not load history.<Button variant="outline" size="sm" onClick={onRetry}>Retry</Button></Alert> : data.length ? <>
       <div className="flex items-center justify-between text-xs text-muted-foreground"><span>{earliest ? `History from ${new Date(earliest).toLocaleString()}` : ''}</span><span className="tabular-nums">{remaining} remaining at last snapshot</span></div>
       <div className="h-48 w-full min-w-0">
         <ChartContainer config={config} className="h-full w-full aspect-auto">

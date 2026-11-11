@@ -1,10 +1,10 @@
 import * as React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
-  Activity, Box, Building2, ChevronDown, CircleArrowRight,
+  Box, ChevronDown, CircleArrowRight,
   CircleDot, Ellipsis, FileText, Focus, Home, Inbox, Layers2,
   LayoutDashboard, LockKeyhole, PanelsTopLeft, Plus, Settings,
-  UserCheck, Users, type LucideIcon,
+  type LucideIcon,
 } from 'lucide-react';
 import {
   Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent,
@@ -22,22 +22,9 @@ import { useUnreadCount } from '../../features/notifications/hooks/use-notificat
 import { useFavorites } from '../../features/favorites/hooks/use-favorites';
 import { useTriage } from '../../features/issues/hooks/use-triage';
 import { resolveEntityIcon } from '../entity-icon-picker';
+import { useWorkspaceNavigation, WORKSPACE_NAV_ITEMS } from '../../features/settings/lib/workspace-navigation';
 
 type NavItem = { label: string; to: string; icon: LucideIcon; count?: number };
-const workspaceNav: NavItem[] = [
-  { label: 'Projects', to: '/projects', icon: Box },
-  { label: 'Teams', to: '/teams', icon: Users },
-  { label: 'Users', to: '/users', icon: UserCheck },
-];
-const moreNav: NavItem[] = [
-  { label: 'All Issues', to: '/issues', icon: PanelsTopLeft },
-  { label: 'Triage', to: '/triage', icon: CircleArrowRight },
-  { label: 'Documents', to: '/documents', icon: FileText },
-  { label: 'Cycles', to: '/cycles', icon: CircleDot },
-  { label: 'Insights', to: '/insights', icon: Activity },
-  { label: 'Favorites', to: '/favorites', icon: Layers2 },
-  { label: 'Clients', to: '/clients', icon: Building2 },
-];
 const favoriteIcons = { issue: PanelsTopLeft, project: Box, document: FileText };
 
 function SidebarSection({ label, action, children }: {
@@ -63,7 +50,10 @@ export function AppSidebar() {
   // The workspace-wide Cycles page is only useful while at least one team still has cycles switched on.
   const showCycles = teams.length === 0 || teams.some(team => team.cyclesEnabled !== false);
   const showTriage = teams.length === 0 || teams.some(team => team.triageEnabled !== false);
-  const visibleMoreNav = moreNav.filter(item => (item.to !== '/cycles' || showCycles) && (item.to !== '/triage' || showTriage));
+  const { navigation, features } = useWorkspaceNavigation();
+  const visibleNav = WORKSPACE_NAV_ITEMS.filter(item => (item.to !== '/cycles' || showCycles) && (item.to !== '/triage' || showTriage) && (item.to !== '/clients' || features.clients));
+  const workspaceNav = visibleNav.filter(item => navigation[item.to] === 'sidebar');
+  const visibleMoreNav = visibleNav.filter(item => navigation[item.to] === 'more');
   const { data: unreadData } = useUnreadCount();
   const { data: favorites = [], isLoading: favoritesLoading, isError: favoritesError, refetch: retryFavorites } = useFavorites();
   const { data: triage } = useTriage();
@@ -116,7 +106,7 @@ export function AppSidebar() {
       <SidebarSection label="Workspace">
         <SidebarMenu>
           {workspaceNav.map(item => navItem(item))}
-          <SidebarMenuItem>
+          {visibleMoreNav.length > 0 && <SidebarMenuItem>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <SidebarMenuButton isActive={visibleMoreNav.some(item => isCurrent(item.to))} tooltip="More" aria-label="More workspace pages">
@@ -129,7 +119,7 @@ export function AppSidebar() {
                 </DropdownMenuItem>)}</DropdownMenuGroup>
               </DropdownMenuContent>
             </DropdownMenu>
-          </SidebarMenuItem>
+          </SidebarMenuItem>}
         </SidebarMenu>
       </SidebarSection>
 

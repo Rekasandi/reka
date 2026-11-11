@@ -11,7 +11,7 @@ export const STATUS_CONFIG: Record<
     label: 'Triage',
     number: 0,
     color: '#ec9a3c',
-    renderIcon: () => <span className="size-2 rounded-full bg-orange-500" />,
+    renderIcon: () => <span className="size-2 rounded-full bg-warning" />,
   },
   backlog: {
     label: 'Backlog',
@@ -45,7 +45,7 @@ export const STATUS_CONFIG: Record<
     number: 3,
     color: '#f5a623',
     renderIcon: () => (
-      <svg className="size-3.5 text-amber-500" viewBox="0 0 16 16" fill="none">
+      <svg className="size-3.5 text-warning" viewBox="0 0 16 16" fill="none">
         <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.75" />
         <path d="M8 2A6 6 0 0 1 8 14V2z" fill="currentColor" />
       </svg>
@@ -56,7 +56,7 @@ export const STATUS_CONFIG: Record<
     number: 4,
     color: '#50e3c2',
     renderIcon: () => (
-      <svg className="size-3.5 text-emerald-500" viewBox="0 0 16 16" fill="none">
+      <svg className="size-3.5 text-success" viewBox="0 0 16 16" fill="none">
         <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.75" />
         <path d="M8 2A6 6 0 0 1 14 8L8 8V2z" fill="currentColor" />
       </svg>
@@ -67,7 +67,7 @@ export const STATUS_CONFIG: Record<
     number: 5,
     color: '#0070f3',
     renderIcon: () => (
-      <svg className="size-3.5 text-cyan-500" viewBox="0 0 16 16" fill="none">
+      <svg className="size-3.5 text-info" viewBox="0 0 16 16" fill="none">
         <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.75" />
         <path d="M8 4l2.5 3.5H5.5L8 4z M8 8.5v3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
@@ -78,12 +78,12 @@ export const STATUS_CONFIG: Record<
     number: 6,
     color: '#7928ca',
     renderIcon: () => (
-      <svg className="size-3.5 text-indigo-500" viewBox="0 0 16 16" fill="currentColor">
+      <svg className="size-3.5 text-info" viewBox="0 0 16 16" fill="currentColor">
         <circle cx="8" cy="8" r="7" />
         <path
           d="M5 8.2l2 2 4.2-4.4"
           fill="none"
-          stroke="#ffffff"
+          stroke="var(--background)"
           strokeWidth="1.75"
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -96,7 +96,7 @@ export const STATUS_CONFIG: Record<
     number: 7,
     color: '#8f8f8f',
     renderIcon: () => (
-      <svg className="size-3.5 text-zinc-500" viewBox="0 0 16 16" fill="none">
+      <svg className="size-3.5 text-muted-foreground" viewBox="0 0 16 16" fill="none">
         <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.75" />
         <path d="M5.5 5.5l5 5M10.5 5.5l-5 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
       </svg>
@@ -107,7 +107,7 @@ export const STATUS_CONFIG: Record<
     number: 8,
     color: '#ee0000',
     renderIcon: () => (
-      <svg className="size-3.5 text-rose-500" viewBox="0 0 16 16" fill="none">
+      <svg className="size-3.5 text-destructive" viewBox="0 0 16 16" fill="none">
         <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.75" />
         <path d="M4.5 11.5l7-7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
       </svg>
@@ -138,7 +138,8 @@ export function renderStateIcon(category: string, color?: string | null) {
     default: return <svg {...common} fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.75" /></svg>;
   }
 }
-const CATEGORY_DEFAULT_COLOR: Record<string, string> = { triage: '#ec9a3c', backlog: '#8f8f8f', unstarted: '#8f8f8f', started: '#f5a623', completed: '#7928ca', canceled: '#8f8f8f' };
+/** Default tint per workflow category; a state's own (user-picked) colour overrides it. */
+export const CATEGORY_DEFAULT_COLOR: Record<string, string> = { triage: '#ec9a3c', backlog: '#8f8f8f', unstarted: '#8f8f8f', started: '#f5a623', completed: '#7928ca', canceled: '#8f8f8f' };
 
 /** Pass `category` (and `color`) when known, or `teamId` to look the state up; otherwise falls back to the built-in icons. */
 export function StatusIconOnly({ status, category, color, teamId }: { status: string; category?: string | null; color?: string | null; teamId?: string }) {

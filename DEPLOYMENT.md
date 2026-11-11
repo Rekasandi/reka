@@ -33,6 +33,18 @@ Needs a Linux server with Docker, ports 80/443 open, and a DNS `A` record such a
 
 Migrations are never run by the containers; follow the migration gate below.
 
+### Automatic deploy from GitHub Actions
+
+Every push to `main` runs the `deploy` job in `.github/workflows/ci.yml` after type-check, build and integration tests pass (browser tests report separately and do not block it). It SSHes into the server, fast-forwards the checkout to `origin/main`, runs `docker compose --profile app up -d --build` and waits until the API container is healthy. It never runs migrations.
+
+Set these repository secrets (Settings → Secrets and variables → Actions); without them the job is skipped with a warning:
+
+- `VPS_HOST`, `VPS_USER` — the server and the SSH user that owns the checkout and can run Docker.
+- `VPS_SSH_KEY` — a private key whose public key is in that user's `~/.ssh/authorized_keys` (use a dedicated deploy key).
+- `VPS_PORT` (optional, default `22`) and `VPS_APP_DIR` (optional, default `~/reka`).
+
+The server checkout must be able to `git fetch` from GitHub (a read-only deploy key on the repository, or HTTPS for a public repository).
+
 ## Deploy the frontend on Vercel
 
 1. Replace `https://YOUR-API-DOMAIN` in `vercel.json` with your API origin (for example `https://api.example.com`) and commit it.

@@ -1,30 +1,39 @@
 import * as React from 'react';
-import { Badge, Button, Skeleton, Avatar, AvatarImage, AvatarFallback, Select, SelectTrigger, SelectValue, SelectContent, SelectGroup, SelectItem, Table, TableHeader, TableBody, TableRow, TableHead, TableCell, cn } from '@reka/ui';
-import { UserPlus, Trash2, RefreshCw, ArrowDown, Contact } from 'lucide-react';
-import { format } from 'date-fns';
+import { Alert, Button, Skeleton, Avatar, AvatarImage, AvatarFallback, Table, TableHeader, TableBody, TableRow, TableHead, TableCell, cn } from '@reka/ui';
+import { UserPlus, Trash2, RefreshCw, Contact } from 'lucide-react';
+import { format, formatDistanceToNowStrict } from 'date-fns';
 import { useUsers, useUpdateUser, useDeleteUser } from '../hooks/use-users';
 import { ConfirmDeleteDialog } from '../../../components/common/confirm-delete-dialog';
 import type { User } from '../api/users.api';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from '@reka/ui';
+import { RolePicker } from './role-picker';
 import { InviteUserDialog } from './invite-user-dialog';
 import { getWorkspace, updateWorkspaceMember, WORKSPACE_QUERY_KEY } from '../../settings/api/workspace.api';
 import { USERS_QUERY_KEY } from '../hooks/use-users';
 import { useAuth, useLogout } from '../../auth/hooks/use-auth';
+import { EmptyState, PageContainer, PageHeader } from '../../../components/common/page';
 
 const AVATAR_BG_COLORS = [
   'bg-pink-600 text-white',
-  'bg-sky-600 text-white',
-  'bg-emerald-600 text-white',
-  'bg-purple-600 text-white',
-  'bg-amber-600 text-white',
-  'bg-indigo-600 text-white',
+  'bg-info text-white',
+  'bg-success text-white',
+  'bg-highlight text-white',
+  'bg-warning text-white',
+  'bg-info text-white',
 ];
 
 function getAvatarBg(name: string) {
   let hash = 0;
   for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
   return AVATAR_BG_COLORS[Math.abs(hash) % AVATAR_BG_COLORS.length];
+}
+
+function formatLastSeen(val?: string | null): { label: string; title?: string } {
+  if (!val) return { label: 'Never' };
+  const d = new Date(val);
+  if (Number.isNaN(d.getTime())) return { label: 'Never' };
+  return { label: formatDistanceToNowStrict(d, { addSuffix: true }), title: format(d, 'MMM d, yyyy · HH:mm') };
 }
 
 function formatDateLabel(val?: string | null): string {
@@ -38,7 +47,7 @@ function formatDateLabel(val?: string | null): string {
   }
 }
 
-export function UsersPage() {
+export function UsersPage({ title = 'Users' }: { title?: string }) {
   const { user: currentUser } = useAuth();
   const logout = useLogout();
   const [isInviteOpen, setIsInviteOpen] = React.useState(false);
@@ -50,6 +59,7 @@ export function UsersPage() {
   const actorIsOwner = workspace.data?.role === 'owner';
   const canManage = actorIsOwner || workspace.data?.role === 'admin';
   const { data: users = [], isLoading, isError, refetch } = useUsers(canManage);
+  const activeOwnerCount = users.filter(person => person.role === 'owner' && person.isActive !== false).length;
   const activate = useMutation({ mutationFn: (id: string) => updateWorkspaceMember(id, { isActive: true }), onSuccess: () => { queryClient.invalidateQueries({ queryKey: USERS_QUERY_KEY }); toast.success('User reactivated'); }, onError: error => toast.error(error.message) });
   const updateMutation = useUpdateUser();
   const deleteMutation = useDeleteUser();
@@ -77,23 +87,9 @@ export function UsersPage() {
   };
 
   return (
-    <div className="flex flex-col gap-5 w-full selection:bg-foreground selection:text-background pb-10">
-      {/* Page Header */}
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex flex-col gap-1">
-          <div className="flex items-center gap-2.5">
-            <h1 className="text-xl sm:text-2xl font-semibold tracking-[-0.03em] text-foreground">Workspace Users</h1>
-            <Badge variant="outline" className="font-mono text-xs font-medium">
-              {users.length}
-            </Badge>
-          </div>
-          <p className="text-xs text-muted-foreground">
-            Manage members and workspace access.
-          </p>
-        </div>
-
-        {canManage && <div className="flex flex-wrap justify-end gap-2"><Button onClick={() => setIsInviteOpen(true)}><UserPlus data-icon="inline-start" /><span>Invite User</span></Button></div>}
-      </div>
+    <PageContainer>
+      <PageHeader title={title} count={users.length} description="Manage members and workspace access."
+        actions={canManage && <Button onClick={() => setIsInviteOpen(true)}><UserPlus data-icon="inline-start" />Invite member</Button>} />
 
       {/* Filter Tabs */}
       <div className="flex items-center gap-1.5 border-b border-border/70 pb-2">
@@ -125,33 +121,28 @@ export function UsersPage() {
 
       {/* Error state */}
       {isError && (
-        <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-xs text-destructive flex items-center justify-between">
-          <span>Failed to load users from server.</span>
-          <Button variant="outline" size="sm" onClick={() => refetch()}>
-            <RefreshCw data-icon="inline-start" className="size-3.5" />
-            Retry
-          </Button>
-        </div>
+        <Alert variant="destructive" className="flex flex-wrap items-center justify-between gap-3">
+          <span>Could not load users.</span>
+          <Button variant="outline" size="sm" onClick={() => refetch()}><RefreshCw data-icon="inline-start" />Retry</Button>
+        </Alert>
       )}
 
       {/* Users Table */}
-      {!isLoading && !isError && (
-        <div className="overflow-x-auto">
-          <Table aria-label="Workspace users" className="w-full text-xs">
-            <TableHeader className="text-muted-foreground border-0 [&_tr]:border-0">
-              <TableRow className="border-0 hover:bg-transparent">
-                <TableHead className="w-[36%] py-3 font-medium text-muted-foreground">
-                  <span className="inline-flex items-center gap-1">
-                    Name <ArrowDown className="size-3 text-muted-foreground" />
-                  </span>
-                </TableHead>
-                <TableHead className="w-[16%] py-3 font-medium text-muted-foreground">Role</TableHead>
-                <TableHead className="w-[14%] py-3 font-medium text-muted-foreground">Joined</TableHead>
-                <TableHead className="w-[14%] py-3 font-medium text-muted-foreground">Teams</TableHead>
-                <TableHead className="w-[20%] py-3 font-medium text-muted-foreground">Last seen</TableHead>
+      {!isLoading && !isError && (filteredUsers.length === 0 ? (
+        <EmptyState icon={Contact} title="No users match this filter" description="Choose another role filter to see more members." />
+      ) : (
+          <Table aria-label="Workspace users" className="min-w-[760px] table-fixed">
+            <TableHeader>
+              <TableRow>
+                <TableHead>Name</TableHead>
+                <TableHead className="w-32">Role</TableHead>
+                <TableHead className="w-32">Joined</TableHead>
+                <TableHead className="w-40">Teams</TableHead>
+                <TableHead className="w-32">Last seen</TableHead>
+                {canManage && <TableHead className="w-28"><span className="sr-only">Actions</span></TableHead>}
               </TableRow>
             </TableHeader>
-            <TableBody className="border-0 [&_tr]:border-0">
+            <TableBody>
               {filteredUsers.map((u) => {
                 const name = u.name?.trim() || u.email?.split('@')[0] || 'Member';
                 const names = name.split(/\s+/);
@@ -159,12 +150,13 @@ export function UsersPage() {
                 const avatarBg = getAvatarBg(name);
                 const joined = formatDateLabel(u.createdAt);
                 const isCurrent = currentUser?.id === u.id;
-                const lastSeen = isCurrent ? 'Online' : formatDateLabel(u.updatedAt || u.createdAt);
+                const lastSeen = formatLastSeen(u.lastSeenAt);
+                const lastActiveOwner = u.role === 'owner' && activeOwnerCount <= 1;
 
                 return (
-                  <TableRow key={u.id} className="h-14 border-0 hover:bg-muted/30 transition-colors">
+                  <TableRow key={u.id}>
                     {/* Name column */}
-                    <TableCell className="py-2.5">
+                    <TableCell>
                       <div className="flex items-center gap-3 min-w-0">
                         <Avatar className="size-8 rounded-full shrink-0 border border-border/60">
                           {u.avatarUrl && <AvatarImage src={u.avatarUrl} alt={name} />}
@@ -173,145 +165,100 @@ export function UsersPage() {
                           </AvatarFallback>
                         </Avatar>
                         <div className="flex flex-col min-w-0 leading-tight gap-0.5">
-                          <span className="font-medium text-sm text-foreground truncate">{name}</span>
+                          <span className="truncate font-medium text-foreground">{name}</span>
                           {u.githubUsername ? (
                             <a
                               href={`https://github.com/${encodeURIComponent(u.githubUsername)}`}
                               target="_blank"
                               rel="noreferrer"
                               aria-label={`GitHub profile for ${u.name}`}
-                              className="text-xs text-muted-foreground/70 hover:text-foreground hover:underline font-mono truncate block"
+                              className="text-xs text-muted-foreground hover:text-foreground hover:underline font-mono truncate block"
                             >
                               {u.githubUsername}
                             </a>
                           ) : (
-                            <span className="text-xs text-muted-foreground/60 truncate font-mono">{u.email}</span>
+                            <span className="truncate text-xs text-muted-foreground">{u.email}</span>
                           )}
                         </div>
                       </div>
                     </TableCell>
 
                     {/* Role column */}
-                    <TableCell className="py-2.5">
-                      {canManage && (u.role !== 'owner' || actorIsOwner) ? (
-                        <Select
-                          disabled={updateMutation.isPending}
-                          value={u.role}
-                          onValueChange={(val) => updateMutation.mutate({ id: u.id, data: { role: val } })}
-                        >
-                          <SelectTrigger
-                            aria-label={`Role for ${u.name}`}
-                            size="compact"
-                            className={cn(
-                              'h-6 w-auto px-2 py-0 rounded-md border text-xs font-medium cursor-pointer transition-colors',
-                              u.role === 'admin'
-                                ? 'bg-indigo-500/15 text-indigo-400 border-indigo-500/30 hover:bg-indigo-500/25'
-                                : u.role === 'owner'
-                                  ? 'bg-purple-500/15 text-purple-400 border-purple-500/30 hover:bg-purple-500/25'
-                                  : 'bg-secondary text-secondary-foreground border-border/80 hover:bg-muted'
-                            )}
-                          >
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectGroup>
-                              {actorIsOwner && <SelectItem value="owner">Owner</SelectItem>}
-                              <SelectItem value="admin">Admin</SelectItem>
-                              <SelectItem value="member">Member</SelectItem>
-                              <SelectItem value="guest">Guest · read-only</SelectItem>
-                              <SelectItem value="client">Client · read-only</SelectItem>
-                            </SelectGroup>
-                          </SelectContent>
-                        </Select>
-                      ) : (
-                        <span className={cn(
-                          'inline-flex h-6 items-center px-2 py-0 rounded-md border text-xs font-medium',
-                          u.role === 'admin'
-                            ? 'bg-indigo-500/15 text-indigo-400 border-indigo-500/30'
-                            : u.role === 'owner'
-                              ? 'bg-purple-500/15 text-purple-400 border-purple-500/30'
-                              : 'bg-secondary text-secondary-foreground border-border/80'
-                        )}>
-                          {u.role.charAt(0).toUpperCase() + u.role.slice(1)}
-                        </span>
-                      )}
+                    <TableCell>
+                      <RolePicker role={u.role} name={u.name || name} allowOwner={actorIsOwner} disabled={updateMutation.isPending}
+                        onRoleChange={canManage && (u.role !== 'owner' || actorIsOwner) ? role => updateMutation.mutate({ id: u.id, data: { role } }) : undefined} />
                     </TableCell>
 
                     {/* Joined column */}
-                    <TableCell className="py-2.5 text-muted-foreground text-xs font-mono">
+                    <TableCell className="text-muted-foreground tabular-nums">
                       {joined}
                     </TableCell>
 
                     {/* Teams column */}
-                    <TableCell className="py-2.5">
+                    <TableCell>
                       {u.teams && u.teams.length > 0 ? (
                         <div className="flex items-center gap-2 flex-wrap">
                           {u.teams.map((t) => (
-                            <span key={t.id} className="inline-flex items-center gap-1.5 text-xs text-foreground font-mono" title={t.name}>
+                            <span key={t.id} className="inline-flex items-center gap-1.5 font-mono text-foreground" title={t.name}>
                               <Contact className="size-3.5 text-muted-foreground" />
                               <span>{t.key}</span>
                             </span>
                           ))}
                         </div>
                       ) : (
-                        <span className="text-muted-foreground text-xs">No teams</span>
+                        <span className="text-muted-foreground">No teams</span>
                       )}
                     </TableCell>
 
-                    {/* Last seen & Actions column */}
-                    <TableCell className="py-2.5">
-                      <div className="flex items-center justify-between gap-2">
+                    {/* Last seen column */}
+                    <TableCell>
                         {isCurrent ? (
-                          <span className="inline-flex items-center gap-1.5 text-xs text-emerald-400 font-medium font-mono">
-                            <span className="size-1.5 rounded-full bg-emerald-500" />
+                          <span className="inline-flex items-center gap-1.5 font-medium text-success">
+                            <span className="size-1.5 rounded-full bg-success" />
                             Online
                           </span>
                         ) : (
-                          <span className="text-xs text-muted-foreground font-mono">
-                            {lastSeen}
+                          <span className="text-muted-foreground" title={lastSeen.title}>
+                            {lastSeen.label}
                           </span>
                         )}
+                    </TableCell>
 
-                        <div className="flex items-center gap-1">
+                    {/* Actions column */}
+                    {canManage && <TableCell>
+                        <div className="flex items-center justify-end gap-1">
                           {canManage && u.isActive === false && (u.role !== 'owner' || actorIsOwner) && (
                             <Button
                               variant="outline"
                               size="xs"
                               disabled={activate.isPending}
                               onClick={() => activate.mutate(u.id)}
-                              className="h-6 text-[10px]"
                             >
                               Reactivate
                             </Button>
                           )}
-                          {canManage && u.isActive !== false && u.role !== 'owner' && (
+                          {canManage && u.isActive !== false && (u.role !== 'owner' || actorIsOwner) && (
                             <Button
-                              variant="plain"
-                              size="auto"
+                              variant="ghost"
+                              size="icon-sm"
                               type="button"
+                              disabled={lastActiveOwner}
                               onClick={(e) => handleDelete(u, e)}
-                              className="rounded-md p-1 text-muted-foreground/30 transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                              title="Deactivate user"
+                              className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                              aria-label={`Deactivate ${name}`}
+                              title={lastActiveOwner ? 'The last active owner cannot be deactivated' : 'Deactivate user'}
                             >
-                              <Trash2 className="size-3" />
+                              <Trash2 />
                             </Button>
                           )}
                         </div>
-                      </div>
-                    </TableCell>
+                    </TableCell>}
                   </TableRow>
                 );
               })}
             </TableBody>
           </Table>
-
-          {filteredUsers.length === 0 && (
-            <div className="p-12 text-center text-xs text-muted-foreground">
-              No users found matching this filter.
-            </div>
-          )}
-        </div>
-      )}
+      ))}
 
       <InviteUserDialog open={isInviteOpen} onOpenChange={setIsInviteOpen} />
 
@@ -328,6 +275,6 @@ export function UsersPage() {
           }
         }}
       />
-    </div>
+    </PageContainer>
   );
 }

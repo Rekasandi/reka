@@ -133,12 +133,12 @@ try {
     const styles = {};
     for (const route of ['/my-issues', '/projects']) {
       await page.goto(`${process.env.WEB_URL || 'http://localhost:5173'}?route=${encodeURIComponent(route)}&theme=${theme}`);
-      await page.locator('[data-slot="work-page-header"] h1').waitFor();
+      await page.locator('[data-slot="page-header"] h1').waitFor();
       await page.locator('[data-work-list-row]').first().waitFor();
       await page.waitForTimeout(250); // Allow theme/badge transitions to settle before comparing computed colors.
       styles[route] = await page.evaluate(() => {
         const signature = (element, properties) => properties.map(property => getComputedStyle(element)[property]);
-        const header = document.querySelector('[data-slot="work-page-header"]');
+        const header = document.querySelector('[data-slot="page-header"]');
         const group = [...document.querySelectorAll('[data-slot="work-list-group-header"]')].find(element => element.checkVisibility());
         const row = document.querySelector('[data-work-list-row]');
         return {
@@ -216,7 +216,7 @@ try {
   const taskMenu = page.getByRole('menu', { name: 'Actions for ENG-1', exact: true });
   await taskMenu.getByRole('menuitem', { name: 'Copy issue ID', exact: true }).focus();
   await page.keyboard.press('c');
-  assert.equal(await page.getByRole('dialog', { name: 'New Issue', exact: true }).count(), 0);
+  assert.equal(await page.getByRole('dialog', { name: 'New issue', exact: true }).count(), 0);
   await taskMenu.getByRole('menuitem', { name: 'Status', exact: true }).focus();
   await page.keyboard.press('ArrowRight');
   await page.getByRole('menuitemradio', { name: 'Backlog', exact: true }).waitFor();
@@ -233,8 +233,8 @@ try {
   });
   for (const width of [1280, 390]) {
     await page.setViewportSize({ width, height: 900 });
-    await page.getByRole('button', { name: 'New Issue', exact: true }).click();
-    const dialog = page.getByRole('dialog', { name: 'New Issue', exact: true });
+    await page.getByRole('button', { name: 'New issue', exact: true }).click();
+    const dialog = page.getByRole('dialog', { name: 'New issue', exact: true });
     await dialog.getByLabel('Title', { exact: true }).fill('Picker consistency check');
     for (const [label, key, selectedName] of [
       ['Status', '4', 'Change status: In Review'],
@@ -268,7 +268,7 @@ try {
     assert.equal(createdIssues.length, width === 1280 ? 0 : 1, 'Shortcut selection does not submit the form');
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
     await page.screenshot({ path: `/tmp/reka-shared-pickers-create-${width}.png` });
-    await dialog.getByRole('button', { name: 'Create Issue', exact: true }).click();
+    await dialog.getByRole('button', { name: 'Create issue', exact: true }).click();
     await dialog.waitFor({ state: 'hidden' });
     const data = createdIssues.at(-1);
     assert.deepEqual([data.status, data.priority, data.type, data.projectId, data.cycleId, data.teamId], ['in_review', 'high', 'bug', 'p1', 'cy1', 't1']);
@@ -296,12 +296,12 @@ try {
   assert.equal(await page.evaluate(() => document.activeElement.id), 'workspace-content');
 
   await page.setViewportSize({ width: 390, height: 480 });
-  await page.getByRole('button', { name: 'New Issue', exact: true }).click();
-  const shortDialog = page.getByRole('dialog', { name: 'New Issue', exact: true });
+  await page.getByRole('button', { name: 'New issue', exact: true }).click();
+  const shortDialog = page.getByRole('dialog', { name: 'New issue', exact: true });
   await shortDialog.waitFor();
   const bounds = await shortDialog.boundingBox();
   assert.ok(bounds.y >= 0 && bounds.y + bounds.height <= 480, 'Short viewport keeps dialog inside the screen');
-  await shortDialog.getByRole('button', { name: 'Create Issue', exact: true }).scrollIntoViewIfNeeded();
+  await shortDialog.getByRole('button', { name: 'Create issue', exact: true }).scrollIntoViewIfNeeded();
   await page.keyboard.press('Escape');
 
   await page.setViewportSize({ width: 1280, height: 900 });

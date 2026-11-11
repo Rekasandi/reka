@@ -84,12 +84,12 @@ try {
   });
   await intro.evaluate(element => { element.style.minHeight = ''; });
 
-  await page.getByRole('combobox', { name: 'Project status' }).click();
-  await page.getByRole('option', { name: 'In Progress', exact: true }).click();
-  await page.waitForFunction(() => document.querySelector('[aria-label="Project status"]')?.textContent.includes('In Progress'));
+  await page.getByRole('button', { name: 'Project status' }).click();
+  await page.getByRole('menuitemradio', { name: 'In Progress', exact: true }).click();
+  await page.waitForFunction(() => document.querySelector('[aria-label^="Project status"]')?.textContent.includes('In Progress'));
   assert(updates.some(data => data.status === 'in_progress'));
-  await page.getByRole('combobox', { name: 'Project priority' }).click();
-  await page.getByRole('option', { name: 'High', exact: true }).click();
+  await page.getByRole('button', { name: 'Project priority' }).click();
+  await page.getByRole('menuitemradio', { name: 'High', exact: true }).click();
   await page.waitForTimeout(150);
   assert(updates.some(data => data.priority === 'high'));
   await page.getByRole('button', { name: 'Labels', exact: true }).click();

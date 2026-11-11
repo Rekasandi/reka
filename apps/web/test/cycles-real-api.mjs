@@ -112,7 +112,7 @@ try {
   await page.getByText('15 pts', { exact: true }).waitFor();
   await page.getByText('9 pts capacity remaining', { exact: true }).waitFor();
   await page.getByText('Measured remaining work', { exact: true }).waitFor();
-  await page.getByRole('button', { name: 'Complete Cycle...' }).click();
+  await page.getByRole('button', { name: 'Complete Cycle…' }).click();
   const complete = page.getByRole('dialog', { name: 'Complete Browser cycle' });
   await complete.getByRole('button', { name: 'Complete & Rollover' }).click();
   await complete.waitFor({ state: 'hidden' });

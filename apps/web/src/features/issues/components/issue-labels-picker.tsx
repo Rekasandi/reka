@@ -155,7 +155,7 @@ export function IssueLabelsPicker({
             className="w-auto max-w-xs p-2.5 bg-popover border border-border shadow-xl rounded-lg pointer-events-none select-none z-50"
           >
             <div className="flex flex-col gap-2 min-w-32">
-              <div className="flex items-center justify-between gap-3 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-0.5">
+              <div className="flex items-center justify-between gap-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider px-0.5">
                 <span>Labels</span>
                 <span className="font-mono font-normal">({selected.length})</span>
               </div>
@@ -260,7 +260,7 @@ export function IssueLabelsPicker({
                   return (
                     <p
                       key={label.id}
-                      className="px-2 pb-0.5 pt-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground"
+                      className="px-2 pb-0.5 pt-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground"
                     >
                       {label.name}
                     </p>

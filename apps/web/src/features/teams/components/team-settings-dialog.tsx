@@ -2,7 +2,7 @@ import * as React from 'react';
 import { useForm, useStore } from '@tanstack/react-form';
 import { Alert, AlertDescription, Button, Card, Checkbox, Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Field, FieldDescription, FieldGroup, FieldLabel, FieldError, Input, InputGroup, InputGroupAddon, InputGroupInput, InputGroupText, Skeleton, Spinner, Switch, Textarea } from '@reka/ui';
 import { ArrowDown, ArrowUp, GripVertical, Plus, Trash2, Undo2 } from 'lucide-react';
-import { StatusIconOnly } from '../../issues/components/status-picker';
+import { CATEGORY_DEFAULT_COLOR, StatusIconOnly } from '../../issues/components/status-picker';
 import { useUpdateTeam, useTeamWorkflowStates, useUpdateTeamWorkflowStates } from '../hooks/use-teams';
 import type { Team, TeamWorkflowState, WorkflowStateCategory } from '../api/teams.api';
 import { SelectField } from '../../../components/common/select-field';
@@ -16,7 +16,7 @@ const CATEGORIES: { value: WorkflowStateCategory; label: string }[] = [
 const CATEGORY_ORDER = CATEGORIES.map(category => category.value);
 /** Reuses the issue status icons so each group reads the same as it does on boards and lists. */
 const CATEGORY_ICON: Record<WorkflowStateCategory, string> = { triage: 'triage', backlog: 'backlog', unstarted: 'todo', started: 'in_progress', completed: 'done', canceled: 'canceled' };
-const CATEGORY_COLOR: Record<WorkflowStateCategory, string> = { triage: '#ec9a3c', backlog: '#8f8f8f', unstarted: '#8f8f8f', started: '#f5a623', completed: '#7928ca', canceled: '#8f8f8f' };
+const CATEGORY_COLOR: Record<WorkflowStateCategory, string> = CATEGORY_DEFAULT_COLOR;
 type WorkflowDraft =Pick<TeamWorkflowState, 'key' | 'name' | 'category' | 'color' | 'position' | 'isActive'>;
 const WORK_CATEGORIES: string[] = ['backlog', 'unstarted', 'started'];
 /** The API only accepts these six fields (it rejects `createdAt`, `updatedAt`, `teamId`, ...), so drafts never carry extras. */
@@ -201,7 +201,7 @@ export function TeamSettingsForm({ team, onClose, onPendingChange }: { team: Tea
             <div className="flex flex-col gap-1.5"><FieldLabel htmlFor="team-estimate-scale">Estimate scale</FieldLabel><FieldDescription>Points available when sizing issues. Existing estimates outside the new scale are kept but flagged when edited.</FieldDescription></div>
             <SelectField id="team-estimate-scale" aria-label="Estimate scale" className="w-full sm:w-80" value={field.state.value} disabled={pending || !generalValues.estimatesEnabled}
               options={ESTIMATE_SCALES.map(scale => ({ value: scale, label: ESTIMATE_SCALE_LABELS[scale] }))} onValueChange={value => field.handleChange(value as EstimateScale)} />
-            {offScaleCount > 0 && <p role="status" className="text-xs text-amber-700 dark:text-amber-400">{offScaleCount} issue{offScaleCount === 1 ? '' : 's'} in this team {offScaleCount === 1 ? 'has an estimate' : 'have estimates'} outside this scale. {offScaleCount === 1 ? 'It is' : 'They are'} kept as is and flagged "outside scale" when edited.</p>}
+            {offScaleCount > 0 && <p role="status" className="text-xs text-warning">{offScaleCount} issue{offScaleCount === 1 ? '' : 's'} in this team {offScaleCount === 1 ? 'has an estimate' : 'have estimates'} outside this scale. {offScaleCount === 1 ? 'It is' : 'They are'} kept as is and flagged "outside scale" when edited.</p>}
           </Field>}
         </generalForm.Field>
       </FieldGroup>
@@ -220,7 +220,7 @@ export function TeamSettingsForm({ team, onClose, onPendingChange }: { team: Tea
 
     <form aria-labelledby="team-workflow-heading" className="flex min-w-0 flex-col gap-4 border-t border-border pt-6" onSubmit={event => { event.preventDefault(); event.stopPropagation(); workflowForm.handleSubmit(); }}>
       <header className="flex flex-wrap items-start justify-between gap-3"><div className="min-w-0"><div className="flex items-center gap-2"><h3 id="team-workflow-heading" className="text-sm font-semibold">Issue workflow</h3><span className="text-xs tabular-nums text-muted-foreground">{states.length} of 16 states</span></div><p className="mt-1 max-w-prose text-xs text-muted-foreground">States are grouped by category. The category decides how an issue behaves on boards, in cycles and in insights. States that issues are using can't be turned off or deleted.</p></div><Button type="button" variant="outline" size="sm" onClick={() => addState()} disabled={pending || !workflowQuery.isSuccess || states.length >= 16}><Plus data-icon="inline-start" />Add state</Button></header>
-      {workflowQuery.isLoading ? <div className="flex flex-col gap-3"><Spinner aria-label="Loading workflow" className="sr-only" />{[0, 1, 2].map(row => <Skeleton key={row} className="h-16 w-full rounded-[6px]" />)}</div> : workflowQuery.isError ? <Alert variant="destructive"><AlertDescription className="flex items-center justify-between gap-3">Could not load workflow<Button type="button" variant="outline" size="sm" onClick={() => void workflowQuery.refetch()}>Retry</Button></AlertDescription></Alert> : <div className="flex min-w-0 flex-col gap-3">
+      {workflowQuery.isLoading ? <div className="flex flex-col gap-3"><Spinner aria-label="Loading workflow" className="sr-only" />{[0, 1, 2].map(row => <Skeleton key={row} className="h-16 w-full rounded-sm" />)}</div> : workflowQuery.isError ? <Alert variant="destructive"><AlertDescription className="flex items-center justify-between gap-3">Could not load workflow<Button type="button" variant="outline" size="sm" onClick={() => void workflowQuery.refetch()}>Retry</Button></AlertDescription></Alert> : <div className="flex min-w-0 flex-col gap-3">
         {workflowDirty && !workflowValid && <Alert variant="destructive"><AlertDescription>Keep at least one active state in Backlog, Unstarted or In progress, and one active state in Completed.</AlertDescription></Alert>}
         <div aria-hidden="true" className="team-workflow-head px-2 text-xs text-muted-foreground"><span /><span /><span>Name</span><span>Category</span><span>Active</span><span /></div>
         {groups.map(group => {
@@ -252,7 +252,7 @@ export function TeamSettingsForm({ team, onClose, onPendingChange }: { team: Tea
                       className={`flex h-9 items-center justify-center text-muted-foreground ${!rowPending && group.states.length > 1 ? 'cursor-grab active:cursor-grabbing' : 'opacity-30'}`}><GripVertical aria-hidden="true" className="size-4" /></span>
                     <ColorPickerField label={`${state.key} color`} value={state.color} disabled={rowPending} onValueChange={color => changeState(state.key, { color })} />
                     <div className="team-workflow-name min-w-0">
-                      <InputGroup className="h-9 rounded-[6px]">
+                      <InputGroup className="h-9 rounded-sm">
                         <InputGroupInput id={`workflow-${state.key}-name`} aria-label={`${state.key} state name`} required maxLength={64} value={state.name} disabled={rowPending} className={`font-medium ${isRemoved ? 'text-muted-foreground line-through' : state.isActive ? '' : 'text-muted-foreground'}`} onChange={event => changeState(state.key, { name: event.target.value })} />
                         {isRemoved
                           ? <InputGroupAddon align="inline-end"><InputGroupText className="text-xs text-destructive">Deleted on save</InputGroupText></InputGroupAddon>
@@ -262,7 +262,7 @@ export function TeamSettingsForm({ team, onClose, onPendingChange }: { team: Tea
                           </InputGroupAddon>}
                       </InputGroup>
                     </div>
-                    <SelectField id={`workflow-${state.key}-category`} aria-label={`${state.key} category`} disabled={rowPending} size="default" className="team-workflow-category w-full min-w-0 rounded-[6px] px-2 text-sm data-[size=default]:h-9" value={state.category} onValueChange={value => changeCategory(state.key, value as WorkflowStateCategory)} options={CATEGORIES} />
+                    <SelectField id={`workflow-${state.key}-category`} aria-label={`${state.key} category`} disabled={rowPending} size="default" className="team-workflow-category w-full min-w-0 rounded-sm px-2 text-sm data-[size=default]:h-9" value={state.category} onValueChange={value => changeCategory(state.key, value as WorkflowStateCategory)} options={CATEGORIES} />
                     <div className="flex h-9 items-center"><Switch id={`workflow-${state.key}-active`} aria-label={`${state.key} active`} title={state.isActive && count ? `Used by ${count} issue${count === 1 ? '' : 's'}. Move them to another state first` : state.isActive ? 'Active: available in status pickers' : 'Inactive: hidden from status pickers'} checked={state.isActive} disabled={rowPending || (state.isActive && count > 0)} onCheckedChange={checked => changeState(state.key, { isActive: checked })} /></div>
                     <div className="flex items-center justify-end gap-0.5">{isRemoved
                       ? <Button type="button" variant="outline" size="sm" className="h-8 gap-1" aria-label={`Undo delete ${state.key} state`} disabled={pending} onClick={() => restoreState(state.key)}><Undo2 />Undo</Button>

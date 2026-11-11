@@ -93,8 +93,8 @@ try {
   await owner.getByLabel('Workspace name').fill('Renamed browser company');
   await owner.getByRole('button', { name: 'Save workspace', exact: true }).click();
   await owner.getByText('Workspace updated', { exact: true }).waitFor();
-  await owner.getByRole('button', { name: 'Invite User', exact: true }).first().click();
-  let dialog = owner.getByRole('dialog', { name: 'Invite User', exact: true });
+  await owner.getByRole('button', { name: 'Invite member', exact: true }).first().click();
+  let dialog = owner.getByRole('dialog', { name: 'Invite member', exact: true });
   await dialog.getByLabel('Work email', { exact: true }).fill('joined@example.test');
   await dialog.getByRole('button', { name: 'Send invitation', exact: true }).click();
   const invitationLink = await dialog.getByLabel('Invitation link', { exact: true }).inputValue();
@@ -108,7 +108,7 @@ try {
   await owner.getByText('joined@example.test', { exact: true }).waitFor();
   assert.equal(await owner.getByLabel('Workspace name').inputValue(), 'Renamed browser company');
   await owner.getByLabel('Role for Owner').click();
-  await owner.getByRole('option', { name: 'Member', exact: true }).click();
+  await owner.getByRole('menuitemradio', { name: 'Member', exact: true }).click();
   await owner.getByText('Cannot remove, deactivate or demote the last active workspace owner', { exact: true }).waitFor();
   assert.equal((await postgres.db.select().from(organizationMembers).where(eq(organizationMembers.userId, people.Owner.id)))[0].role, 'owner');
   // The invited person has no account: the link sends them to sign in, they create an account with a
@@ -123,13 +123,13 @@ try {
   await joined.getByLabel('Full name').fill('Joined Person');
   await joined.getByLabel('Email').fill('joined@example.test');
   await joined.getByRole('button', { name: 'Continue with a sign-in link' }).click();
-  await joined.getByText(/Check .* for a sign-in link/).waitFor();
+  await joined.getByText('Sign-in link sent', { exact: true }).waitFor();
   await joined.goto(lastMailLink());
   await joined.waitForURL(`**/accept-invitation/${invitation.id}`);
   await joined.getByRole('button', { name: 'Accept invitation', exact: true }).click();
   await joined.waitForURL(`${url}/`);
   await joined.getByText('Joined Person', { exact: true }).first().waitFor();
-  assert.equal(await joined.getByRole('button', { name: 'Invite User', exact: true }).count(), 0);
+  assert.equal(await joined.getByRole('button', { name: 'Invite member', exact: true }).count(), 0);
   assert.equal(await joined.getByLabel('Role for Owner').count(), 0);
   let [member] = await postgres.db.select().from(users).where(eq(users.email, 'joined@example.test'));
   assert(member); assert.equal(member.name, 'Joined Person');
@@ -141,13 +141,13 @@ try {
   await owner.reload();
   await owner.getByText('Accepted', { exact: true }).waitFor();
   await owner.getByLabel('Role for Joined Person').click();
-  await owner.getByRole('option', { name: 'Admin', exact: true }).click();
+  await owner.getByRole('menuitemradio', { name: 'Admin', exact: true }).click();
   await owner.getByText('User "Joined Person" updated', { exact: true }).waitFor();
   assert.equal((await postgres.db.select().from(organizationMembers).where(eq(organizationMembers.userId, member.id)))[0].role, 'admin');
   await joined.reload();
-  await joined.getByRole('button', { name: 'Invite User', exact: true }).first().waitFor();
-  await owner.getByRole('button', { name: 'Invite User', exact: true }).first().click();
-  dialog = owner.getByRole('dialog', { name: 'Invite User', exact: true });
+  await joined.getByRole('button', { name: 'Invite member', exact: true }).first().waitFor();
+  await owner.getByRole('button', { name: 'Invite member', exact: true }).first().click();
+  dialog = owner.getByRole('dialog', { name: 'Invite member', exact: true });
   await dialog.getByLabel('Work email', { exact: true }).fill('revoke@example.test');
   await dialog.getByRole('button', { name: 'Send invitation', exact: true }).click();
   await dialog.getByLabel('Invitation link', { exact: true }).waitFor();
@@ -156,7 +156,7 @@ try {
   await owner.getByText('Revoked', { exact: true }).waitFor();
 
   await owner.goto(`${url}/teams?create=1`);
-  let teamDialog = owner.getByRole('dialog', { name: 'Create team', exact: true });
+  let teamDialog = owner.getByRole('dialog', { name: 'New team', exact: true });
   await teamDialog.getByLabel('Team name', { exact: true }).fill('Private engineering');
   assert.equal(await teamDialog.getByLabel('Identifier', { exact: true }).inputValue(), 'PE');
   await teamDialog.getByLabel('Identifier', { exact: true }).fill('PRV');
@@ -173,7 +173,7 @@ try {
   await owner.getByRole('heading', { name: 'Private engineering' }).waitFor();
   assert.equal(await owner.getByRole('tab', { name: 'Members', exact: true }).getAttribute('aria-selected'), 'true');
   assert.equal(await owner.getByRole('tab', { name: 'Settings', exact: true }).count(), 1);
-  assert.equal(await owner.getByRole('combobox', { name: 'Team role for Owner' }).isDisabled(), true);
+  assert.equal(await owner.getByRole('button', { name: 'Team role for Owner' }).isDisabled(), true);
   assert.equal((await postgres.db.select().from(require('@reka/database').teamMembers).where(eq(require('@reka/database').teamMembers.teamId, privateTeam.id)))[0].role, 'lead');
   for (const theme of ['dark', 'light']) for (const width of [1440, 390]) {
     await owner.setViewportSize({ width, height: 900 });
@@ -200,46 +200,46 @@ try {
   const viewer = await pageFor('Member');
   await viewer.goto(`${url}/teams/${privateTeam.id}?tab=members`);
   await viewer.getByRole('heading', { name: 'Private engineering' }).waitFor();
-  await viewer.getByText('viewer', { exact: true }).waitFor();
+  await viewer.getByText('Viewer', { exact: true }).waitFor();
   assert.equal(await viewer.getByRole('button', { name: 'Add member', exact: true }).count(), 0);
   assert.equal(await viewer.getByRole('tab', { name: 'Settings', exact: true }).count(), 0);
   // New administration surface reuses the real member controls and server guards.
   await owner.goto(`${url}/settings/teams`);
   await owner.getByRole('link', { name: 'Manage team Private engineering' }).click();
   await owner.waitForURL(`**/settings/teams/${privateTeam.id}`);
-  assert.equal(await owner.getByRole('combobox', { name: 'Team role for Owner' }).isDisabled(), true);
+  assert.equal(await owner.getByRole('button', { name: 'Team role for Owner' }).isDisabled(), true);
   await owner.getByText('Add another lead before changing or removing this lead.', { exact: true }).waitFor();
   await owner.getByRole('button', { name: 'Member actions for Owner' }).click();
   assert.equal(await owner.getByRole('menuitem', { name: 'Leave team', exact: true }).isDisabled(), true);
   await owner.keyboard.press('Escape');
-  await owner.getByRole('combobox', { name: 'Team role for Member' }).click();
-  await owner.getByRole('option', { name: 'Member', exact: true }).click();
+  await owner.getByRole('button', { name: 'Team role for Member' }).click();
+  await owner.getByRole('menuitemradio', { name: 'Member', exact: true }).click();
   await owner.getByText('Team role updated', { exact: true }).waitFor();
   await owner.getByRole('button', { name: 'Member actions for Member', exact: true }).click();
   await owner.getByRole('menuitem', { name: 'Remove member', exact: true }).click();
   await owner.getByRole('alertdialog').getByRole('button', { name: 'Cancel', exact: true }).click();
-  await owner.getByRole('combobox', { name: 'Team role for Member' }).waitFor();
+  await owner.getByRole('button', { name: 'Team role for Member' }).waitFor();
   await owner.getByRole('button', { name: 'Member actions for Member', exact: true }).click();
   await owner.getByRole('menuitem', { name: 'Remove member', exact: true }).click();
   await owner.getByRole('alertdialog').getByRole('button', { name: 'Remove member', exact: true }).click();
   await owner.getByText('Member removed from team', { exact: true }).waitFor();
-  await owner.getByRole('combobox', { name: 'Team role for Member' }).waitFor({ state: 'hidden' });
+  await owner.getByRole('button', { name: 'Team role for Member' }).waitFor({ state: 'hidden' });
   await owner.getByRole('button', { name: 'Add member', exact: true }).click();
   teamDialog = owner.getByRole('dialog', { name: 'Add team member', exact: true });
   await teamDialog.getByLabel('Workspace member', { exact: true }).fill('member@example.test');
   await teamDialog.getByRole('option', { name: /member@example.test/ }).click();
   await teamDialog.getByRole('button', { name: 'Add member', exact: true }).click();
   await teamDialog.waitFor({ state: 'hidden' });
-  await owner.getByRole('combobox', { name: 'Team role for Member' }).waitFor();
+  await owner.getByRole('button', { name: 'Team role for Member' }).waitFor();
   await postgres.reopen();
   await owner.reload();
-  await owner.getByRole('combobox', { name: 'Team role for Member' }).waitFor();
+  await owner.getByRole('button', { name: 'Team role for Member' }).waitFor();
   const storedMembers = await postgres.db.select().from(require('@reka/database').teamMembers).where(eq(require('@reka/database').teamMembers.teamId, privateTeam.id));
   assert.equal(storedMembers.find(member => member.userId === people.Owner.id).role, 'lead');
   assert.equal(storedMembers.find(member => member.userId === people.Member.id).role, 'member');
   const nonMember = await pageFor('Admin');
   await nonMember.goto(`${url}/settings/teams`);
-  await nonMember.getByRole('table', { name: 'Workspace teams' }).waitFor();
+  await nonMember.getByRole('heading', { name: 'Teams', exact: true, level: 1 }).waitFor();
   assert.equal(await nonMember.getByRole('link', { name: 'Manage team Private engineering' }).count(), 0);
   await nonMember.goto(`${url}/settings/teams/${privateTeam.id}`);
   await nonMember.getByText('Team unavailable.', { exact: false }).waitFor();
@@ -253,9 +253,9 @@ try {
   assert.equal(await privateMember.getByRole('button', { name: 'Add member', exact: true }).count(), 0);
   assert.equal(await privateMember.getByRole('button', { name: 'Join team' }).count(), 0);
   // A workspace member who is a team lead manages the team without Administration.
-  await owner.getByRole('combobox', { name: 'Team role for Member' }).click();
-  await owner.getByRole('option', { name: 'Lead', exact: true }).click();
-  await owner.waitForFunction(() => document.querySelector('[aria-label="Team role for Member"]')?.textContent?.includes('Lead'));
+  await owner.getByRole('button', { name: 'Team role for Member' }).click();
+  await owner.getByRole('menuitemradio', { name: 'Lead', exact: true }).click();
+  await owner.waitForFunction(() => document.querySelector('[aria-label^="Team role for Member"]')?.textContent?.includes('Lead'));
   await privateMember.goto(`${url}/teams/${privateTeam.id}?tab=members`);
   await privateMember.getByRole('button', { name: 'Add member', exact: true }).click();
   const leadDialog = privateMember.getByRole('dialog', { name: 'Add team member', exact: true });
@@ -300,8 +300,8 @@ try {
     await owner.getByText('Revoked', { exact: true }).waitFor();
     assert.equal(await owner.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
     await owner.screenshot({ path: `/tmp/reka-workspace-real-api-${theme}-${width}.png`, fullPage: true });
-    await owner.getByRole('button', { name: 'Invite User', exact: true }).first().click();
-    await owner.getByRole('dialog', { name: 'Invite User', exact: true }).waitFor();
+    await owner.getByRole('button', { name: 'Invite member', exact: true }).first().click();
+    await owner.getByRole('dialog', { name: 'Invite member', exact: true }).waitFor();
     await owner.screenshot({ path: `/tmp/reka-workspace-invite-${theme}-${width}.png` });
     await owner.keyboard.press('Escape');
   }

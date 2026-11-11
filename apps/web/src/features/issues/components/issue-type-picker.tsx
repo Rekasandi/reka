@@ -4,10 +4,10 @@ import { Badge, cn, DropdownMenu, DropdownMenuTrigger, DropdownMenuRadioGroup, D
 import { IssuePickerMenu } from './issue-picker-menu';
 
 export const ISSUE_TYPES = [
-  { value: 'task', label: 'Task', shortcut: '1', color: 'bg-amber-400' },
-  { value: 'bug', label: 'Bug', shortcut: '2', color: 'bg-rose-500' },
-  { value: 'feature', label: 'Feature', shortcut: '3', color: 'bg-indigo-500' },
-  { value: 'improvement', label: 'Improvement', shortcut: '4', color: 'bg-cyan-500' },
+  { value: 'task', label: 'Task', shortcut: '1', color: 'bg-warning' },
+  { value: 'bug', label: 'Bug', shortcut: '2', color: 'bg-destructive' },
+  { value: 'feature', label: 'Feature', shortcut: '3', color: 'bg-info' },
+  { value: 'improvement', label: 'Improvement', shortcut: '4', color: 'bg-info' },
   { value: 'chore', label: 'Chore', shortcut: '5', color: 'bg-muted-foreground' },
 ] as const;
 

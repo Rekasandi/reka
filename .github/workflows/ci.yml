@@ -38,9 +38,92 @@ jobs:
       - name: Integration tests
         run: pnpm test
 
+  browser:
+    name: Browser tests
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.2
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm build
+
       # Browser suites against Vite: mocked-API pages plus real Nest API on isolated Postgres (PGlite).
       - name: Install Playwright Chromium
         run: pnpm exec playwright install --with-deps chromium
 
       - name: Browser tests
         run: pnpm test:web
+
+  # Backend deploy to the VPS (Docker Compose, see DEPLOYMENT.md) after a verified push to main.
+  # Gated on type-check, build and integration tests; browser tests report separately and do not block it.
+  # Migrations are never run here (see the migration gate in DEPLOYMENT.md).
+  # Repository secrets: VPS_HOST, VPS_USER, VPS_SSH_KEY (private key), optional VPS_PORT (default 22)
+  # and VPS_APP_DIR (checkout path on the server, default ~/reka).
+  deploy:
+    name: Deploy API to VPS
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: deploy-vps
+      cancel-in-progress: false
+    env:
+      VPS_HOST: ${{ secrets.VPS_HOST }}
+      VPS_USER: ${{ secrets.VPS_USER }}
+      VPS_PORT: ${{ secrets.VPS_PORT || '22' }}
+      VPS_APP_DIR: ${{ secrets.VPS_APP_DIR || '~/reka' }}
+      VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+    steps:
+      - name: Check deploy secrets
+        id: secrets
+        run: |
+          if [ -z "$VPS_HOST" ] || [ -z "$VPS_USER" ] || [ -z "$VPS_SSH_KEY" ]; then
+            echo "::warning::VPS_HOST, VPS_USER or VPS_SSH_KEY is not set; skipping the VPS deploy."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Configure SSH
+        if: steps.secrets.outputs.ready == 'true'
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -p "$VPS_PORT" -H "$VPS_HOST" >> ~/.ssh/known_hosts
+
+      # The heredoc is unquoted so VPS_APP_DIR expands here; \$ keeps the rest for the server's shell.
+      - name: Pull, rebuild and wait for a healthy API
+        if: steps.secrets.outputs.ready == 'true'
+        run: |
+          ssh -i ~/.ssh/deploy_key -p "$VPS_PORT" "$VPS_USER@$VPS_HOST" "bash -s" <<EOF
+          set -euo pipefail
+          cd $VPS_APP_DIR
+          git fetch --prune origin main
+          git checkout main
+          git merge --ff-only origin/main
+          docker compose --profile app up -d --build
+          docker image prune -f
+          for i in \$(seq 1 30); do
+            status=\$(docker inspect --format '{{.State.Health.Status}}' \$(docker compose ps -q api) 2>/dev/null || echo starting)
+            if [ "\$status" = healthy ]; then docker compose ps; echo "API healthy"; exit 0; fi
+            sleep 5
+          done
+          docker compose ps; docker compose logs --tail 80 api
+          echo "API did not become healthy"; exit 1
+          EOF

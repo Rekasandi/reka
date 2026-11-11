@@ -39,6 +39,7 @@ import { useCreateComment } from '../../issues/hooks/use-issue-details';
 import { getIssueByIdentifier } from '../../issues/api/issues.api';
 import { StatusIconOnly } from '../../issues/components/status-picker';
 import { PriorityIcon } from '../../issues/components/priority-picker';
+import { PageContainer, PageHeader } from '../../../components/common/page';
 import { NotificationPreferencesDialog } from './notification-preferences-dialog';
 
 type FilterTab = 'all' | 'unread' | 'mentions' | 'assignments' | 'pr' | 'updates' | 'snoozed';
@@ -354,23 +355,9 @@ export function InboxPage() {
   };
 
   return (
-    <div className="flex w-full min-w-0 flex-col gap-5 pb-10 md:h-[calc(100svh-6rem)]">
-      {/* Top Header Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 shrink-0">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl sm:text-2xl font-semibold tracking-[-0.03em] text-foreground">Inbox</h1>
-            {unreadCount > 0 && (
-              <Badge variant="secondary">{unreadCount} unread</Badge>
-            )}
-          </div>
-          <p className="text-xs text-muted-foreground">
-            Review notifications, assignments, and pull request updates.
-          </p>
-        </div>
-
-        {/* Action Toolbar */}
-        <div className="flex items-center gap-2">
+    <PageContainer className="md:h-[calc(100svh-6rem)]">
+      <PageHeader className="shrink-0" title="Inbox" badge={unreadCount > 0 && <Badge variant="secondary">{unreadCount} unread</Badge>}
+        description="Review notifications, assignments, and pull request updates." actions={<>
           {/* Quick Search */}
           <div className="relative w-48 sm:w-60">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
@@ -413,7 +400,7 @@ export function InboxPage() {
           {/* More Actions Menu */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="icon" title="Inbox actions">
+              <Button variant="outline" size="icon" title="Inbox actions" aria-label="Inbox actions">
                 <MoreHorizontal className="size-4" />
               </Button>
             </DropdownMenuTrigger>
@@ -428,8 +415,7 @@ export function InboxPage() {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-        </div>
-      </div>
+      </>} />
 
       {/* Category Filter Tabs */}
       <div className="flex items-center gap-1.5 border-b border-border pb-2 shrink-0 overflow-x-auto">
@@ -475,11 +461,11 @@ export function InboxPage() {
                 ))}
               </div>
             ) : isError ? (
-              <Alert className="rounded-none border-0 bg-transparent px-0 py-0 text-foreground flex flex-col items-center gap-3 p-8"><p className="text-sm text-muted-foreground">Could not load notifications.</p><Button variant="outline" size="sm" onClick={() => refetch()}>Retry</Button></Alert>
+              <Alert variant="destructive" className="flex flex-col items-center gap-3"><p className="text-sm text-muted-foreground">Could not load notifications.</p><Button variant="outline" size="sm" onClick={() => refetch()}>Retry</Button></Alert>
             ) : filteredNotifications.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full p-8 text-center gap-3 text-muted-foreground">
                 <div className="size-10 rounded-full border border-border flex items-center justify-center bg-muted/40 text-muted-foreground">
-                  <Check className="size-5 text-emerald-500" />
+                  <Check className="size-5 text-success" />
                 </div>
                 <div className="flex flex-col gap-1">
                   <p className="text-xs font-semibold text-foreground">
@@ -524,7 +510,7 @@ export function InboxPage() {
                     {/* Unread indicator dot */}
                     <div className="pt-1 shrink-0">
                       {!item.read ? (
-                        <span className="block size-2 rounded-full bg-blue-600 dark:bg-blue-400 ring-2 ring-blue-500/20" />
+                        <span className="block size-2 rounded-full bg-info ring-2 ring-info/20" />
                       ) : (
                         <span className="block size-2 rounded-full bg-transparent" />
                       )}
@@ -595,7 +581,7 @@ export function InboxPage() {
                           deleteMutation.mutate(item.id);
                         }}
                         title="Delete (x)"
-                        className="p-1 hover:text-rose-600 text-muted-foreground rounded-sm hover:bg-muted"
+                        className="p-1 hover:text-destructive text-muted-foreground rounded-sm hover:bg-muted"
                       >
                         <Trash2 className="size-3" />
                       </Button>
@@ -779,7 +765,7 @@ export function InboxPage() {
 
                     <div className="space-y-2">
                       <Textarea
-                        placeholder="Write a quick comment or response..."
+                        placeholder="Write a quick comment or response…"
                         value={replyText}
                         onChange={(e) => setReplyText(e.target.value)}
                         className="min-h-[70px] text-xs resize-none bg-background"
@@ -826,6 +812,6 @@ export function InboxPage() {
 
       <NotificationPreferencesDialog open={isPreferencesOpen} onOpenChange={setIsPreferencesOpen} />
 
-    </div>
+    </PageContainer>
   );
 }

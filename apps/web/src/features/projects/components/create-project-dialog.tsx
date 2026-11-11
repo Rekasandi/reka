@@ -90,7 +90,7 @@ export function CreateProjectDialog({ open, onOpenChange, defaultTeamId, default
           className="flex flex-col gap-4"
         >
           <DialogHeader>
-            <DialogTitle>New Project</DialogTitle>
+            <DialogTitle>New project</DialogTitle>
             <DialogDescription>
               Create a cross-functional project stream to organize and track issues.
             </DialogDescription>
@@ -111,7 +111,7 @@ export function CreateProjectDialog({ open, onOpenChange, defaultTeamId, default
                     <Input
                       id={field.name}
                       name={field.name}
-                      placeholder="e.g. Mobile App V2, Design System..."
+                      placeholder="e.g. Mobile App V2, Design System…"
                       value={field.state.value}
                       onBlur={field.handleBlur}
                       onChange={(e) => field.handleChange(e.target.value)}
@@ -258,7 +258,7 @@ export function CreateProjectDialog({ open, onOpenChange, defaultTeamId, default
                   size="sm"
                   disabled={!canSubmit || createMutation.isPending || isSubmitting}
                 >
-                  {createMutation.isPending || isSubmitting ? 'Creating...' : 'Create Project'}
+                  {createMutation.isPending || isSubmitting ? 'Creating…' : 'Create project'}
                 </Button>
               )}
             />

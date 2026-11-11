@@ -35,33 +35,33 @@ const PRIORITY_ORDER = ['no_priority', 'low', 'medium', 'high', 'urgent'] as con
 const PRIORITY_CONFIG: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
   no_priority: {
     label: 'No priority',
-    color: '#737373',
+    color: 'var(--muted-foreground)',
     icon: <Minus className="size-3 text-muted-foreground/50" />,
   },
   low: {
     label: 'Low',
-    color: '#50e3c2',
+    color: 'var(--success)',
     icon: <SignalLow className="size-3.5 text-muted-foreground/60" />,
   },
   medium: {
     label: 'Medium',
-    color: '#50a2ff',
-    icon: <SignalMedium className="size-3.5 text-blue-500" />,
+    color: 'var(--info)',
+    icon: <SignalMedium className="size-3.5 text-info" />,
   },
   high: {
     label: 'High',
-    color: '#f5a623',
-    icon: <SignalHigh className="size-3.5 text-amber-500" />,
+    color: 'var(--warning)',
+    icon: <SignalHigh className="size-3.5 text-warning" />,
   },
   urgent: {
     label: 'Urgent',
-    color: '#ff4d4d',
-    icon: <AlertCircle className="size-3.5 text-rose-500" />,
+    color: 'var(--destructive)',
+    icon: <AlertCircle className="size-3.5 text-destructive" />,
   },
 };
 
 const STATUS_ICONS: Record<string, React.ReactNode> = {
-  triage: <span className="size-2 rounded-full bg-orange-500 shrink-0" />,
+  triage: <span className="size-2 rounded-full bg-warning shrink-0" />,
   backlog: (
     <svg className="size-3.5 text-muted-foreground shrink-0" viewBox="0 0 16 16" fill="none">
       <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.75" strokeDasharray="2 3" />
@@ -73,19 +73,19 @@ const STATUS_ICONS: Record<string, React.ReactNode> = {
     </svg>
   ),
   in_progress: (
-    <svg className="size-3.5 text-amber-500 shrink-0" viewBox="0 0 16 16" fill="none">
+    <svg className="size-3.5 text-warning shrink-0" viewBox="0 0 16 16" fill="none">
       <path d="M8 2a6 6 0 1 0 0 12A6 6 0 0 0 8 2Z" stroke="currentColor" strokeWidth="1.75" />
       <path d="M8 2a6 6 0 0 1 0 12V2Z" fill="currentColor" />
     </svg>
   ),
   in_review: (
-    <svg className="size-3.5 text-blue-500 shrink-0" viewBox="0 0 16 16" fill="none">
+    <svg className="size-3.5 text-info shrink-0" viewBox="0 0 16 16" fill="none">
       <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.75" />
       <path d="M8 2a6 6 0 1 1-6 6h6V2Z" fill="currentColor" />
     </svg>
   ),
   done: (
-    <svg className="size-3.5 text-emerald-500 shrink-0" viewBox="0 0 16 16" fill="none">
+    <svg className="size-3.5 text-success shrink-0" viewBox="0 0 16 16" fill="none">
       <circle cx="8" cy="8" r="6" fill="currentColor" />
       <path d="m5 8 2 2 4-4" stroke="var(--background)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
@@ -198,7 +198,7 @@ export function IssueMetricsAside({
       return ['todo', 'in_progress', 'in_review', 'done'].map((st) => ({
         key: st,
         label: formatStatusLabel(st),
-        color: st === 'todo' ? '#8f8f8f' : st === 'in_progress' ? '#f5a623' : st === 'in_review' ? '#50a2ff' : '#50e3c2',
+        color: st === 'todo' ? 'var(--muted-foreground)' : st === 'in_progress' ? 'var(--warning)' : st === 'in_review' ? 'var(--info)' : 'var(--success)',
         icon: STATUS_ICONS[st],
       }));
     }
@@ -356,17 +356,17 @@ export function IssueMetricsAside({
 
       {/* Selectors Bar (Measure, Slice, Segment) */}
       <div className="grid grid-cols-3 gap-2 p-4 border-b border-border/70 shrink-0">
-        <Label className="flex flex-col gap-1 text-[11px] font-medium text-muted-foreground">
+        <Label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
           <span>Measure</span>
           <SelectField aria-label="Measure" value={measure} onValueChange={value => setMeasure(value as MeasureType)} className="w-full" options={[{ value: 'issue_count', label: 'Issue count' }, ...(estimatesAvailable ? [{ value: 'estimate', label: 'Estimate' }] : [])]} />
         </Label>
 
-        <Label className="flex flex-col gap-1 text-[11px] font-medium text-muted-foreground">
+        <Label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
           <span>Slice</span>
           <SelectField aria-label="Slice" value={slice} onValueChange={value => setSlice(value as SliceType)} className="w-full" options={[{ value: 'status', label: 'Status' }, { value: 'priority', label: 'Priority' }, { value: 'assignee', label: 'Assignee' }, { value: 'project', label: 'Project' }]} />
         </Label>
 
-        <Label className="flex flex-col gap-1 text-[11px] font-medium text-muted-foreground">
+        <Label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
           <span>Segment</span>
           <SelectField aria-label="Segment" value={segment} onValueChange={value => setSegment(value as SegmentType)} className="w-full" options={[{ value: 'priority', label: 'Priority' }, { value: 'status', label: 'Status' }, { value: 'none', label: 'None' }]} />
         </Label>
@@ -418,14 +418,14 @@ export function IssueMetricsAside({
       </div>
 
       {/* Data Table */}
-      <div className="flex-1 overflow-x-auto border-t border-border/70">
-        <Table className="w-full text-left text-xs border-collapse">
+      <div className="flex-1 border-t border-border">
+        <Table containerClassName="rounded-none border-0">
           <TableHeader>
-            <TableRow className="border-b border-border/70 text-muted-foreground bg-muted/20">
-              <TableHead scope="col" className="p-2.5 pl-4 font-medium capitalize">
+            <TableRow>
+              <TableHead scope="col" className="pl-4 capitalize">
                 {slice}
               </TableHead>
-              <TableHead scope="col" className="p-2.5 font-medium tabular-nums text-right">
+              <TableHead scope="col" className="text-right">
                 {measure === 'estimate' ? 'Estimate' : 'Issue count'}
               </TableHead>
               {segment !== 'none' &&
@@ -433,7 +433,7 @@ export function IssueMetricsAside({
                   <TableHead
                     key={seg.key}
                     scope="col"
-                    className="p-2.5 font-medium tabular-nums text-right whitespace-nowrap"
+                    className="text-right"
                   >
                     <span className="inline-flex items-center gap-1.5 justify-end">
                       {seg.icon}
@@ -443,7 +443,7 @@ export function IssueMetricsAside({
                 ))}
             </TableRow>
           </TableHeader>
-          <TableBody className="divide-y divide-border/50">
+          <TableBody>
             {sliceItems.map((item) => {
               const row = chartData.find((d) => d.sliceKey === item.key);
               let rowTotal = 0;
@@ -452,14 +452,14 @@ export function IssueMetricsAside({
               }
 
               return (
-                <TableRow key={item.key} className="hover:bg-muted/40 transition-colors">
-                  <TableCell className="p-2.5 pl-4 font-normal">
+                <TableRow key={item.key}>
+                  <TableCell className="pl-4">
                     <span className="inline-flex items-center gap-2">
                       {item.icon}
-                      <span className="truncate max-w-[120px] font-medium">{item.label}</span>
+                      <span className="max-w-[120px] truncate font-medium">{item.label}</span>
                     </span>
                   </TableCell>
-                  <TableCell className="p-2.5 text-right tabular-nums text-foreground font-medium">
+                  <TableCell className="text-right font-medium tabular-nums">
                     {rowTotal}
                   </TableCell>
                   {segment !== 'none' &&
@@ -468,7 +468,7 @@ export function IssueMetricsAside({
                       return (
                         <TableCell
                           key={seg.key}
-                          className="p-2.5 text-right tabular-nums text-muted-foreground"
+                          className="text-right tabular-nums text-muted-foreground"
                         >
                           {val}
                         </TableCell>

@@ -94,7 +94,7 @@ try {
   assert.equal(await rows().filter({ hasText: 'in_progress project' }).locator('svg.lucide-building-2').count(), 1);
   assert.equal(await page.locator('tr[data-project-id="p5"]').getByRole('meter').count(), 0, 'Missing progress is not fabricated');
   assert.equal(await page.getByText('Invalid Date', { exact: true }).count(), 0);
-  assert.equal(await page.locator('[data-slot="work-page-header"] [data-slot="badge"]').innerText(), '6');
+  assert.equal(await page.locator('[data-slot="page-header"] [data-slot="badge"]').innerText(), '6');
   await page.getByText('Projects owned by this team.', { exact: true }).waitFor();
   assert.equal(await page.locator('[aria-label="Project toolbar"]').count(), 0);
   assert.equal(await page.getByText(/^All projects/).count(), 0);
@@ -178,7 +178,7 @@ try {
   }
   await page.setViewportSize({ width: 390, height: 844 });
   await page.getByRole('button', { name: 'New project in Canceled', exact: true }).click();
-  const dialog = page.getByRole('dialog', { name: 'New Project', exact: true });
+  const dialog = page.getByRole('dialog', { name: 'New project', exact: true });
   await dialog.waitFor();
   assert.match(await dialog.getByRole('combobox', { name: 'Status', exact: true }).innerText(), /Canceled/);
   await page.keyboard.press('Escape');
@@ -193,7 +193,7 @@ try {
   assert.equal(await page.getByRole('menuitemradio', { name: 'Read-only Team', exact: true }).count(), 0);
   await page.keyboard.press('Escape');
   await dialog.getByRole('textbox', { name: 'Project Name', exact: true }).fill('Created from planned group');
-  await dialog.getByRole('button', { name: 'Create Project', exact: true }).click();
+  await dialog.getByRole('button', { name: 'Create project', exact: true }).click();
   await page.getByRole('link', { name: 'Open project Created from planned group', exact: true }).waitFor();
   assert.equal(creations.length, 1);
   assert.equal(creations[0].status, 'planned');
@@ -227,7 +227,7 @@ try {
   await page.getByRole('link', { name: 'Open project in_progress project', exact: true }).waitFor();
   projects.length = 0;
   await goto();
-  await page.getByText('No projects yet.', { exact: true }).waitFor();
+  await page.getByText('No projects yet', { exact: true }).waitFor();
   assert.deepEqual(errors, []);
   console.log('PASS: project toolbar removed, grouped table, keyboard collapse/sorting/navigation, group-create payload, permissions, team scope, states, shared My issues header/list styles and 12 responsive light/dark layouts.');
 } finally {

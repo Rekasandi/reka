@@ -54,7 +54,7 @@ export function LinkPullRequestDialog({ issueId, issueIdentifier, open, onOpenCh
           {isLoading ? (
             <div className="py-5 text-center text-sm text-muted-foreground"><Spinner aria-label="Loading repositories" /> Loading repositories…</div>
           ) : isError ? (
-            <Alert className="rounded-none border-0 bg-transparent px-0 py-0 text-foreground flex items-center justify-between gap-3 rounded-md border border-destructive/30 p-3">
+            <Alert variant="destructive" className="flex flex-wrap items-center justify-between gap-3">
               <p className="text-sm text-muted-foreground">Could not load repositories linked to this issue.</p>
               <Button type="button" variant="outline" size="sm" onClick={() => refetch()}>Retry</Button>
             </Alert>

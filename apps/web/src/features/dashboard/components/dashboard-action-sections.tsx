@@ -24,7 +24,7 @@ function Section({ title, count, children }: { title: string; count?: number; ch
 
 function QueryContent({ loading, error, retry, children }: { loading: boolean; error: boolean; retry: () => void; children: React.ReactNode }) {
   if (loading) return <div className="flex flex-col gap-2 py-2"><Spinner aria-label="Loading dashboard work" className="sr-only" /><Skeleton className="h-12 w-full" /><Skeleton className="h-12 w-full" /></div>;
-  if (error) return <Alert className="rounded-none border-0 bg-transparent px-0 py-0 text-foreground flex flex-wrap items-center gap-3 py-4"><p className="text-sm text-muted-foreground">Could not load this section.</p><Button variant="outline" size="sm" onClick={retry}>Retry</Button></Alert>;
+  if (error) return <Alert variant="destructive" className="flex flex-wrap items-center gap-3"><p className="text-sm text-muted-foreground">Could not load this section.</p><Button variant="outline" size="sm" onClick={retry}>Retry</Button></Alert>;
   return <>{children}</>;
 }
 
@@ -49,7 +49,7 @@ function ReviewIssue({ issue, onSelect }: { issue: Issue; onSelect: (issue: Issu
   return <li className="py-1">
     <IssueButton issue={issue} onSelect={onSelect}>{updated && `Updated ${formatDistanceToNow(updated, { addSuffix: true })}`}</IssueButton>
     <div className="flex min-w-0 flex-col gap-2 px-2 pb-3 text-xs text-muted-foreground">
-      {isPending ? <Skeleton className="h-5 w-48 max-w-full" /> : isError ? <Alert className="rounded-none border-0 bg-transparent px-0 py-0 text-foreground flex flex-wrap items-center gap-2">Pull requests unavailable.<Button variant="outline" size="xs" onClick={() => { void refetch(); }}>Retry PRs</Button></Alert> : prs.length ? prs.map(pr => (
+      {isPending ? <Skeleton className="h-5 w-48 max-w-full" /> : isError ? <Alert variant="destructive" className="flex flex-wrap items-center gap-3">Pull requests unavailable.<Button variant="outline" size="xs" onClick={() => { void refetch(); }}>Retry PRs</Button></Alert> : prs.length ? prs.map(pr => (
         <a key={pr.id} href={pr.htmlUrl} target="_blank" rel="noopener noreferrer" className="flex min-w-0 items-center gap-2 rounded-sm hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label={`Open pull request #${pr.prNumber}: ${pr.title}`}>
           <span className="shrink-0">#{pr.prNumber}</span><span className="truncate">{pr.title}</span><span className="shrink-0">{pr.merged ? 'Merged' : pr.state === 'closed' ? 'Closed' : 'Open'}</span>
         </a>

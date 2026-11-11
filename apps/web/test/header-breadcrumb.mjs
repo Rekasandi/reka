@@ -79,7 +79,7 @@ try {
       await page.setViewportSize({ width: 390, height: 844 });
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
       await page.screenshot({ path: '/tmp/reka-breadcrumb-mobile.png' });
-      await page.getByRole('button', { name: 'Search or jump to...', exact: true }).click();
+      await page.getByRole('button', { name: 'Search or jump to…', exact: true }).click();
       assert.equal(await page.evaluate(() => window.paletteIsOpen()), true);
       await page.setViewportSize({ width: 1280, height: 800 });
       await breadcrumb.getByRole('link', { name: 'Projects', exact: true }).focus();
