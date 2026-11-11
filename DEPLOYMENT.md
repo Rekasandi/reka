@@ -33,17 +33,18 @@ Needs a Linux server with Docker, ports 80/443 open, and a DNS `A` record such a
 
 Migrations are never run by the containers; follow the migration gate below.
 
-### Automatic deploy from GitHub Actions
+### Deploying updates (manual)
 
-Every push to `main` runs the `deploy` job in `.github/workflows/ci.yml` after type-check, build and integration tests pass (browser tests report separately and do not block it). It SSHes into the server, fast-forwards the checkout to `origin/main`, runs `docker compose up -d --build api worker` (the bundled Caddy is not started, because on the current server a separate Caddy already serves ports 80/443 and reaches the API through `docker-compose.override.yml`) and waits until the API container is healthy. It never runs migrations.
+Backend deploys are manual; pushing to `main` only runs CI. On the current server another Caddy already owns ports 80/443 and reaches the API through `docker-compose.override.yml`, so rebuild only the app containers:
 
-Set these repository secrets (Settings → Secrets and variables → Actions); without them the job is skipped with a warning:
+```sh
+cd ~/reka
+git fetch origin main && git merge --ff-only origin/main
+docker compose up -d --build api worker
+docker compose ps        # api and worker should report (healthy)
+```
 
-- `VPS_HOST`, `VPS_USER` — the server and the SSH user that owns the checkout and can run Docker.
-- `VPS_SSH_KEY` — a private key whose public key is in that user's `~/.ssh/authorized_keys` (use a dedicated deploy key).
-- `VPS_PORT` (optional, default `22`) and `VPS_APP_DIR` (optional, default `~/reka`).
-
-The server checkout must be able to `git fetch` from GitHub (a read-only deploy key on the repository, or HTTPS for a public repository).
+Check the migration gate below first if the update touches `packages/database`.
 
 ## Deploy the frontend on Vercel
 
