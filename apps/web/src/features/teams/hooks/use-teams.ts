@@ -52,7 +52,7 @@ export function useUpdateTeamWorkflowStates(teamId: string) {
       queryClient.invalidateQueries({ queryKey: ['issues'] });
       toast.success('Team workflow updated');
     },
-    onError: (error) => toast.error('Could not update workflow', { description: (error as Error).message }),
+    meta: { inlineError: true }, // the settings form shows the API message next to its Save button
   });
 }
 

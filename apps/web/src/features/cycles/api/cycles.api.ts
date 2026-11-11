@@ -25,15 +25,6 @@ export interface Cycle {
   updatedAt: string;
 }
 
-export interface CreateCycleInput {
-  teamId: string;
-  name?: string;
-  description?: string;
-  startDate: string;
-  endDate: string;
-  capacity?: number | null;
-}
-
 export interface CompleteCycleInput {
   incompleteIssuesAction: 'backlog' | 'next_cycle';
   nextCycleId?: string;
@@ -58,16 +49,6 @@ export async function getCycles(): Promise<Cycle[]> {
 export async function getCycleById(id: string): Promise<Cycle> {
   const res = await fetch(`/api/cycles/${id}`);
   if (!res.ok) throw new Error('Failed to fetch cycle');
-  return res.json();
-}
-
-export async function createCycle(input: CreateCycleInput): Promise<Cycle> {
-  const res = await fetch('/api/cycles', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(input),
-  });
-  if (!res.ok) throw new Error('Failed to create cycle');
   return res.json();
 }
 

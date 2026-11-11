@@ -132,12 +132,6 @@ export async function unlinkProjectRepository(projectId: string, repositoryId: s
   return res.json();
 }
 
-export async function getProjectTeams(projectId: string): Promise<ProjectTeam[]> {
-  const res = await fetch(`/api/projects/${projectId}/teams`);
-  if (!res.ok) throw new Error('Failed to fetch project teams');
-  return res.json();
-}
-
 export async function addProjectTeam(projectId: string, teamId: string): Promise<ProjectTeam[]> {
   const res = await fetch(`/api/projects/${projectId}/teams`, {
     method: 'POST',

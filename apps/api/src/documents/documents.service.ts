@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { and, desc, eq, isNull, or } from 'drizzle-orm';
+import { and, desc, eq, isNull } from 'drizzle-orm';
 import { documents } from '@reka/database';
-import { documentScope, projectScope, requireAdmin, requireDocument, requireProject, requireTeam, requireTeamWrite, requireWorkspace, requireWrite, visibleTeamIds } from '../common/access/workspace-access';
+import { documentScope, requireAdmin, requireDocument, requireProject, requireTeam, requireTeamWrite, requireWorkspace, requireWrite } from '../common/access/workspace-access';
 import { DatabaseService } from '../common/database/database.service';
 import { CreateDocumentDto, UpdateDocumentDto } from './dto/documents.dto';
 

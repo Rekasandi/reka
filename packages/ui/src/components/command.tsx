@@ -9,7 +9,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "./dialog"
-import { SearchIcon, CheckIcon } from "lucide-react"
+import { SearchIcon } from "lucide-react"
 
 function Command({
   className,

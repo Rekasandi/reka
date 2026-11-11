@@ -3,7 +3,7 @@ import { TeamPicker } from './team-picker';
 import { useSearchParams } from 'react-router-dom';
 import { useForm, useStore } from '@tanstack/react-form';
 import { SelectField } from '../../../components/common/select-field';
-import { Alert, AlertDescription, Avatar, AvatarFallback, AvatarImage, Badge, Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Field, FieldGroup, FieldLabel, Input, Skeleton, Textarea, cn, Label, FieldError, Spinner } from '@reka/ui';
+import { Alert, AlertDescription, Avatar, AvatarFallback, AvatarImage, Badge, Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Field, FieldGroup, FieldLabel, Input, Skeleton, Textarea, cn, FieldError, Spinner } from '@reka/ui';
 import { Archive, Check, ClipboardList, Copy, Plus, Trash2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { IssueDetailContent } from './issue-detail-sheet';

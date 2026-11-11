@@ -1,11 +1,14 @@
 import * as React from 'react';
 import { useForm, useStore } from '@tanstack/react-form';
-import { Alert, AlertDescription, Button, Card, Checkbox, Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Field, FieldDescription, FieldGroup, FieldLabel, FieldError, Input, InputGroup, InputGroupAddon, InputGroupInput, InputGroupText, Skeleton, Spinner, Switch, Textarea } from '@reka/ui';
-import { ArrowDown, ArrowUp, GripVertical, Plus, Trash2, Undo2 } from 'lucide-react';
+import { Alert, AlertDescription, Button, Card, Collapsible, CollapsibleContent, CollapsibleTrigger, Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger, Field, FieldDescription, FieldError, FieldGroup, FieldLabel, Input, InputGroup, InputGroupAddon, InputGroupInput, InputGroupText, Skeleton, Spinner, Switch, Textarea } from '@reka/ui';
+import { ArrowDown, ArrowUp, ChevronRight, GripVertical, MoreHorizontal, Plus, Trash2, Undo2 } from 'lucide-react';
 import { CATEGORY_DEFAULT_COLOR, StatusIconOnly } from '../../issues/components/status-picker';
 import { useUpdateTeam, useTeamWorkflowStates, useUpdateTeamWorkflowStates } from '../hooks/use-teams';
 import type { Team, TeamWorkflowState, WorkflowStateCategory } from '../api/teams.api';
-import { SelectField } from '../../../components/common/select-field';
+import { PropertyPicker } from '../../../components/common/property-picker';
+import { DiscardChangesDialog, UnsavedChangesGuard } from '../../../components/common/unsaved-changes-guard';
+import { CycleScheduleDialog } from '../../cycles/components/cycle-schedule-dialog';
+import { useTeamCycleSettings } from '../../cycles/hooks/use-cycles';
 import { ColorPickerField } from '../../../components/common/color-picker-field';
 import { ESTIMATE_SCALES, ESTIMATE_SCALE_LABELS, estimateScaleValues, type EstimateScale } from '@reka/types';
 
@@ -23,19 +26,33 @@ const WORK_CATEGORIES: string[] = ['backlog', 'unstarted', 'started'];
 const toDraft = ({ key, name, category, color, position, isActive }: TeamWorkflowState | WorkflowDraft): WorkflowDraft => ({ key, name, category, color, position, isActive });
 const slug = (name: string) => name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
 
-const toMonths = (value: number | null) => value === null ? 'off' : String(value);
+const toMonths = (value?: number | null) => value == null ? 'off' : String(value);
 const fromMonths = (value: string) => value === 'off' ? null : Number(value);
 const STATUS_FIELDS = ['defaultStatus', 'duplicateStatus', 'githubDraftStatus', 'githubOpenStatus', 'githubMergedStatus'] as const;
 /** Form values for the team PATCH; status references use 'auto' for null so they fit a select. */
 const formValuesFor = (team: Team) => ({
   name: team.name, description: team.description ?? '', isPrivate: team.isPrivate, cyclesEnabled: team.cyclesEnabled, estimatesEnabled: team.estimatesEnabled,
-  estimateScale: team.estimateScale as EstimateScale, autoCloseParent: team.autoCloseParent, autoArchiveMonths: toMonths(team.autoArchiveMonths),
+  estimateScale: (team.estimateScale ?? 'fibonacci') as EstimateScale, autoCloseParent: team.autoCloseParent, autoArchiveMonths: toMonths(team.autoArchiveMonths),
   autoCloseChildren: team.autoCloseChildren ?? false, autoCloseStaleMonths: toMonths(team.autoCloseStaleMonths ?? null), triageEnabled: team.triageEnabled ?? true, slaEnabled: team.slaEnabled ?? false,
   ...Object.fromEntries(STATUS_FIELDS.map(field => [field, team[field] ?? 'auto'])) as Record<(typeof STATUS_FIELDS)[number], string>,
 });
 const MONTH_OPTIONS = [{ value: 'off', label: 'Never' }, ...[1, 3, 6, 12].map(months => ({ value: String(months), label: `After ${months} ${months === 1 ? 'month' : 'months'}` }))];
 
-export function TeamSettingsForm({ team, onClose, onPendingChange }: { team: Team; onClose?: () => void; onPendingChange?: (pending: boolean) => void }) {
+export type TeamSettingsSection = 'general' | 'features' | 'workflow';
+const SECTIONS: { value: TeamSettingsSection; label: string }[] = [{ value: 'general', label: 'General' }, { value: 'features', label: 'Features' }, { value: 'workflow', label: 'Workflow' }];
+const GENERAL_KEYS = ['name', 'description', 'isPrivate'] as const;
+const WORKFLOW_KEYS = STATUS_FIELDS;
+
+/** Team settings split into General, Features and Workflow. Hidden sections stay mounted so unsaved edits survive switching. */
+export function TeamSettingsForm({ team, onClose, onPendingChange, onDirtyChange, section: controlledSection, initialSection, onSectionChange, dangerZone }: {
+  team: Team; onClose?: () => void; onPendingChange?: (pending: boolean) => void; onDirtyChange?: (dirty: boolean) => void;
+  section?: TeamSettingsSection; initialSection?: TeamSettingsSection; onSectionChange?: (section: TeamSettingsSection) => void;
+  /** Rendered at the end of General (e.g. Delete team). */
+  dangerZone?: React.ReactNode;
+}) {
+  const [localSection, setLocalSection] = React.useState<TeamSettingsSection>(controlledSection ?? initialSection ?? 'general');
+  const section = controlledSection ?? localSection;
+  const setSection = (next: TeamSettingsSection) => { setLocalSection(next); onSectionChange?.(next); };
   const update = useUpdateTeam();
   const workflowQuery = useTeamWorkflowStates(team.id);
   const saveWorkflow = useUpdateTeamWorkflowStates(team.id);
@@ -80,7 +97,15 @@ export function TeamSettingsForm({ team, onClose, onPendingChange }: { team: Tea
   const savedStates = (workflowQuery.data ?? []).filter(state => state.isActive);
   const stateOptions = (categories?: WorkflowStateCategory[]) => savedStates.filter(state => !categories || categories.includes(state.category)).map(state => ({ value: state.key, label: state.name }));
   const workflowDirty = workflowQuery.isSuccess && (removed.length > 0 || JSON.stringify(states) !== JSON.stringify(seedStates));
-  const dirtySections = [generalDirty && 'General', workflowDirty && 'Issue workflow'].filter(Boolean) as string[];
+  const saved = formValuesFor(team);
+  const changed = (keys: readonly string[]) => keys.some(key => JSON.stringify(generalValues[key as keyof typeof generalValues]) !== JSON.stringify(saved[key as keyof typeof saved]));
+  const generalSectionDirty = changed(GENERAL_KEYS);
+  const workflowSectionDirty = workflowDirty || changed(WORKFLOW_KEYS);
+  const featuresDirty = changed(Object.keys(saved).filter(key => !(GENERAL_KEYS as readonly string[]).includes(key) && !(WORKFLOW_KEYS as readonly string[]).includes(key)));
+  const dirtyBySection: Record<TeamSettingsSection, boolean> = { general: generalSectionDirty, features: featuresDirty, workflow: workflowSectionDirty };
+  const dirtySections = SECTIONS.filter(item => dirtyBySection[item.value]).map(item => item.label);
+  const dirty = dirtySections.length > 0;
+  React.useEffect(() => { onDirtyChange?.(dirty); }, [dirty, onDirtyChange]);
   const canSave = !pending && dirtySections.length > 0 && (!generalDirty || !!generalValues.name.trim()) && (!workflowDirty || (workflowValid && kept.every(state => state.name.trim())));
 
   async function saveAll() {
@@ -131,98 +156,78 @@ export function TeamSettingsForm({ team, onClose, onPendingChange }: { team: Tea
     workflowForm.setFieldValue('states', current => current.map(state => state.key === key ? { ...state, position: nextA } : state.key === neighbour.key ? { ...state, position: nextB } : state));
   };
 
-  const switchField = (name: 'triageEnabled' | 'slaEnabled' | 'autoCloseChildren', label: string, description: (on: boolean) => string) =>
+  const switchField = (name: 'cyclesEnabled' | 'estimatesEnabled' | 'autoCloseParent' | 'triageEnabled' | 'slaEnabled' | 'autoCloseChildren', id: string, label: string, description: string, extra?: React.ReactNode) =>
     <generalForm.Field name={name}>
-      {field => <Field orientation="horizontal" className="team-setting-field items-start justify-between gap-4">
-        <div className="flex flex-col gap-1.5"><FieldLabel htmlFor={`team-${name}`}>{label}</FieldLabel><FieldDescription>{description(field.state.value)}</FieldDescription></div>
-        <Switch id={`team-${name}`} aria-label={label} checked={field.state.value} disabled={pending} onCheckedChange={checked => field.handleChange(checked)} />
+      {field => <Field orientation="horizontal" className="items-start justify-between gap-6">
+        <div className="flex min-w-0 flex-col gap-1"><FieldLabel htmlFor={id}>{label}</FieldLabel><FieldDescription>{description}</FieldDescription>{field.state.value && extra}</div>
+        <Switch id={id} aria-label={label} checked={field.state.value} disabled={pending} onCheckedChange={checked => field.handleChange(checked)} />
       </Field>}
     </generalForm.Field>;
-  const selectField = (name: 'autoCloseStaleMonths' | (typeof STATUS_FIELDS)[number], label: string, description: string, options: { value: string; label: string }[]) =>
+  const pickerField = (name: 'autoArchiveMonths' | 'autoCloseStaleMonths' | 'estimateScale' | (typeof STATUS_FIELDS)[number], label: string, description: string, options: { value: string; label: string }[], disabled = false) =>
     <generalForm.Field name={name}>
-      {field => <Field className="team-setting-field gap-3">
-        <div className="flex flex-col gap-1.5"><FieldLabel htmlFor={`team-${name}`}>{label}</FieldLabel><FieldDescription>{description}</FieldDescription></div>
-        <SelectField id={`team-${name}`} aria-label={label} className="w-full sm:w-80" value={field.state.value} disabled={pending || !workflowQuery.isSuccess} options={options} onValueChange={field.handleChange} />
+      {field => <Field orientation="horizontal" className="items-start justify-between gap-6">
+        <div className="flex min-w-0 flex-col gap-1"><FieldLabel htmlFor={`team-${name}`}>{label}</FieldLabel><FieldDescription>{description}</FieldDescription></div>
+        <PropertyPicker id={`team-${name}`} className="h-8 w-56 shrink-0 justify-start px-3" menuLabel={label} ariaLabel={label} shortcuts={options.length <= 9} value={field.state.value} disabled={pending || disabled}
+          options={options.map(option => ({ key: option.value, label: option.label }))} onChange={value => field.handleChange(value as never)} />
       </Field>}
     </generalForm.Field>;
   const githubOptions = [{ value: 'auto', label: 'Automatic' }, { value: '-', label: 'No status change' }, ...stateOptions()];
+  const githubCustomised = (['githubDraftStatus', 'githubOpenStatus', 'githubMergedStatus'] as const).some(field => generalValues[field] !== 'auto');
+  const show = (name: TeamSettingsSection) => ({ hidden: section !== name });
 
-  return <div className="team-settings-form @container/team-settings flex w-full min-w-0 max-w-4xl flex-col gap-8">
-    <form aria-labelledby="team-general-heading" className="flex max-w-3xl flex-col gap-5" onSubmit={event => { event.preventDefault(); event.stopPropagation(); generalForm.handleSubmit(); }}>
+  return <div className="team-settings-form flex w-full min-w-0 max-w-4xl flex-col gap-6 md:flex-row md:gap-10">
+    <nav aria-label="Team settings sections" className="-mx-1 flex shrink-0 gap-1 overflow-x-auto px-1 md:mx-0 md:w-40 md:flex-col md:overflow-visible md:px-0">
+      {SECTIONS.map(item => <Button key={item.value} type="button" variant="plain" size="auto" aria-current={section === item.value ? 'page' : undefined}
+        className="flex h-8 shrink-0 items-center justify-start gap-2 rounded-md px-3 text-sm text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring aria-[current=page]:bg-muted aria-[current=page]:font-medium aria-[current=page]:text-foreground" onClick={() => setSection(item.value)}>
+        {item.label}{dirtyBySection[item.value] && <span aria-label="Unsaved changes" className="ml-auto size-1.5 rounded-full bg-warning" />}
+      </Button>)}
+    </nav>
+    <div className="flex min-w-0 flex-1 flex-col gap-8">
+    <UnsavedChangesGuard when={dirty} />
+    <form {...show('general')} aria-labelledby="team-general-heading" className="flex flex-col gap-5" onSubmit={event => { event.preventDefault(); event.stopPropagation(); generalForm.handleSubmit(); }}>
       <h3 id="team-general-heading" className="text-sm font-semibold">General</h3>
-      <FieldGroup className="gap-5">
+      <FieldGroup className="gap-6">
         <generalForm.Field name="name" validators={{ onChange: ({ value }) => (!value.trim() ? 'Team name is required' : undefined) }}>
-          {field => <Field className="team-setting-field gap-3"><div className="flex flex-col gap-1.5"><FieldLabel htmlFor="team-settings-name">Team name</FieldLabel><FieldDescription>The name shown throughout the workspace.</FieldDescription></div><Input id="team-settings-name" name={field.name} required maxLength={255} value={field.state.value} onBlur={field.handleBlur} onChange={event => field.handleChange(event.target.value)} disabled={pending} />{field.state.meta.isTouched && !field.state.meta.isValid && <FieldError errors={field.state.meta.errors as string[]} />}</Field>}
+          {field => <Field className="gap-2"><FieldLabel htmlFor="team-settings-name">Team name</FieldLabel><Input id="team-settings-name" name={field.name} required maxLength={255} value={field.state.value} onBlur={field.handleBlur} onChange={event => field.handleChange(event.target.value)} disabled={pending} />{field.state.meta.isTouched && !field.state.meta.isValid && <FieldError errors={field.state.meta.errors as string[]} />}</Field>}
         </generalForm.Field>
         <generalForm.Field name="description">
-          {field => <Field className="team-setting-field gap-3"><div className="flex flex-col gap-1.5"><FieldLabel htmlFor="team-settings-description">Description</FieldLabel><FieldDescription>Describe what this team owns.</FieldDescription></div><Textarea id="team-settings-description" name={field.name} maxLength={4000} rows={3} value={field.state.value} placeholder="What does this team work on?" onBlur={field.handleBlur} onChange={event => field.handleChange(event.target.value)} disabled={pending} /></Field>}
+          {field => <Field className="gap-2"><FieldLabel htmlFor="team-settings-description">Description</FieldLabel><Textarea id="team-settings-description" name={field.name} maxLength={4000} rows={3} value={field.state.value} placeholder="What does this team work on?" onBlur={field.handleBlur} onChange={event => field.handleChange(event.target.value)} disabled={pending} /></Field>}
         </generalForm.Field>
         <generalForm.Field name="isPrivate">
-          {field => <Field className="team-setting-field gap-3"><div className="flex flex-col gap-1.5"><p className="text-xs font-medium">Team visibility</p><FieldDescription>{field.state.value ? 'Only explicitly added members can find or view this team.' : 'Every active workspace member can find this team. Members with write access can join.'}</FieldDescription></div><div className="flex min-h-9 items-center gap-2"><Checkbox id="team-settings-private" name={field.name} checked={field.state.value} onCheckedChange={value => field.handleChange(value === true)} disabled={pending} /><FieldLabel htmlFor="team-settings-private">Private team</FieldLabel></div></Field>}
+          {field => <Field orientation="horizontal" className="items-start justify-between gap-6"><div className="flex min-w-0 flex-col gap-1"><FieldLabel htmlFor="team-settings-private">Private team</FieldLabel><FieldDescription>{field.state.value ? 'Only members added to the team can find or view it.' : 'Every workspace member can find this team; members with write access can join.'}</FieldDescription></div><Switch id="team-settings-private" aria-label="Private team" name={field.name} checked={field.state.value} onCheckedChange={value => field.handleChange(value)} disabled={pending} /></Field>}
         </generalForm.Field>
       </FieldGroup>
       {update.isError && <Alert variant="destructive"><AlertDescription>{update.error.message}</AlertDescription></Alert>}
     </form>
+    {section === 'general' && dangerZone}
 
-    <section aria-labelledby="team-features-heading" className="flex max-w-3xl flex-col gap-5 border-t border-border pt-6">
+    <section {...show('features')} aria-labelledby="team-features-heading" className="flex flex-col gap-5">
       <h3 id="team-features-heading" className="text-sm font-semibold">Features</h3>
-      <FieldGroup className="gap-5">
-        <generalForm.Field name="cyclesEnabled">
-          {field => <Field orientation="horizontal" className="team-setting-field items-start justify-between gap-4">
-            <div className="flex flex-col gap-1.5"><FieldLabel htmlFor="team-cycles-enabled">Cycles</FieldLabel><FieldDescription>{field.state.value ? 'Plan work in scheduled cycles. Cycle pickers and the Cycles page are available for this team.' : 'Cycles are hidden for this team and issues cannot be added to one. Existing cycles and history are kept.'}</FieldDescription></div>
-            <Switch id="team-cycles-enabled" aria-label="Enable cycles" checked={field.state.value} disabled={pending} onCheckedChange={checked => field.handleChange(checked)} />
-          </Field>}
-        </generalForm.Field>
-        <generalForm.Field name="estimatesEnabled">
-          {field => <Field orientation="horizontal" className="team-setting-field items-start justify-between gap-4">
-            <div className="flex flex-col gap-1.5"><FieldLabel htmlFor="team-estimates-enabled">Estimates</FieldLabel><FieldDescription>{field.state.value ? 'Issues can be sized with points and cycles show capacity.' : 'Estimate fields and cycle capacity are hidden for this team. Existing estimates are kept.'}</FieldDescription></div>
-            <Switch id="team-estimates-enabled" aria-label="Enable estimates" checked={field.state.value} disabled={pending} onCheckedChange={checked => field.handleChange(checked)} />
-          </Field>}
-        </generalForm.Field>
-        <generalForm.Field name="autoCloseParent">
-          {field => <Field orientation="horizontal" className="team-setting-field items-start justify-between gap-4">
-            <div className="flex flex-col gap-1.5"><FieldLabel htmlFor="team-auto-close-parent">Auto-close parent issues</FieldLabel><FieldDescription>When every sub-issue is completed or canceled, close the parent too (completed if any sub-issue was completed, otherwise canceled).</FieldDescription></div>
-            <Switch id="team-auto-close-parent" aria-label="Auto-close parent issues" checked={field.state.value} disabled={pending} onCheckedChange={checked => field.handleChange(checked)} />
-          </Field>}
-        </generalForm.Field>
-        <generalForm.Field name="autoArchiveMonths">
-          {field => <Field className="team-setting-field gap-3">
-            <div className="flex flex-col gap-1.5"><FieldLabel htmlFor="team-auto-archive">Auto-archive closed issues</FieldLabel><FieldDescription>Archive completed and canceled issues that nobody has touched for this long. Archived issues can still be restored.</FieldDescription></div>
-            <SelectField id="team-auto-archive" aria-label="Auto-archive closed issues" className="w-full sm:w-80" value={field.state.value} disabled={pending}
-              options={MONTH_OPTIONS} onValueChange={field.handleChange} />
-          </Field>}
-        </generalForm.Field>
-        {switchField('autoCloseChildren', 'Auto-close sub-issues', () => 'When a parent is completed or canceled, close its open sub-issues the same way.')}
-        {selectField('autoCloseStaleMonths', 'Auto-close stale issues', 'Cancel backlog, unstarted and triage issues that nobody has touched for this long. Issues planned in an open cycle are skipped.', MONTH_OPTIONS)}
-        {switchField('triageEnabled', 'Triage', on => on ? 'Intake forms send new issues to the Triage queue for review first.' : 'Intake goes straight to the default status and the Triage page is hidden for this team.')}
-        {switchField('slaEnabled', 'SLA', on => on ? 'Urgent issues must be closed within 1 day and high priority issues within 7 days. Rows show the time left.' : 'No response deadlines are tracked for this team.')}
-        <generalForm.Field name="estimateScale">
-          {field => <Field className="team-setting-field gap-3">
-            <div className="flex flex-col gap-1.5"><FieldLabel htmlFor="team-estimate-scale">Estimate scale</FieldLabel><FieldDescription>Points available when sizing issues. Existing estimates outside the new scale are kept but flagged when edited.</FieldDescription></div>
-            <SelectField id="team-estimate-scale" aria-label="Estimate scale" className="w-full sm:w-80" value={field.state.value} disabled={pending || !generalValues.estimatesEnabled}
-              options={ESTIMATE_SCALES.map(scale => ({ value: scale, label: ESTIMATE_SCALE_LABELS[scale] }))} onValueChange={value => field.handleChange(value as EstimateScale)} />
-            {offScaleCount > 0 && <p role="status" className="text-xs text-warning">{offScaleCount} issue{offScaleCount === 1 ? '' : 's'} in this team {offScaleCount === 1 ? 'has an estimate' : 'have estimates'} outside this scale. {offScaleCount === 1 ? 'It is' : 'They are'} kept as is and flagged "outside scale" when edited.</p>}
-          </Field>}
-        </generalForm.Field>
+      <FieldGroup className="gap-6">
+        {switchField('cyclesEnabled', 'team-cycles-enabled', 'Cycles', 'Plan work in time-boxed cycles.', team.cyclesEnabled && <CycleScheduleSummary teamId={team.id} />)}
+        {switchField('estimatesEnabled', 'team-estimates-enabled', 'Estimates', 'Size issues with points; cycles show capacity.')}
+        {generalValues.estimatesEnabled && <div className="flex flex-col gap-2">
+          {pickerField('estimateScale', 'Estimate scale', 'Points available when sizing issues.', ESTIMATE_SCALES.map(scale => ({ value: scale, label: ESTIMATE_SCALE_LABELS[scale] })))}
+          {offScaleCount > 0 && <p role="status" className="text-xs text-warning">{offScaleCount} issue{offScaleCount === 1 ? '' : 's'} {offScaleCount === 1 ? 'has an estimate' : 'have estimates'} outside this scale. {offScaleCount === 1 ? 'It is' : 'They are'} kept and flagged when edited.</p>}
+        </div>}
+        {switchField('triageEnabled', 'team-triageEnabled', 'Triage', 'Review issues from intake forms before they reach the team.')}
+        {switchField('slaEnabled', 'team-slaEnabled', 'SLA', 'Track deadlines: urgent issues in 1 day, high priority in 7 days.')}
+      </FieldGroup>
+      <h3 className="border-t border-border pt-6 text-sm font-semibold">Automations</h3>
+      <FieldGroup className="gap-6">
+        {switchField('autoCloseParent', 'team-auto-close-parent', 'Auto-close parent issues', 'Close a parent once all of its sub-issues are closed.')}
+        {switchField('autoCloseChildren', 'team-autoCloseChildren', 'Auto-close sub-issues', 'Close open sub-issues when their parent is closed.')}
+        {pickerField('autoArchiveMonths', 'Auto-archive closed issues', 'Archive closed issues nobody has touched. They can be restored.', MONTH_OPTIONS)}
+        {pickerField('autoCloseStaleMonths', 'Auto-close stale issues', 'Cancel untouched backlog and triage issues. Issues in an open cycle are skipped.', MONTH_OPTIONS)}
       </FieldGroup>
     </section>
 
-    <section aria-labelledby="team-status-defaults-heading" className="flex max-w-3xl flex-col gap-5 border-t border-border pt-6">
-      <div><h3 id="team-status-defaults-heading" className="text-sm font-semibold">Status automation</h3><p className="mt-1 max-w-prose text-xs text-muted-foreground">Choose from the saved workflow below. Save new states first to use them here.</p></div>
-      <FieldGroup className="gap-5">
-        {selectField('defaultStatus', 'Default status', 'Status for new issues when none is chosen.', [{ value: 'auto', label: 'Automatic (first unstarted state)' }, ...stateOptions(['backlog', 'unstarted'])])}
-        {selectField('duplicateStatus', 'Duplicate status', 'Where an issue goes when it is marked as a duplicate.', [{ value: 'auto', label: 'Automatic (Duplicate, else first canceled state)' }, ...stateOptions(['canceled'])])}
-        {selectField('githubDraftStatus', 'Draft PR opened', 'When a draft pull request mentioning the issue is opened.', githubOptions)}
-        {selectField('githubOpenStatus', 'PR opened or ready for review', 'When a pull request is opened, reopened or marked ready for review.', githubOptions)}
-        {selectField('githubMergedStatus', 'PR merged', 'When the pull request is merged.', githubOptions)}
-      </FieldGroup>
-    </section>
-
-    <form aria-labelledby="team-workflow-heading" className="flex min-w-0 flex-col gap-4 border-t border-border pt-6" onSubmit={event => { event.preventDefault(); event.stopPropagation(); workflowForm.handleSubmit(); }}>
-      <header className="flex flex-wrap items-start justify-between gap-3"><div className="min-w-0"><div className="flex items-center gap-2"><h3 id="team-workflow-heading" className="text-sm font-semibold">Issue workflow</h3><span className="text-xs tabular-nums text-muted-foreground">{states.length} of 16 states</span></div><p className="mt-1 max-w-prose text-xs text-muted-foreground">States are grouped by category. The category decides how an issue behaves on boards, in cycles and in insights. States that issues are using can't be turned off or deleted.</p></div><Button type="button" variant="outline" size="sm" onClick={() => addState()} disabled={pending || !workflowQuery.isSuccess || states.length >= 16}><Plus data-icon="inline-start" />Add state</Button></header>
+    <div {...show('workflow')} className="flex min-w-0 flex-col gap-8">
+    <form aria-labelledby="team-workflow-heading" className="flex min-w-0 flex-col gap-4" onSubmit={event => { event.preventDefault(); event.stopPropagation(); workflowForm.handleSubmit(); }}>
+      <header className="flex flex-wrap items-start justify-between gap-3"><div className="min-w-0"><div className="flex items-center gap-2"><h3 id="team-workflow-heading" className="text-sm font-semibold">Issue workflow</h3><span className="text-xs tabular-nums text-muted-foreground">{states.length} of 16 states</span></div><p className="mt-1 max-w-prose text-xs text-muted-foreground">The category decides how an issue behaves on boards, in cycles and in insights.</p></div><Button type="button" variant="outline" size="sm" onClick={() => addState()} disabled={pending || !workflowQuery.isSuccess || states.length >= 16}><Plus data-icon="inline-start" />Add state</Button></header>
       {workflowQuery.isLoading ? <div className="flex flex-col gap-3"><Spinner aria-label="Loading workflow" className="sr-only" />{[0, 1, 2].map(row => <Skeleton key={row} className="h-16 w-full rounded-sm" />)}</div> : workflowQuery.isError ? <Alert variant="destructive"><AlertDescription className="flex items-center justify-between gap-3">Could not load workflow<Button type="button" variant="outline" size="sm" onClick={() => void workflowQuery.refetch()}>Retry</Button></AlertDescription></Alert> : <div className="flex min-w-0 flex-col gap-3">
         {workflowDirty && !workflowValid && <Alert variant="destructive"><AlertDescription>Keep at least one active state in Backlog, Unstarted or In progress, and one active state in Completed.</AlertDescription></Alert>}
-        <div aria-hidden="true" className="team-workflow-head px-2 text-xs text-muted-foreground"><span /><span /><span>Name</span><span>Category</span><span>Active</span><span /></div>
+        <div aria-hidden="true" className="team-workflow-head px-2 text-xs text-muted-foreground"><span /><span /><span>Name</span><span>Active</span><span /></div>
         {groups.map(group => {
           const headingId = `workflow-group-${group.value}`;
           return <section key={group.value} aria-labelledby={headingId} data-workflow-group={group.value} className="overflow-hidden rounded-lg border border-border">
@@ -262,17 +267,27 @@ export function TeamSettingsForm({ team, onClose, onPendingChange }: { team: Tea
                           </InputGroupAddon>}
                       </InputGroup>
                     </div>
-                    <SelectField id={`workflow-${state.key}-category`} aria-label={`${state.key} category`} disabled={rowPending} size="default" className="team-workflow-category w-full min-w-0 rounded-sm px-2 text-sm data-[size=default]:h-9" value={state.category} onValueChange={value => changeCategory(state.key, value as WorkflowStateCategory)} options={CATEGORIES} />
                     <div className="flex h-9 items-center"><Switch id={`workflow-${state.key}-active`} aria-label={`${state.key} active`} title={state.isActive && count ? `Used by ${count} issue${count === 1 ? '' : 's'}. Move them to another state first` : state.isActive ? 'Active: available in status pickers' : 'Inactive: hidden from status pickers'} checked={state.isActive} disabled={rowPending || (state.isActive && count > 0)} onCheckedChange={checked => changeState(state.key, { isActive: checked })} /></div>
-                    <div className="flex items-center justify-end gap-0.5">{isRemoved
+                    <div className="flex items-center justify-end">{isRemoved
                       ? <Button type="button" variant="outline" size="sm" className="h-8 gap-1" aria-label={`Undo delete ${state.key} state`} disabled={pending} onClick={() => restoreState(state.key)}><Undo2 />Undo</Button>
-                      : <>
-                        {group.states.length > 1 && <div className="flex items-center gap-0.5 transition-opacity [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-focus-within/row:opacity-100 [@media(hover:hover)]:group-hover/row:opacity-100">
-                          <Button type="button" variant="ghost" size="icon" className="size-8 text-muted-foreground" aria-label={`Move ${state.key} up`} title="Move up" disabled={pending || index === 0} onClick={() => moveState(state.key, -1)}><ArrowUp /></Button>
-                          <Button type="button" variant="ghost" size="icon" className="size-8 text-muted-foreground" aria-label={`Move ${state.key} down`} title="Move down" disabled={pending || index === group.states.length - 1} onClick={() => moveState(state.key, 1)}><ArrowDown /></Button>
-                        </div>}
-                        <Button type="button" variant="ghost" size="icon" className="size-8 text-muted-foreground hover:text-destructive" aria-label={`Delete ${state.key} state`} title={canRemove(state.key) ? `Delete ${state.name}` : count ? `Used by ${count} issue${count === 1 ? '' : 's'}. Move them to another state first` : 'Keep at least one active work state and one active completed state'} disabled={pending || !canRemove(state.key)} onClick={() => removeState(state.key)}><Trash2 /></Button>
-                      </>}</div>
+                      : <DropdownMenu>
+                        <DropdownMenuTrigger asChild><Button type="button" variant="ghost" size="icon" className="size-8 text-muted-foreground" aria-label={`${state.key} actions`} disabled={pending}><MoreHorizontal /></Button></DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-56">
+                          <DropdownMenuSub>
+                            <DropdownMenuSubTrigger>Move to category</DropdownMenuSubTrigger>
+                            <DropdownMenuSubContent>
+                              <DropdownMenuRadioGroup value={state.category} onValueChange={value => changeCategory(state.key, value as WorkflowStateCategory)}>
+                                {CATEGORIES.map(category => <DropdownMenuRadioItem key={category.value} value={category.value}><StatusIconOnly status={CATEGORY_ICON[category.value]} />{category.label}</DropdownMenuRadioItem>)}
+                              </DropdownMenuRadioGroup>
+                            </DropdownMenuSubContent>
+                          </DropdownMenuSub>
+                          <DropdownMenuItem disabled={index === 0} onSelect={() => moveState(state.key, -1)}><ArrowUp />Move up</DropdownMenuItem>
+                          <DropdownMenuItem disabled={index === group.states.length - 1} onSelect={() => moveState(state.key, 1)}><ArrowDown />Move down</DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem variant="destructive" disabled={!canRemove(state.key)} onSelect={() => removeState(state.key)}><Trash2 />Delete state</DropdownMenuItem>
+                          {!canRemove(state.key) && <p className="px-2 pb-1.5 text-xs text-muted-foreground">{canRemove(state.key) ? undefined : count ? `Used by ${count} issue${count === 1 ? '' : 's'}. Move them to another state first.` : 'Keep at least one active work state and one active completed state.'}</p>}
+                        </DropdownMenuContent>
+                      </DropdownMenu>}</div>
                   </li>;
                 })}
               </ol>}
@@ -282,15 +297,54 @@ export function TeamSettingsForm({ team, onClose, onPendingChange }: { team: Tea
       {saveWorkflow.isError && <Alert variant="destructive"><AlertDescription>{saveWorkflow.error.message}</AlertDescription></Alert>}
     </form>
 
+    <section aria-labelledby="team-status-defaults-heading" className="flex flex-col gap-5 border-t border-border pt-6">
+      <div><h3 id="team-status-defaults-heading" className="text-sm font-semibold">Status automation</h3><p className="mt-1 max-w-prose text-xs text-muted-foreground">Only saved, active states can be chosen.</p></div>
+      <FieldGroup className="gap-6">
+        {pickerField('defaultStatus', 'Default status', 'Status for new issues when none is chosen.', [{ value: 'auto', label: 'Automatic' }, ...stateOptions(['backlog', 'unstarted'])], !workflowQuery.isSuccess)}
+        {pickerField('duplicateStatus', 'Duplicate status', 'Where an issue goes when it is marked as a duplicate.', [{ value: 'auto', label: 'Automatic' }, ...stateOptions(['canceled'])], !workflowQuery.isSuccess)}
+      </FieldGroup>
+      <Collapsible defaultOpen={githubCustomised} className="rounded-lg border border-border">
+        <CollapsibleTrigger asChild><Button type="button" variant="ghost" className="group/github h-10 w-full justify-start gap-2 px-3"><ChevronRight aria-hidden="true" className="size-4 text-muted-foreground transition-transform group-data-[state=open]/github:rotate-90" /><span className="font-medium">GitHub pull requests</span><span className="ml-auto text-xs font-normal text-muted-foreground">{githubCustomised ? 'Custom' : 'Automatic'}</span></Button></CollapsibleTrigger>
+        <CollapsibleContent><FieldGroup className="gap-6 border-t border-border p-4">
+          {pickerField('githubDraftStatus', 'Draft PR opened', 'When a draft pull request mentions the issue.', githubOptions, !workflowQuery.isSuccess)}
+          {pickerField('githubOpenStatus', 'PR opened or ready', 'When a pull request is opened, reopened or ready for review.', githubOptions, !workflowQuery.isSuccess)}
+          {pickerField('githubMergedStatus', 'PR merged', 'When the pull request is merged.', githubOptions, !workflowQuery.isSuccess)}
+        </FieldGroup></CollapsibleContent>
+      </Collapsible>
+    </section>
+    </div>
+
     {(dirtySections.length > 0 || pending) && <Card role="region" aria-label="Unsaved changes" className="sticky bottom-2 z-10 flex-row flex-wrap items-center justify-between gap-3 bg-popover/95 px-4 py-3 [--card-spacing:--spacing(3)] shadow-lg backdrop-blur">
-      <p role="status" className="min-w-0 text-sm"><span className="font-medium">{dirtySections.length === 1 ? '1 section' : `${dirtySections.length} sections`} with unsaved changes</span><span className="text-muted-foreground"> · {dirtySections.join(' and ')}</span>{workflowDirty && !workflowValid && <span className="mt-0.5 block text-xs text-destructive">Keep at least one active work state and one active completed state.</span>}</p>
+      <p role="status" className="min-w-0 text-sm"><span className="font-medium">{dirtySections.length === 1 ? '1 section' : `${dirtySections.length} sections`} with unsaved changes</span><span className="text-muted-foreground"> · {dirtySections.join(', ')}</span>{workflowDirty && !workflowValid && <span className="mt-0.5 block text-xs text-destructive">Keep at least one active work state and one active completed state.</span>}</p>
       <div className="flex gap-2"><Button type="button" variant="outline" disabled={pending} onClick={discardAll}>Discard</Button><Button type="button" disabled={!canSave} onClick={() => void saveAll()}>{pending ? 'Saving…' : 'Save changes'}</Button></div>
     </Card>}
+    </div>
   </div>;
 }
 
-export function TeamSettingsDialog({ team, open, onOpenChange }: { team: Team; open: boolean; onOpenChange: (open: boolean) => void }) {
+/** Saved cycle schedule for the team, with a shortcut to edit it where the Cycles feature is switched on. */
+function CycleScheduleSummary({ teamId }: { teamId: string }) {
+  const [open, setOpen] = React.useState(false);
+  const { data } = useTeamCycleSettings(teamId);
+  const weeks = data && data.durationDays % 7 === 0 ? `${data.durationDays / 7} week${data.durationDays === 7 ? '' : 's'}` : data ? `${data.durationDays} days` : null;
+  return <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+    <span>{data ? `${weeks} · ${data.timezone}${data.autoCreate ? ' · Created automatically' : ''}` : 'No schedule yet'}</span>
+    <Button type="button" variant="link" size="sm" className="h-auto p-0 text-xs" onClick={() => setOpen(true)}>Edit schedule</Button>
+    <CycleScheduleDialog open={open} onOpenChange={setOpen} defaultTeamId={teamId} />
+  </div>;
+}
+
+export function TeamSettingsDialog({ team, open, onOpenChange, initialSection }: { team: Team; open: boolean; onOpenChange: (open: boolean) => void; initialSection?: TeamSettingsSection }) {
   const [pending, setPending] = React.useState(false);
-  React.useEffect(() => { if (!open) setPending(false); }, [open]);
-  return <Dialog open={open} onOpenChange={next => { if (!pending) onOpenChange(next); }}><DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-2xl"><DialogHeader><DialogTitle>Team settings</DialogTitle><DialogDescription>Manage team access and the workflow states used by its issues.</DialogDescription></DialogHeader>{open && <TeamSettingsForm team={team} onClose={() => onOpenChange(false)} onPendingChange={setPending} />}</DialogContent></Dialog>;
+  const [dirty, setDirty] = React.useState(false);
+  const [confirmClose, setConfirmClose] = React.useState(false);
+  React.useEffect(() => { if (!open) { setPending(false); setDirty(false); } }, [open]);
+  const requestClose = (next: boolean) => {
+    if (next || pending) return;
+    if (dirty) setConfirmClose(true); else onOpenChange(false);
+  };
+  return <>
+    <Dialog open={open} onOpenChange={requestClose}><DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-3xl"><DialogHeader><DialogTitle>Team settings</DialogTitle><DialogDescription>Manage team access and the workflow states used by its issues.</DialogDescription></DialogHeader>{open && <TeamSettingsForm team={team} onClose={() => onOpenChange(false)} onPendingChange={setPending} onDirtyChange={setDirty} initialSection={initialSection} />}</DialogContent></Dialog>
+    <DiscardChangesDialog open={confirmClose} onOpenChange={setConfirmClose} onDiscard={() => onOpenChange(false)} />
+  </>;
 }

@@ -2,14 +2,12 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   getCycles,
   getCycleById,
-  createCycle,
   completeCycle,
   deleteCycle,
   reopenCycle,
   getCycleHistory,
   getTeamCycleSettings,
   saveTeamCycleSettings,
-  type CreateCycleInput,
   type CompleteCycleInput,
   type TeamCycleSettings,
 } from '../api/cycles.api';
@@ -39,24 +37,6 @@ export function useCycle(id?: string) {
     enabled: !!id,
   });
 }
-
-export function useCreateCycle() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: (input: CreateCycleInput) => createCycle(input),
-    onSuccess: (newCycle) => {
-      queryClient.invalidateQueries({ queryKey: CYCLES_QUERY_KEY });
-      toast.success(`Cycle "${newCycle.name}" created`);
-    },
-    onError: (err) => {
-      toast.error('Failed to create cycle', {
-        description: (err as Error).message,
-      });
-    },
-  });
-}
-
 
 export function useCompleteCycle() {
   const queryClient = useQueryClient();

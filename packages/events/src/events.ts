@@ -1,4 +1,4 @@
-import type { Issue, IssueStatus, IssuePriority } from '@reka/types';
+import type { Issue, IssueStatus } from '@reka/types';
 
 export const DOMAIN_EVENTS = {
   ISSUE_CREATED: 'issue.created',

@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { Link } from 'react-router-dom';
-import { Alert, AlertDescription, Badge, Button, Input, Skeleton, Spinner, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@reka/ui';
+import { Alert, AlertDescription, Button, Input, Skeleton, Spinner, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@reka/ui';
 import {
   Building2,
   Plus,

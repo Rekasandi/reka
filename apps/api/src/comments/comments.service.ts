@@ -1,5 +1,5 @@
 import { Injectable, BadRequestException, ForbiddenException, NotFoundException, Optional } from '@nestjs/common';
-import { and, desc, eq } from 'drizzle-orm';
+import { desc, eq } from 'drizzle-orm';
 import { comments, users, activities } from '@reka/database';
 import { DatabaseService } from '../common/database/database.service';
 import { NotificationsService } from '../notifications/notifications.service';

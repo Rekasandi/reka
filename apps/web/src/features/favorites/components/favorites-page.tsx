@@ -1,4 +1,3 @@
-import * as React from 'react';
 import { Link } from 'react-router-dom';
 import { Button, Skeleton, Alert, AlertDescription, Spinner } from '@reka/ui';
 import { FileText, FolderKanban, RefreshCw, Star, Trash2 } from 'lucide-react';

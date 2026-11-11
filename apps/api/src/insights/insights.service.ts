@@ -8,7 +8,6 @@ import {
   cycleScope, issueScope, requireCycle, requireProject, requireTeam, requireWorkspace,
   visibleTeamIds,
 } from '../common/access/workspace-access';
-import type { WorkspaceActor } from '../common/access/workspace-access';
 import type { InsightsCycleQueryDto, InsightsReportQueryDto } from './dto/insights.dto';
 
 const MAX_HISTORY_ROWS = 50_000;

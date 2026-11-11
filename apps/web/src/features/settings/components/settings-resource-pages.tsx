@@ -23,7 +23,7 @@ export function IssueSettings({ labels = false }: { labels?: boolean }) {
     </li>)}</ul>
     {selectedTeam && (labels
       ? <ManageLabelsDialog open={labelsOpen} onOpenChange={setLabelsOpen} initialTeamId={selectedTeam.id} />
-      : <TeamSettingsDialog key={selectedTeam.id} team={selectedTeam} open onOpenChange={open => { if (!open) setSelectedTeam(null); }} />)}
+      : <TeamSettingsDialog key={selectedTeam.id} team={selectedTeam} initialSection="workflow" open onOpenChange={open => { if (!open) setSelectedTeam(null); }} />)}
   </div>;
 }
 

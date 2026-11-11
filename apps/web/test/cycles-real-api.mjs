@@ -93,9 +93,14 @@ try {
   await page.getByRole('button', { name: 'Schedule settings' }).click();
   const schedule = page.getByRole('dialog', { name: 'Cycle schedule' });
   await schedule.waitFor();
-  await schedule.locator('input[aria-label="Cycle timezone"]').fill('UTC');
-  await schedule.locator('input[aria-label="Cycle duration days"]').fill('14');
-  await schedule.locator('input[aria-label="Cycle cooldown days"]').fill('1');
+  const choose = async (trigger, search, option) => {
+    await schedule.getByRole('button', { name: trigger }).click();
+    if (search) await page.getByRole('textbox', { name: search }).fill(option);
+    await page.getByRole('menuitemradio', { name: option, exact: typeof option === 'string' }).click();
+  };
+  await choose(/^Cycle timezone/, 'Search timezone', 'UTC');
+  await choose(/^Cycle duration/, null, /^2 weeks/);
+  await choose(/^Cycle cooldown/, null, '1 day');
   const scheduledDate = new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10);
   await pickDate(page, schedule.getByRole('button', { name: 'Next cycle start date' }), scheduledDate);
   await schedule.getByRole('checkbox', { name: 'Automatically create cycles' }).check();

@@ -13,7 +13,8 @@ export const queryClient = new QueryClient({
   mutationCache: new MutationCache({
     onError: (error, _variables, _context, mutation) => {
       // Avoid duplicate toasts if the mutation already defines its own onError handler
-      if (mutation.options.onError) return;
+      // ...or shows its error inline (meta.inlineError), where a toast would only cover the form.
+      if (mutation.options.onError || mutation.meta?.inlineError) return;
       toast.error('Action failed', {
         description: error instanceof Error ? error.message : 'An unexpected error occurred',
       });

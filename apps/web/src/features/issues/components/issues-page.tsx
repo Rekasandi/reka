@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { useLocation, useSearchParams } from 'react-router-dom';
 import { SelectField } from '../../../components/common/select-field';
-import { Button, Skeleton, Input, Badge, Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetTrigger, Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, Label, ToggleGroup, ToggleGroupItem, Popover, PopoverTrigger, PopoverContent, Separator, Switch } from '@reka/ui';
+import { Button, Skeleton, Input, Badge, Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetTrigger, Label, ToggleGroup, ToggleGroupItem, Popover, PopoverTrigger, PopoverContent, Separator, Switch } from '@reka/ui';
 import { Filter, PanelRight, Plus, LayoutGrid, List, RefreshCw, Search, Layers, X, SlidersHorizontal, Tag, BarChart2 } from 'lucide-react';
 import { useIssues, useIssueLabels } from '../hooks/use-issues';
 import { useUsers } from '../../users/hooks/use-users';

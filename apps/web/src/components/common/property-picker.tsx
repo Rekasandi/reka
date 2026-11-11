@@ -16,7 +16,7 @@ const Leading = ({ option }: { option: { icon?: IconComponent; leading?: React.R
  * Inline property editor for table rows: an outline badge that opens the shared searchable menu
  * (same surface as the issue status picker) with icons and 1–9 shortcuts. Without `onChange` it is a plain badge.
  */
-export function PropertyPicker<T extends string>({ value, options, menuLabel, ariaLabel, onChange, disabled, describedBy, placeholder = 'None', shortcuts = true, placeholderIcon }: {
+export function PropertyPicker<T extends string>({ value, options, menuLabel, ariaLabel, onChange, disabled, describedBy, placeholder = 'None', shortcuts = true, placeholderIcon, id, className }: {
   value: string;
   options: PropertyOption<T>[];
   /** Menu heading and search placeholder, e.g. "Role". */
@@ -31,6 +31,9 @@ export function PropertyPicker<T extends string>({ value, options, menuLabel, ar
   placeholderIcon?: IconComponent;
   /** Number keys 1–9 pick options; turn off for long lists such as people. */
   shortcuts?: boolean;
+  id?: string;
+  /** Trigger classes, e.g. full-width in forms. */
+  className?: string;
 }) {
   const [open, setOpen] = React.useState(false);
   const current = options.find(option => option.key === value);
@@ -53,8 +56,8 @@ export function PropertyPicker<T extends string>({ value, options, menuLabel, ar
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger asChild onClick={event => event.stopPropagation()}>
-        <Badge asChild variant="outline" className="h-6 gap-1.5 px-2 hover:bg-secondary/70">
-          <Button variant="plain" size="auto" type="button" disabled={disabled} aria-label={`${ariaLabel}: ${text}`} aria-describedby={describedBy} title={`Change ${menuLabel.toLowerCase()}`} onKeyDown={handleShortcut}>
+        <Badge asChild variant="outline" className={cn('h-6 gap-1.5 px-2 hover:bg-secondary/70', className)}>
+          <Button variant="plain" size="auto" type="button" id={id} disabled={disabled} aria-label={`${ariaLabel}: ${text}`} aria-describedby={describedBy} title={`Change ${menuLabel.toLowerCase()}`} onKeyDown={handleShortcut}>
             {content}
           </Button>
         </Badge>

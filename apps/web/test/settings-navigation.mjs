@@ -243,20 +243,39 @@ try {
   }
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto(base + '/teams/t1?tab=settings');
+  // Unsaved edits: switching sections keeps them; leaving the tab asks first.
+  await page.getByLabel('Team name', { exact: true }).fill('Draft name');
+  const sections = page.getByRole('navigation', { name: 'Team settings sections' });
+  await sections.getByRole('button', { name: 'Features' }).click();
+  await sections.getByRole('button', { name: 'General' }).click();
+  assert.equal(await page.getByRole('alertdialog').count(), 0, 'Switching settings sections is not blocked');
+  await page.getByRole('tab', { name: 'Members', exact: true }).click();
+  const discard = page.getByRole('alertdialog', { name: 'Discard unsaved changes?' });
+  await discard.waitFor();
+  await discard.getByRole('button', { name: 'Cancel', exact: true }).click();
+  assert.equal(new URL(page.url()).searchParams.get('tab'), 'settings');
+  assert.equal(await page.getByLabel('Team name', { exact: true }).inputValue(), 'Draft name', 'Cancel keeps the edits');
+  await page.getByRole('tab', { name: 'Members', exact: true }).click();
+  await discard.getByRole('button', { name: 'Discard changes', exact: true }).click();
+  await page.waitForURL('**tab=members');
+  await page.goto(base + '/teams/t1?tab=settings');
   await page.getByLabel('Team name', { exact: true }).fill('Engineering operations');
   await page.getByLabel('Description', { exact: true }).fill('Owns platform delivery.');
-  await page.getByRole('checkbox', { name: 'Private team', exact: true }).check();
+  await page.getByRole('switch', { name: 'Private team', exact: true }).click();
   await page.getByRole('button', { name: 'Save changes', exact: true }).click();
   await page.getByRole('heading', { name: 'Engineering operations', exact: true }).waitFor();
   assert.equal(teamDetails.isPrivate, true);
   await page.reload();
   await page.getByLabel('Team name', { exact: true }).waitFor();
   assert.equal(await page.getByLabel('Team name', { exact: true }).inputValue(), 'Engineering operations');
-  assert.equal(await page.getByRole('checkbox', { name: 'Private team', exact: true }).isChecked(), true);
+  assert.equal(await page.getByRole('switch', { name: 'Private team', exact: true }).getAttribute('aria-checked'), 'true');
   const beforeDelete = requests.filter(request => request === 'DELETE /api/teams/t1').length;
   await page.getByRole('button', { name: 'Delete team', exact: true }).click();
   await page.getByRole('alertdialog').getByRole('button', { name: 'Cancel', exact: true }).click();
   assert.equal(requests.filter(request => request === 'DELETE /api/teams/t1').length, beforeDelete, 'Danger section still requires confirmation');
+  await page.getByRole('navigation', { name: 'Team settings sections' }).getByRole('button', { name: 'Workflow', exact: true }).click();
+  await page.waitForURL('**section=workflow');
+  const stateMenu = async key => { await page.getByRole('button', { name: `${key} actions`, exact: true }).click(); return page.getByRole('menu'); };
   await page.getByRole('button', { name: 'todo color', exact: true }).click();
   await page.getByLabel('todo color hex value', { exact: true }).fill('#123456');
   await page.keyboard.press('Escape');
@@ -280,7 +299,6 @@ try {
   assert.equal(await page.getByLabel('Team name', { exact: true }).isDisabled(), true);
   assert.equal(await page.getByLabel('todo state name', { exact: true }).isDisabled(), true);
   assert.equal(await page.getByRole('button', { name: 'Add state', exact: true }).isDisabled(), true);
-  assert.equal(await page.getByRole('button', { name: 'Delete team', exact: true }).isDisabled(), true);
   releaseWorkflow(); workflowGate = null;
   await page.getByRole('region', { name: 'Unsaved changes' }).waitFor({ state: 'hidden' });
   await page.reload(); await page.getByLabel('todo state name', { exact: true }).waitFor();
@@ -293,21 +311,21 @@ try {
   // Workflow rows: every control is centred on the same line as the state-name input.
   const rowTops = await page.locator('[data-workflow-state="todo"]').evaluate(row => {
     const top = element => { const box = element.getBoundingClientRect(); return Math.round(box.top + box.height / 2); };
-    return [row.querySelector('input[aria-label="todo state name"]'), row.querySelector('[aria-label="todo category"]'),
-      row.querySelector('[aria-label="todo color"]'), row.querySelector('[aria-label="todo active"]'), row.querySelector('[aria-label="Delete todo state"]')].map(top);
+    return [row.querySelector('input[aria-label="todo state name"]'), row.querySelector('[aria-label="todo color"]'), row.querySelector('[aria-label="todo active"]'), row.querySelector('[aria-label="todo actions"]')].map(top);
   });
   assert.equal(new Set(rowTops).size, 1, `workflow row controls share one vertical centre: ${rowTops}`);
   // Deleting a state removes it from the saved workflow; the last active completed state cannot be deleted.
-  assert.equal(await page.getByRole('button', { name: 'Delete done state', exact: true }).isDisabled(), true);
-  await page.getByRole('button', { name: 'Delete blocked state', exact: true }).click();
+  assert.equal(await (await stateMenu('done')).getByRole('menuitem', { name: 'Delete state', exact: true }).getAttribute('aria-disabled'), 'true');
+  await page.keyboard.press('Escape');
+  await (await stateMenu('blocked')).getByRole('menuitem', { name: 'Delete state', exact: true }).click();
   // The row stays (disabled, with Undo) until the workflow is saved.
   assert.equal(await page.getByLabel('blocked state name', { exact: true }).isDisabled(), true);
   await page.getByRole('button', { name: 'Undo delete blocked state', exact: true }).click();
   assert.equal(await page.getByLabel('blocked state name', { exact: true }).isEnabled(), true);
   assert.equal(await page.getByRole('region', { name: 'Unsaved changes' }).count(), 0, 'Undo returns the form to its saved state');
-  await page.getByRole('button', { name: 'Delete blocked state', exact: true }).click();
+  await (await stateMenu('blocked')).getByRole('menuitem', { name: 'Delete state', exact: true }).click();
   const bar = page.getByRole('region', { name: 'Unsaved changes' });
-  assert.match(await bar.innerText(), /1 section.*Issue workflow/s);
+  assert.match(await bar.innerText(), /1 section.*Workflow/s);
   const deleteSave = page.waitForResponse(response => response.url().includes('/workflow-states') && response.request().method() === 'PATCH' && response.ok());
   await page.getByRole('button', { name: 'Save changes', exact: true }).click();
   const savedBody = (await deleteSave).request().postDataJSON();
@@ -320,7 +338,7 @@ try {
     await page.setViewportSize({ width, height: 1000 });
     await page.addInitScript(theme => localStorage.setItem('reka-theme', theme), theme);
     for (const tab of ['members', 'settings']) {
-      await page.goto(`${base}/teams/t1?tab=${tab}`);
+      await page.goto(`${base}/teams/t1?tab=${tab}${tab === 'settings' ? '&section=workflow' : ''}`);
       await page.getByRole('tabpanel', { name: tab === 'members' ? 'Members' : 'Settings', exact: true }).waitFor();
       await (tab === 'members' ? page.getByRole('button', { name: 'Team role for Dimas Pratama' }) : page.getByLabel('todo state name', { exact: true })).waitFor();
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
@@ -334,9 +352,8 @@ try {
         await page.getByRole('dialog', { name: 'About team roles', exact: true }).waitFor({ state: 'hidden' });
         assert.equal(await page.getByRole('button', { name: 'Team role for Dimas Pratama' }).isDisabled(), true, 'Last writable lead guard stays intact');
       } else {
-        const alignment = await page.getByRole('checkbox', { name: 'Private team', exact: true }).evaluate(element => { const label = document.querySelector('label[for="team-settings-private"]'); return { gap: label.getBoundingClientRect().left - element.getBoundingClientRect().right, formWidth: document.querySelector('.team-settings-form form').getBoundingClientRect().width, nestedScroll: [...document.querySelectorAll('[aria-label="Workflow states"], [aria-label="Workflow states"] *')].some(element => ['auto', 'scroll'].includes(getComputedStyle(element).overflowY) && element.scrollHeight > element.clientHeight + 2) }; });
-        assert.ok(alignment.gap >= 6 && alignment.gap <= 12, 'Privacy checkbox remains next to its label, not spread across the form');
-        assert.ok(alignment.formWidth <= 768);
+        const alignment = await page.evaluate(() => ({ formWidth: document.querySelector('.team-settings-form').getBoundingClientRect().width, nestedScroll: [...document.querySelectorAll('[aria-label="Workflow states"], [aria-label="Workflow states"] *')].some(element => ['auto', 'scroll'].includes(getComputedStyle(element).overflowY) && element.scrollHeight > element.clientHeight + 2) }));
+        assert.ok(alignment.formWidth <= 896);
         assert.equal(alignment.nestedScroll, false, 'Workflow uses page scroll instead of a cramped inner scroller');
         assert.equal(await page.locator('[data-workflow-state]').count(), 7);
         assert.equal(await page.getByRole('button', { name: 'Add state', exact: true }).isEnabled(), true);

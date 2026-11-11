@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
-import { sql, eq, desc, and, inArray, isNull } from 'drizzle-orm';
+import { sql, eq, desc, and, isNull } from 'drizzle-orm';
 import { cycles, cycleSnapshots, issues, teamCycleSettings, teams } from '@reka/database';
 import { DatabaseService } from '../common/database/database.service';
 import { loadIssueStatusCategories, getIssueStatusCategory } from '../issues/issue-status';

@@ -4,7 +4,7 @@ import { organizations, organizationMembers } from './organizations';
 import { teams, teamMembers } from './teams';
 import { clients, clientContacts } from './clients';
 import { projects, projectMembers } from './projects';
-import { issues, issueLabels, issueRelations } from './issues';
+import { issues, issueLabels } from './issues';
 import { labels } from './labels';
 import { comments, attachments } from './comments';
 import { cycles } from './cycles';

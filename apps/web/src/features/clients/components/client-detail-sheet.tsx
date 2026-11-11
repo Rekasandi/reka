@@ -1,6 +1,6 @@
 import * as React from 'react';
-import type { Client, ClientContact } from '@reka/types';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, Button, Badge, Input, Textarea, Separator, Select, SelectTrigger, SelectValue, SelectContent, SelectItem, toast, Label } from '@reka/ui';
+import type { Client } from '@reka/types';
+import { Sheet, SheetContent, SheetTitle, Button, Badge, Input, Textarea, toast, Label } from '@reka/ui';
 import {
   Building2,
   FolderKanban,
@@ -12,8 +12,6 @@ import {
   ExternalLink,
   Edit2,
   Check,
-  Briefcase,
-  Calendar,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import {

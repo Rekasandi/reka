@@ -14,7 +14,6 @@ import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuGroup,
   DropdownMenuItem, useSidebar,
 } from '@reka/ui';
-import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../../features/auth/hooks/use-auth';
 import { WorkspaceSwitcher } from './workspace-switcher';
 import { useTeams } from '../../features/teams/hooks/use-teams';

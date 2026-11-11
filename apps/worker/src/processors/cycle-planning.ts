@@ -1,5 +1,5 @@
 import { and, eq, gte, inArray, isNull, lte, sql } from 'drizzle-orm';
-import { cycles, cycleSnapshots, issues, teamCycleSettings, teamWorkflowStates, type DbClient } from '@reka/database';
+import { cycles, cycleSnapshots, issues, teamWorkflowStates, type DbClient } from '@reka/database';
 
 const defaultCategory = (status: string) => ({ triage: 'triage', backlog: 'backlog', todo: 'unstarted', done: 'completed', canceled: 'canceled' } as Record<string, string>)[status] ?? 'started';
 const included = new Set(['unstarted', 'started', 'completed']);

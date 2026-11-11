@@ -9,12 +9,11 @@ import {
   DialogDescription,
   DialogFooter,
   Button,
-  Field,
   FieldLabel,
   Input,
   Badge,
 } from '@reka/ui';
-import { GitBranch, Check, Search, Lock, Globe, RefreshCw, Building2, User } from 'lucide-react';
+import { GitBranch, Check, Search, Lock, Globe, RefreshCw, Building2 } from 'lucide-react';
 import { useAddGithubRepository, useAvailableGithubRepositories, useGithubRepositories } from '../hooks/use-github-repos';
 
 interface AddRepositoryDialogProps {

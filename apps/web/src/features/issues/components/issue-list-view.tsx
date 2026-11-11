@@ -8,9 +8,6 @@ import {
   ChevronRight,
   CornerDownRight,
   CheckCircle2,
-  ExternalLink,
-  Layers,
-  ArrowRight,
   X,
 } from 'lucide-react';
 import { StatusPicker, renderStateIcon } from './status-picker';

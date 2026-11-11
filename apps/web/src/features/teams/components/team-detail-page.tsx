@@ -18,7 +18,7 @@ import { useProjects } from '../../projects/hooks/use-projects';
 import { useCycles } from '../../cycles/hooks/use-cycles';
 import { CreateIssueDialog } from '../../issues/components/create-issue-dialog';
 import { IssueDetailSheet } from '../../issues/components/issue-detail-sheet';
-import { TeamSettingsForm } from './team-settings-dialog';
+import { TeamSettingsForm, type TeamSettingsSection } from './team-settings-dialog';
 import { TeamMembersPanel } from './team-members-panel';
 import { ConfirmDeleteDialog } from '../../../components/common/confirm-delete-dialog';
 import { getIssueStatusCategory, isIssueClosed, type Issue } from '@reka/types';
@@ -32,10 +32,18 @@ export function TeamDetailPage() {
   const tab = new URLSearchParams(location.search).get('tab');
 
   const activeTab = tab === 'members' || tab === 'settings' ? tab : 'home';
+  const sectionParam = new URLSearchParams(location.search).get('section');
+  const settingsSection: TeamSettingsSection = sectionParam === 'features' || sectionParam === 'workflow' ? sectionParam : 'general';
+  const setSettingsSection = (value: TeamSettingsSection) => {
+    const params = new URLSearchParams(location.search);
+    if (value === 'general') params.delete('section'); else params.set('section', value);
+    navigate({ pathname: location.pathname, search: params.toString() }, { replace: true });
+  };
   const setActiveTab = (value: string) => {
     if (value === activeTab) return;
     const params = new URLSearchParams(location.search);
     if (value === 'home') params.delete('tab'); else params.set('tab', value);
+    if (value !== 'settings') params.delete('section');
     navigate({ pathname: location.pathname, search: params.toString() });
   };
   const [isCreateIssueOpen, setIsCreateIssueOpen] = React.useState(false);
@@ -261,7 +269,8 @@ export function TeamDetailPage() {
           <TeamMembersPanel key={team.id} team={team} />
         </TabsContent>
         <TabsContent value="settings" className="mt-0 flex w-full max-w-4xl flex-col gap-8">
-          {team.canManage ? <><section className="flex min-w-0 flex-col gap-6"><div><h2 className="text-xl font-semibold tracking-tight">Team settings</h2><p className="mt-1 text-xs text-muted-foreground">Manage team access and issue workflow.</p></div><TeamSettingsForm team={team} onPendingChange={setSettingsPending} /></section>{team.canDelete && <section className="flex flex-col items-start gap-3 border-t border-border pt-6"><h2 className="text-sm font-semibold">Delete team</h2><p className="max-w-prose text-sm text-muted-foreground">Permanently deletes this team and its issues. This action cannot be undone.</p><Button variant="destructive" disabled={settingsPending || deleteMutation.isPending} onClick={() => setIsDeleteDialogOpen(true)}><Trash2 data-icon="inline-start" />Delete team</Button></section>}</> : <p className="text-sm text-muted-foreground">Only team managers can change these settings.</p>}
+          {team.canManage ? <TeamSettingsForm team={team} onPendingChange={setSettingsPending} section={settingsSection} onSectionChange={setSettingsSection}
+            dangerZone={team.canDelete && <section className="flex flex-col items-start gap-3 border-t border-border pt-6"><h2 className="text-sm font-semibold">Delete team</h2><p className="max-w-prose text-sm text-muted-foreground">Permanently deletes this team and its issues. This action cannot be undone.</p><Button variant="destructive" disabled={settingsPending || deleteMutation.isPending} onClick={() => setIsDeleteDialogOpen(true)}><Trash2 data-icon="inline-start" />Delete team</Button></section>} /> : <p className="text-sm text-muted-foreground">Only team managers can change these settings.</p>}
         </TabsContent>
       </Tabs>
 

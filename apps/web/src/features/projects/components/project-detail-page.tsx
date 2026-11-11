@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { useProject, useUpdateProject, useDeleteProject } from '../hooks/use-projects';
 import { useProjectRepositories, useUnlinkProjectRepository } from '../hooks/use-project-repos';
-import { useProjectTeams, useAddProjectTeam, useRemoveProjectTeam } from '../hooks/use-project-teams';
+import { useAddProjectTeam, useRemoveProjectTeam } from '../hooks/use-project-teams';
 import { ProjectDependenciesPanel, ProjectMilestonesPanel, ProjectUpdatesPanel } from './project-planning-panels';
 import { DocumentsPage } from './documents-page';
 import { useIssues } from '../../issues/hooks/use-issues';

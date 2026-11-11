@@ -1,7 +1,7 @@
 import { Injectable, BadRequestException, ForbiddenException, GoneException, NotFoundException } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { basename } from 'node:path';
-import { and, desc, eq } from 'drizzle-orm';
+import { desc, eq } from 'drizzle-orm';
 import { activities, attachments } from '@reka/database';
 import { DatabaseService } from '../common/database/database.service';
 import { requireIssue, requireIssueWrite, requireResourceId, requireTeamManager, requireTeamWrite, requireWorkspace } from '../common/access/workspace-access';

@@ -5,11 +5,6 @@ export interface NotificationPreferences {
   emailNotifications?: boolean;
 }
 
-export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
-  comments: true, mentions: true, assignments: true, issueUpdates: true,
-  projectUpdates: true, github: true, teamInvites: true,
-};
-
 export async function getNotificationPreferences(): Promise<NotificationPreferences> {
   const response = await fetch('/api/notifications/preferences');
   if (!response.ok) throw new Error('Failed to load notification preferences');

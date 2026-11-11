@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Badge, cn, Button } from '@reka/ui';
+import { cn, Button } from '@reka/ui';
 import { ChevronDown, Plus } from 'lucide-react';
 import { PageHeader } from './page';
 

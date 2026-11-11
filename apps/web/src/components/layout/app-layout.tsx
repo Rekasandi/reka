@@ -1,4 +1,3 @@
-import * as React from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { AppSidebar } from './sidebar';
 import { SettingsSidebar } from './settings-sidebar';

@@ -1,4 +1,3 @@
-import * as React from 'react';
 import { Moon, Sun, Laptop } from 'lucide-react';
 import {
   Button,

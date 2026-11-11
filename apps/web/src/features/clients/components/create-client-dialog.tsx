@@ -1,4 +1,3 @@
-import * as React from 'react';
 import { useForm } from '@tanstack/react-form';
 import {
   Dialog,
